@@ -16,8 +16,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import org.jetbrains.compose.resources.painterResource
 
-import yaya.composeapp.generated.resources.Res
-import yaya.composeapp.generated.resources.compose_multiplatform
+import yaya.shared.generated.resources.Res
+import yaya.shared.generated.resources.compose_multiplatform
 
 @Composable
 @Preview
