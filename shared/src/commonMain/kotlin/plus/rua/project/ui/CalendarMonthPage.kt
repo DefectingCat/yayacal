@@ -7,13 +7,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -22,6 +18,14 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 
+/**
+ * 月度日历网格页面，支持折叠动画。
+ *
+ * 折叠时非选中行高度按 (1-p) 缩放，选中行保持原始高度，
+ * 所有行通过手动 y-offset 定位，形成向选中行收缩的视觉效果。
+ *
+ * @param rowHeightPx 从外层传入的锁定行高（像素），折叠过程中不变
+ */
 @Composable
 fun CalendarMonthPage(
     year: Int,
@@ -30,7 +34,7 @@ fun CalendarMonthPage(
     today: LocalDate,
     onDateClick: (LocalDate) -> Unit,
     collapseProgress: Float,
-    onRowHeightMeasured: ((Int) -> Unit)? = null,
+    rowHeightPx: Int,
     modifier: Modifier = Modifier
 ) {
     val days = remember(year, month) {
@@ -44,15 +48,11 @@ fun CalendarMonthPage(
     }
 
     val hasSelectedWeek = selectedWeekIndex >= 0
-
-    var rowHeightPx by remember { mutableIntStateOf(0) }
-    val rowMeasured = rowHeightPx > 0
     val H = rowHeightPx.toFloat()
 
-    // 总高度 = 6行 × 行高（展开时），或选中行高度（折叠时）
-    val totalHeightDp = if (rowMeasured) {
+    // 总高度 = 选中行高度 + 上方行压缩高度 + 下方行压缩高度
+    val totalHeightDp = if (rowHeightPx > 0) {
         if (hasSelectedWeek) {
-            // 选中行高度 + 上方行压缩高度 + 下方行压缩高度
             val aboveH = selectedWeekIndex * H * (1f - collapseProgress)
             val belowH = (weeks.size - 1 - selectedWeekIndex) * H * (1f - collapseProgress)
             val selH = H
@@ -78,16 +78,15 @@ fun CalendarMonthPage(
                 else -> 1f
             }
 
-            val rowHeightDp = if (rowMeasured && rowScale > 0.01f) {
+            val rowHeightDp = if (rowHeightPx > 0 && rowScale > 0.01f) {
                 with(density) { (H * rowScale).toDp() }
-            } else if (!rowMeasured) {
+            } else if (rowHeightPx <= 0) {
                 null
             } else {
                 0.dp
             }
 
-            // 手动计算每行的视觉 y 位置
-            val yOffsetDp = if (rowMeasured && hasSelectedWeek) {
+            val yOffsetDp = if (rowHeightPx > 0 && hasSelectedWeek) {
                 val yPx = when {
                     isAbove -> weekIndex * H * (1f - collapseProgress)
                     isSelected -> selectedWeekIndex * H * (1f - collapseProgress)
@@ -95,7 +94,7 @@ fun CalendarMonthPage(
                     else -> weekIndex * H
                 }
                 with(density) { yPx.toDp() }
-            } else if (rowMeasured) {
+            } else if (rowHeightPx > 0) {
                 with(density) { (weekIndex * H).toDp() }
             } else {
                 0.dp
@@ -113,11 +112,6 @@ fun CalendarMonthPage(
                             else Modifier
                         )
                         .offset(y = yOffsetDp)
-                        .onSizeChanged { size ->
-                            if (size.height > 0 && !rowMeasured) {
-                                rowHeightPx = size.height
-                            }
-                        }
                         .padding(vertical = 4.dp)
                 ) {
                     week.forEach { dayData ->
@@ -141,7 +135,7 @@ private data class DayData(
     val isCurrentMonth: Boolean
 )
 
-@Suppress("DEPRECATION")
+@Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
 private fun generateMonthDays(year: Int, month: Int): List<DayData> {
     val firstOfMonth = LocalDate(year, month, 1)
     val offset = firstOfMonth.dayOfWeek.ordinal
