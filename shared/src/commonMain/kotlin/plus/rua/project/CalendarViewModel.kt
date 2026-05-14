@@ -25,12 +25,28 @@ class CalendarViewModel {
     var selectedDate by mutableStateOf(today)
         private set
 
+    var isCollapsed by mutableStateOf(false)
+        private set
+
+    var collapseProgress by mutableStateOf(0f)
+        private set
+
     val currentYear: Int get() = selectedDate.year
     @Suppress("DEPRECATION")
     val currentMonth: Int get() = selectedDate.monthNumber
 
     fun selectDate(date: LocalDate) {
         selectedDate = date
+    }
+
+    fun collapse() {
+        isCollapsed = true
+        collapseProgress = 1f
+    }
+
+    fun expand() {
+        isCollapsed = false
+        collapseProgress = 0f
     }
 
     fun getIsoWeekNumber(date: LocalDate): Int {

@@ -20,6 +20,7 @@ fun CalendarPager(
     today: LocalDate,
     onDateClick: (LocalDate) -> Unit,
     onMonthChanged: (year: Int, month: Int) -> Unit,
+    collapseProgress: Float,
     modifier: Modifier = Modifier
 ) {
     val initialYearMonth = remember { today.toYearMonth() }
@@ -61,7 +62,8 @@ fun CalendarPager(
                         }
                     }
                 }
-            }
+            },
+            collapseProgress = collapseProgress
         )
     }
 }

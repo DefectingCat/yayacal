@@ -27,21 +27,40 @@ fun CalendarMonthView(
     var currentYear by remember { mutableIntStateOf(viewModel.currentYear) }
     var currentMonth by remember { mutableIntStateOf(viewModel.currentMonth) }
 
-    Column(modifier = modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp)) {
-        MonthHeader(
-            year = currentYear,
-            month = currentMonth,
-            weekNumber = viewModel.getIsoWeekNumber(viewModel.selectedDate)
-        )
-        WeekdayHeader(modifier = Modifier.fillMaxWidth())
-        CalendarPager(
-            selectedDate = viewModel.selectedDate,
-            today = today,
-            onDateClick = { date -> viewModel.selectDate(date) },
-            onMonthChanged = { year, month ->
-                currentYear = year
-                currentMonth = month
-            },
+    Column(modifier = modifier.fillMaxSize().statusBarsPadding()) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            MonthHeader(
+                year = currentYear,
+                month = currentMonth,
+                weekNumber = viewModel.getIsoWeekNumber(viewModel.selectedDate)
+            )
+            WeekdayHeader(modifier = Modifier.fillMaxWidth())
+            if (viewModel.isCollapsed) {
+                WeekPager(
+                    selectedDate = viewModel.selectedDate,
+                    today = today,
+                    onDateClick = { date -> viewModel.selectDate(date) },
+                    onWeekChanged = { weekMonday ->
+                        currentYear = weekMonday.year
+                        @Suppress("DEPRECATION")
+                        currentMonth = weekMonday.monthNumber
+                    }
+                )
+            } else {
+                CalendarPager(
+                    selectedDate = viewModel.selectedDate,
+                    today = today,
+                    onDateClick = { date -> viewModel.selectDate(date) },
+                    onMonthChanged = { year, month ->
+                        currentYear = year
+                        currentMonth = month
+                    },
+                    collapseProgress = viewModel.collapseProgress
+                )
+            }
+        }
+        BottomCard(
+            viewModel = viewModel,
             modifier = Modifier.weight(1f)
         )
     }

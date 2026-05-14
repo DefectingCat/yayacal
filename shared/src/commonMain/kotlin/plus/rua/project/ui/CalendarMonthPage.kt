@@ -1,12 +1,15 @@
 package plus.rua.project.ui
 
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -20,28 +23,57 @@ fun CalendarMonthPage(
     selectedDate: LocalDate,
     today: LocalDate,
     onDateClick: (LocalDate) -> Unit,
+    collapseProgress: Float,
     modifier: Modifier = Modifier
 ) {
     val days = remember(year, month) {
         generateMonthDays(year, month)
     }
 
+    val weeks = days.chunked(7)
+    val selectedWeekIndex = remember(weeks, selectedDate) {
+        weeks.indexOfFirst { week -> week.any { it.date == selectedDate } }
+    }
+
     Column(modifier = modifier) {
-        days.chunked(7).forEach { week ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp)
-            ) {
-                week.forEach { dayData ->
-                    DayCell(
-                        date = dayData.date,
-                        isCurrentMonth = dayData.isCurrentMonth,
-                        isSelected = dayData.date == selectedDate,
-                        isToday = dayData.date == today,
-                        onClick = { onDateClick(dayData.date) },
-                        modifier = Modifier.weight(1f)
-                    )
+        weeks.forEachIndexed { weekIndex, week ->
+            val animatedProgress = animateFloatAsState(
+                targetValue = collapseProgress,
+                label = "collapse-$weekIndex"
+            ).value
+
+            val isAboveSelected = weekIndex < selectedWeekIndex
+            val isBelowSelected = weekIndex > selectedWeekIndex
+
+            val offsetY = when {
+                isAboveSelected -> -animatedProgress * 200f
+                isBelowSelected -> animatedProgress * 200f
+                else -> 0f
+            }
+
+            val alpha = when {
+                isAboveSelected || isBelowSelected -> 1f - animatedProgress
+                else -> 1f
+            }
+
+            if (alpha > 0.01f) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .offset(y = offsetY.dp)
+                        .alpha(alpha)
+                ) {
+                    week.forEach { dayData ->
+                        DayCell(
+                            date = dayData.date,
+                            isCurrentMonth = dayData.isCurrentMonth,
+                            isSelected = dayData.date == selectedDate,
+                            isToday = dayData.date == today,
+                            onClick = { onDateClick(dayData.date) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
         }
