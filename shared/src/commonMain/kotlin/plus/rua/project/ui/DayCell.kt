@@ -1,6 +1,8 @@
 package plus.rua.project.ui
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.aspectRatio
@@ -11,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextAlign
 import kotlinx.datetime.LocalDate
 
@@ -35,20 +38,22 @@ fun DayCell(
 ) {
     val contentColor = when {
         isSelected -> MaterialTheme.colorScheme.onPrimary
+        isToday -> MaterialTheme.colorScheme.primary
         !isCurrentMonth -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
         else -> MaterialTheme.colorScheme.onSurface
-    }
-
-    val backgroundColor = when {
-        isSelected -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.surface
     }
 
     Box(
         modifier = modifier
             .aspectRatio(1f)
             .clip(CircleShape)
-            .background(backgroundColor)
+            .then(
+                when {
+                    isSelected -> Modifier.background(MaterialTheme.colorScheme.primary)
+                    isToday -> Modifier.border(BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary), CircleShape)
+                    else -> Modifier
+                }
+            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
