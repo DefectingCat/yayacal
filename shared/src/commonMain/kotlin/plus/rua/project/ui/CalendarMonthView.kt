@@ -38,8 +38,18 @@ fun CalendarMonthView(
 
     var calendarHeightPx by remember { mutableIntStateOf(0) }
     var screenHeightPx by remember { mutableIntStateOf(0) }
-    val collapseOffsetPx = -(viewModel.collapseProgress * calendarHeightPx * 5f / 6f).toInt()
-    val cardTopPx = calendarHeightPx + collapseOffsetPx
+    var expandedCalendarHeightPx by remember { mutableIntStateOf(0) }
+
+    val collapseOffsetPx = if (viewModel.isCollapsed) {
+        0
+    } else {
+        -(viewModel.collapseProgress * expandedCalendarHeightPx * 5f / 6f).toInt()
+    }
+    val cardTopPx = if (viewModel.isCollapsed) {
+        calendarHeightPx
+    } else {
+        expandedCalendarHeightPx + collapseOffsetPx
+    }
     val cardHeightPx = screenHeightPx - cardTopPx
 
     Box(
@@ -52,6 +62,9 @@ fun CalendarMonthView(
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp).onSizeChanged { size ->
             calendarHeightPx = size.height
+            if (!viewModel.isCollapsed && viewModel.collapseProgress < 0.01f) {
+                expandedCalendarHeightPx = size.height
+            }
         }) {
             MonthHeader(
                 year = currentYear,
