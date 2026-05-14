@@ -2,6 +2,7 @@ package plus.rua.project.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
@@ -32,6 +33,7 @@ fun CalendarMonthView(
             month = currentMonth,
             weekNumber = viewModel.getIsoWeekNumber(viewModel.selectedDate)
         )
+        WeekdayHeader(modifier = Modifier.fillMaxWidth())
         CalendarPager(
             selectedDate = viewModel.selectedDate,
             today = today,

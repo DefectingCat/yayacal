@@ -27,8 +27,6 @@ fun CalendarMonthPage(
     }
 
     Column(modifier = modifier) {
-        WeekdayHeader(modifier = Modifier.fillMaxWidth())
-
         days.chunked(7).forEach { week ->
             Row(
                 modifier = Modifier
