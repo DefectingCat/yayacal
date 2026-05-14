@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -24,13 +26,17 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
+import kotlin.math.abs
 import kotlin.time.Clock
 import plus.rua.project.CalendarViewModel
+
+private const val START_PAGE = Int.MAX_VALUE / 2
 
 /**
  * 日历主界面，包含月/周视图切换和折叠动画。
  *
- * 折叠时日历从月视图（6行）收缩为周视图（1行），BottomCard 同步上移填充空间。
+ * 折叠时日历从月视图收缩为周视图（1行），BottomCard 同步上移填充空间。
+ * 支持动态行数（4/5/6行），滑动切换月份时 BottomCard 跟手移动。
  *
  * @param modifier 外部布局修饰符
  */
@@ -49,22 +55,39 @@ fun CalendarMonthView(
     var monthHeaderHeightPx by remember { mutableIntStateOf(0) }
     var weekdayHeaderHeightPx by remember { mutableIntStateOf(0) }
     var screenHeightPx by remember { mutableIntStateOf(0) }
+    var currentWeeksCount by remember { mutableIntStateOf(6) }
+    var expandedWeeksCount by remember { mutableIntStateOf(6) }
+
+    val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
 
     val p = viewModel.collapseProgress
     val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
 
-    // 展开时网格高度 = 首次测量的日历总高度 - headers
-    val expandedGridHeightPx = calendarHeightPx - headerHeightPx
-    val weeksCount = 6
+    // 单行高度：从首次展开时测量并锁定（基于 expandedWeeksCount）
+    val rowHeightPx = if (calendarHeightPx > 0 && expandedWeeksCount > 0) {
+        (calendarHeightPx - headerHeightPx) / expandedWeeksCount
+    } else 0
+
+    // 滑动偏移插值行数
+    val offsetFraction by remember { derivedStateOf { pagerState.currentPageOffsetFraction } }
+    val interpolatedWeeks = if (abs(offsetFraction) > 0.01f) {
+        val targetPage = if (offsetFraction > 0) pagerState.currentPage + 1 else pagerState.currentPage - 1
+        val targetWeeks = calculateWeeksCountForPage(targetPage, today)
+        lerp(currentWeeksCount.toFloat(), targetWeeks.toFloat(), abs(offsetFraction))
+    } else {
+        currentWeeksCount.toFloat()
+    }
 
     // 折叠时网格高度公式（与 CalendarMonthPage 一致）：
     // gridH = rowH × (1 + (weeks-1) × (1-p))
-    // 其中 rowH = expandedGridHeightPx / weeksCount
-    val gridHeightPx = if (expandedGridHeightPx > 0 && p > 0f) {
-        val rowH = expandedGridHeightPx.toFloat() / weeksCount
-        (rowH * (1 + (weeksCount - 1) * (1f - p))).toInt()
-    } else if (expandedGridHeightPx > 0) {
-        expandedGridHeightPx
+    val gridHeightPx = if (rowHeightPx > 0) {
+        val rowH = rowHeightPx.toFloat()
+        val weeks = interpolatedWeeks
+        if (p > 0f) {
+            (rowH * (1 + (weeks - 1) * (1f - p))).toInt()
+        } else {
+            (rowH * weeks).toInt()
+        }
     } else 0
 
     val rowPaddingPx = with(density) { 4.dp.toPx() }.toInt()
@@ -72,16 +95,12 @@ fun CalendarMonthView(
     val cardTopPx = headerHeightPx + gridHeightPx + rowPaddingPx
     val cardHeightPx = screenHeightPx - cardTopPx
 
-    val pagerModifier = if (p > 0.01f && expandedGridHeightPx > 0) {
+    val pagerModifier = if (p > 0.01f && rowHeightPx > 0) {
         Modifier
             .height(with(density) { gridHeightPx.toDp() })
             .clipToBounds()
     } else {
         Modifier
-    }
-
-    if (p > 0f) {
-        println("[View] p=$p monthH=$monthHeaderHeightPx weekdayH=$weekdayHeaderHeightPx expandedGridH=$expandedGridHeightPx gridH=$gridHeightPx cardTop=$cardTopPx cardH=$cardHeightPx screenH=$screenHeightPx calH=$calendarHeightPx isCollapsed=${viewModel.isCollapsed}")
     }
 
     Box(
@@ -93,10 +112,8 @@ fun CalendarMonthView(
             }
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp).onSizeChanged { size ->
-                // 仅在展开时记录日历总高度（折叠时 HorizontalPager 不缩小）
-                if (p < 0.01f) {
-                    calendarHeightPx = size.height
-                }
+                calendarHeightPx = size.height
+                if (p < 0.01f) expandedWeeksCount = currentWeeksCount
             }) {
             MonthHeader(
                 year = currentYear,
@@ -139,6 +156,11 @@ fun CalendarMonthView(
                         currentMonth = month
                     },
                     collapseProgress = viewModel.collapseProgress,
+                    onWeeksChanged = { weeks ->
+                        currentWeeksCount = weeks
+                        if (p < 0.01f) expandedWeeksCount = weeks
+                    },
+                    pagerState = pagerState,
                     modifier = pagerModifier
                 )
             }
@@ -153,4 +175,17 @@ fun CalendarMonthView(
             )
         }
     }
+}
+
+private fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - start) * fraction
+
+@Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
+private fun calculateWeeksCountForPage(page: Int, today: LocalDate): Int {
+    val initialYear = today.year
+    val initialMonth = today.monthNumber
+    val offset = page - START_PAGE
+    val totalMonths = initialYear * 12 + (initialMonth - 1) + offset
+    val year = totalMonths / 12
+    val month = totalMonths % 12 + 1
+    return calculateWeeksCount(year, month)
 }

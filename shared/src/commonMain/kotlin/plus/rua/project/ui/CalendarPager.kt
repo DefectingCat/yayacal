@@ -1,5 +1,6 @@
 package plus.rua.project.ui
 
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
@@ -11,7 +12,9 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
+import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.minus
 
 /** 无限分页中心页，用于 HorizontalPager 的起始位置 */
 private const val START_PAGE = Int.MAX_VALUE / 2
@@ -33,19 +36,19 @@ fun CalendarPager(
     onDateClick: (LocalDate) -> Unit,
     onMonthChanged: (year: Int, month: Int) -> Unit,
     collapseProgress: Float,
+    onWeeksChanged: ((Int) -> Unit)? = null,
+    onRowHeightMeasured: ((Int) -> Unit)? = null,
+    pagerState: PagerState,
     modifier: Modifier = Modifier
 ) {
     val initialYearMonth = remember { today.toYearMonth() }
-    val pagerState = rememberPagerState(
-        initialPage = START_PAGE,
-        pageCount = { Int.MAX_VALUE }
-    )
     val coroutineScope = rememberCoroutineScope()
 
     // Sync settled page to onMonthChanged (skip initial emission to preserve "today" selection)
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.drop(1).collect { page ->
             val yearMonth = pageToYearMonth(page, initialYearMonth)
+            onWeeksChanged?.invoke(calculateWeeksCount(yearMonth.first, yearMonth.second))
             onMonthChanged(yearMonth.first, yearMonth.second)
         }
     }
@@ -75,7 +78,8 @@ fun CalendarPager(
                     }
                 }
             },
-            collapseProgress = collapseProgress
+            collapseProgress = collapseProgress,
+            onRowHeightMeasured = if (page == pagerState.currentPage) onRowHeightMeasured else null
         )
     }
 }
@@ -95,4 +99,13 @@ private fun yearMonthToPage(yearMonth: Pair<Int, Int>, initial: Pair<Int, Int>):
     val targetTotal = yearMonth.first * 12 + (yearMonth.second - 1)
     val initialTotal = initial.first * 12 + (initial.second - 1)
     return START_PAGE + (targetTotal - initialTotal)
+}
+
+// 计算月份在日历网格中需要的行数（4/5/6）
+internal fun calculateWeeksCount(year: Int, month: Int): Int {
+    val firstOfMonth = LocalDate(year, month, 1)
+    val offset = firstOfMonth.dayOfWeek.ordinal
+    val nextMonth = if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
+    val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).dayOfMonth
+    return ((offset + daysInMonth - 1) / 7) + 1
 }

@@ -30,6 +30,7 @@ fun CalendarMonthPage(
     today: LocalDate,
     onDateClick: (LocalDate) -> Unit,
     collapseProgress: Float,
+    onRowHeightMeasured: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val days = remember(year, month) {
@@ -66,11 +67,7 @@ fun CalendarMonthPage(
     Box(modifier = modifier.clipToBounds().then(
         if (totalHeightDp != null) Modifier.height(totalHeightDp)
         else Modifier
-    ).onSizeChanged { size ->
-        if (collapseProgress > 0f) {
-            println("[Page] totalH=${size.height}px p=$collapseProgress selWeek=$selectedWeekIndex rowH=$rowHeightPx")
-        }
-    }) {
+    )) {
         weeks.forEachIndexed { weekIndex, week ->
             val isSelected = hasSelectedWeek && weekIndex == selectedWeekIndex
             val isAbove = hasSelectedWeek && weekIndex < selectedWeekIndex
@@ -149,8 +146,12 @@ private fun generateMonthDays(year: Int, month: Int): List<DayData> {
     val firstOfMonth = LocalDate(year, month, 1)
     val offset = firstOfMonth.dayOfWeek.ordinal
     val startDate = firstOfMonth.minus(DatePeriod(days = offset))
+    val nextMonth = if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
+    val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).dayOfMonth
+    val rows = ((offset + daysInMonth - 1) / 7) + 1
+    val totalDays = rows * 7
 
-    return (0 until 42).map { i ->
+    return (0 until totalDays).map { i ->
         val date = startDate.plus(DatePeriod(days = i))
         DayData(
             date = date,
