@@ -53,6 +53,7 @@ fun CalendarMonthPage(
     }
 
     var rowHeightPx by remember { mutableIntStateOf(0) }
+    val rowMeasured = rowHeightPx > 0
 
     Column(modifier = modifier) {
         weeks.forEachIndexed { weekIndex, week ->
@@ -64,19 +65,27 @@ fun CalendarMonthPage(
                 else -> 1f
             }
 
-            val rowHeightDp = if (rowHeightPx > 0 && rowScale > 0.01f) {
+            val rowHeightDp = if (rowMeasured && rowScale > 0.01f) {
                 with(density) { (rowHeightPx * rowScale).toDp() }
+            } else if (!rowMeasured) {
+                // First frame: let aspectRatio determine height naturally
+                null
             } else {
                 0.dp
             }
 
-            if (rowHeightDp > 0.dp) {
+            val shouldShow = rowHeightDp == null || rowHeightDp > 0.dp
+
+            if (shouldShow) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(rowHeightDp)
+                        .then(
+                            if (rowHeightDp != null) Modifier.height(rowHeightDp)
+                            else Modifier
+                        )
                         .onSizeChanged { size ->
-                            if (weekIndex == 0 && size.height > 0) {
+                            if (size.height > 0 && !rowMeasured) {
                                 rowHeightPx = size.height
                             }
                         }
