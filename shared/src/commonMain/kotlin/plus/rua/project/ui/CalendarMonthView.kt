@@ -32,6 +32,7 @@ import plus.rua.project.CalendarViewModel
 
 private const val START_PAGE = Int.MAX_VALUE / 2
 private const val ROW_PADDING_DP = 4
+private const val TAG = "CalMonthView"
 
 /**
  * 日历主界面，包含月/周视图切换和折叠动画。
@@ -67,11 +68,19 @@ fun CalendarMonthView(
     val rowPaddingPx = with(density) { ROW_PADDING_DP.dp.toPx() }.toInt()
 
     // 滑动偏移插值行数
+    // 始终以 settledPage 为锚点，currentPage - settledPage 确定方向（-1/0/+1），
+    // abs(offsetFraction) 为过渡进度。
+    // 这样在 currentPage 跳变前后，方向和进度都是连续的：
+    //   跳变前: sp=8月, cp=8月, diff=0, offsetFraction>0 → 目标9月, fraction 0→0.5
+    //   跳变后: sp=8月, cp=9月, diff=+1 → 目标9月, fraction 0.5→0
     val offsetFraction by remember { derivedStateOf { pagerState.currentPageOffsetFraction } }
     val interpolatedWeeks = if (abs(offsetFraction) > 0.01f) {
-        val targetPage = if (offsetFraction > 0) pagerState.currentPage + 1 else pagerState.currentPage - 1
+        val sp = pagerState.settledPage
+        val diff = pagerState.currentPage - sp  // -1, 0, or +1
+        val targetPage = if (diff != 0) sp + diff else sp + if (offsetFraction > 0) 1 else -1
+        val baseWeeks = calculateWeeksCountForPage(sp, today)
         val targetWeeks = calculateWeeksCountForPage(targetPage, today)
-        lerp(currentWeeksCount.toFloat(), targetWeeks.toFloat(), abs(offsetFraction))
+        lerp(baseWeeks.toFloat(), targetWeeks.toFloat(), abs(offsetFraction))
     } else {
         currentWeeksCount.toFloat()
     }
@@ -88,18 +97,25 @@ fun CalendarMonthView(
 
     // 折叠时网格高度公式（与 CalendarMonthPage 一致）：
     // gridH = rowH × (1 + (weeks-1) × (1-p))
+    val effectiveWeeks = interpolatedWeeks
+
     val gridHeightPx = if (effectiveRowHeightPx > 0) {
         val rowH = effectiveRowHeightPx.toFloat()
-        val weeks = interpolatedWeeks
         if (p > 0.01f) {
-            (rowH * (1 + (weeks - 1) * (1f - p))).toInt()
+            (rowH * (1 + (effectiveWeeks - 1) * (1f - p))).toInt()
         } else {
-            (rowH * weeks).toInt()
+            (rowH * effectiveWeeks).toInt()
         }
     } else 0
 
     val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx
     val cardHeightPx = if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
+
+    println("[$TAG] p=$p rowH=$rowHeightPx estRowH=$estimatedRowHeightPx effRowH=$effectiveRowHeightPx " +
+            "headerH=$headerHeightPx gridH=$gridHeightPx calAreaH=$calendarAreaHeightPx " +
+            "screenH=$screenHeightPx cardH=$cardHeightPx " +
+            "currentWeeks=$currentWeeksCount interpolatedWeeks=$interpolatedWeeks effectiveWeeks=$effectiveWeeks " +
+            "offsetFraction=$offsetFraction currentPage=${pagerState.currentPage} settledPage=${pagerState.settledPage}")
 
     // 当 rowHeightPx 已知时，用计算的高度约束 pager；否则让 pager 自由扩展以测量行高
     val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
@@ -162,6 +178,7 @@ fun CalendarMonthView(
                     },
                     collapseProgress = viewModel.collapseProgress,
                     rowHeightPx = rowHeightPx,
+                    effectiveWeeks = effectiveWeeks,
                     onWeeksChanged = { weeks ->
                         currentWeeksCount = weeks
                     },

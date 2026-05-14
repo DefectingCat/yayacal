@@ -38,6 +38,7 @@ fun CalendarPager(
     onMonthChanged: (year: Int, month: Int) -> Unit,
     collapseProgress: Float,
     rowHeightPx: Int,
+    effectiveWeeks: Float,
     onWeeksChanged: ((Int) -> Unit)? = null,
     onRowHeightMeasured: ((Int) -> Unit)? = null,
     pagerState: PagerState,
@@ -82,6 +83,7 @@ fun CalendarPager(
             },
             collapseProgress = collapseProgress,
             rowHeightPx = rowHeightPx,
+            effectiveWeeks = effectiveWeeks,
             onRowHeightMeasured = onRowHeightMeasured
         )
     }

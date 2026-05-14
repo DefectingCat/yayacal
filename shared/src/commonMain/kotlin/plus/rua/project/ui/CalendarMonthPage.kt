@@ -19,6 +19,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 
+private const val TAG = "CalMonthPage"
+
 /**
  * 月度日历网格页面，支持折叠动画。
  *
@@ -36,6 +38,7 @@ fun CalendarMonthPage(
     onDateClick: (LocalDate) -> Unit,
     collapseProgress: Float,
     rowHeightPx: Int,
+    effectiveWeeks: Float,
     onRowHeightMeasured: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -52,17 +55,15 @@ fun CalendarMonthPage(
     val hasSelectedWeek = selectedWeekIndex >= 0
     val H = rowHeightPx.toFloat()
 
-    // 总高度 = 选中行高度 + 上方行压缩高度 + 下方行压缩高度
+    // 使用与 CalendarMonthView 一致的 effectiveWeeks 计算高度，避免滑动中高度不匹配
     val totalHeightDp = if (rowHeightPx > 0) {
-        if (hasSelectedWeek) {
-            val aboveH = selectedWeekIndex * H * (1f - collapseProgress)
-            val belowH = (weeks.size - 1 - selectedWeekIndex) * H * (1f - collapseProgress)
-            val selH = H
-            with(density) { (aboveH + selH + belowH).toDp() }
-        } else {
-            with(density) { (weeks.size * H).toDp() }
-        }
+        val p = collapseProgress
+        val totalPx = H * (1 + (effectiveWeeks - 1) * (1f - p))
+        println("[$TAG] year=$year month=$month rowH=$rowHeightPx H=$H effWeeks=$effectiveWeeks " +
+                "weeks.size=${weeks.size} p=$p totalPx=$totalPx selWeek=$selectedWeekIndex")
+        with(density) { totalPx.toDp() }
     } else {
+        println("[$TAG] year=$year month=$month rowH=0 (not yet measured)")
         null
     }
 
