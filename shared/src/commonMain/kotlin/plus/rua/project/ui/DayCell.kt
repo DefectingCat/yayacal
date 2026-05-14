@@ -37,6 +37,7 @@ fun DayCell(
     modifier: Modifier = Modifier
 ) {
     val contentColor = when {
+        isSelected && isToday -> MaterialTheme.colorScheme.onPrimaryContainer
         isSelected -> MaterialTheme.colorScheme.onPrimary
         isToday -> MaterialTheme.colorScheme.primary
         !isCurrentMonth -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
@@ -49,6 +50,7 @@ fun DayCell(
             .clip(CircleShape)
             .then(
                 when {
+                    isSelected && isToday -> Modifier.background(MaterialTheme.colorScheme.primaryContainer)
                     isSelected -> Modifier.background(MaterialTheme.colorScheme.primary)
                     isToday -> Modifier.border(BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary), CircleShape)
                     else -> Modifier
