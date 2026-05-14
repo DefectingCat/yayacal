@@ -3,6 +3,7 @@ package plus.rua.project.ui
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -21,20 +22,6 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 
-/**
- * 月度日历网格页，6×7 布局，支持折叠动画。
- *
- * 折叠时选中行保持原高并向上移动覆盖其他行，其他行保持原位不动。
- * 选中行通过 offset + zIndex 实现覆盖效果。
- *
- * @param year 年份
- * @param month 月份（1-12）
- * @param selectedDate 当前选中日期
- * @param today 今天的日期
- * @param onDateClick 日期点击回调
- * @param collapseProgress 折叠进度，0f=展开（6行），1f=折叠（仅选中行可见）
- * @param modifier 外部布局修饰符
- */
 @Composable
 fun CalendarMonthPage(
     year: Int,
@@ -56,9 +43,10 @@ fun CalendarMonthPage(
     }
 
     var rowHeightPx by remember { mutableIntStateOf(0) }
+    val rowMeasured = rowHeightPx > 0
 
     // 选中行上移距离 = 上方行数 × 行高 × progress
-    val selectedOffsetPx = if (rowHeightPx > 0) {
+    val selectedOffsetPx = if (rowMeasured) {
         -(selectedWeekIndex.toFloat() * rowHeightPx.toFloat() * collapseProgress)
     } else {
         0f
@@ -68,34 +56,55 @@ fun CalendarMonthPage(
     Column(modifier = modifier.clipToBounds()) {
         weeks.forEachIndexed { weekIndex, week ->
             val isSelected = weekIndex == selectedWeekIndex
+            val isAboveSelected = weekIndex < selectedWeekIndex
+            val isBelowSelected = weekIndex > selectedWeekIndex
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .zIndex(if (isSelected) 1f else 0f)
-                    .then(
-                        if (isSelected && rowHeightPx > 0) {
-                            Modifier.offset(y = selectedOffsetDp)
-                        } else {
-                            Modifier
+            // 非选中行高度跟手压缩
+            val rowScale = when {
+                isAboveSelected || isBelowSelected -> 1f - collapseProgress
+                else -> 1f
+            }
+
+            val rowHeightDp = if (rowMeasured && rowScale > 0.01f) {
+                with(density) { (rowHeightPx.toFloat() * rowScale).toDp() }
+            } else if (!rowMeasured) {
+                null
+            } else {
+                0.dp
+            }
+
+            val shouldShow = rowHeightDp == null || rowHeightDp > 0.dp
+
+            if (shouldShow) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .zIndex(if (isSelected) 1f else 0f)
+                        .then(
+                            if (rowHeightDp != null) Modifier.height(rowHeightDp)
+                            else Modifier
+                        )
+                        .then(
+                            if (isSelected && rowMeasured) Modifier.offset(y = selectedOffsetDp)
+                            else Modifier
+                        )
+                        .onSizeChanged { size ->
+                            if (size.height > 0 && !rowMeasured) {
+                                rowHeightPx = size.height
+                            }
                         }
-                    )
-                    .onSizeChanged { size ->
-                        if (size.height > 0 && rowHeightPx == 0) {
-                            rowHeightPx = size.height
-                        }
+                        .padding(vertical = 2.dp)
+                ) {
+                    week.forEach { dayData ->
+                        DayCell(
+                            date = dayData.date,
+                            isCurrentMonth = dayData.isCurrentMonth,
+                            isSelected = dayData.date == selectedDate,
+                            isToday = dayData.date == today,
+                            onClick = { onDateClick(dayData.date) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
-                    .padding(vertical = 2.dp)
-            ) {
-                week.forEach { dayData ->
-                    DayCell(
-                        date = dayData.date,
-                        isCurrentMonth = dayData.isCurrentMonth,
-                        isSelected = dayData.date == selectedDate,
-                        isToday = dayData.date == today,
-                        onClick = { onDateClick(dayData.date) },
-                        modifier = Modifier.weight(1f)
-                    )
                 }
             }
         }
