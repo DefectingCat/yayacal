@@ -121,7 +121,7 @@ fun CalendarMonthPage(
                                 rowHeightPx = size.height
                             }
                         }
-                        .padding(vertical = 2.dp)
+                        .padding(vertical = 4.dp)
                 ) {
                     week.forEach { dayData ->
                         DayCell(

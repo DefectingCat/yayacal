@@ -19,6 +19,7 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
@@ -64,7 +65,7 @@ fun CalendarMonthView(
         expandedGridHeightPx
     } else 0
 
-    val rowPaddingPx = with(density) { 2.dp.toPx() }.toInt()
+    val rowPaddingPx = with(density) { 4.dp.toPx() }.toInt()
 
     val cardTopPx = headerHeightPx + gridHeightPx + rowPaddingPx
     val cardHeightPx = screenHeightPx - cardTopPx
@@ -106,7 +107,7 @@ fun CalendarMonthView(
             WeekdayHeader(
                 modifier = Modifier.fillMaxWidth().onSizeChanged { size ->
                     weekdayHeaderHeightPx = size.height
-                }.padding(bottom = 2.dp)
+                }.padding(bottom = 4.dp)
             )
             // 完全折叠且无动画时显示 WeekPager，否则显示 CalendarPager（含下拉恢复过程）
             if (viewModel.isCollapsed && viewModel.collapseProgress >= 1f) {
@@ -115,6 +116,7 @@ fun CalendarMonthView(
                     today = today,
                     onDateClick = { date -> viewModel.selectDate(date) },
                     onWeekChanged = { weekMonday ->
+                        viewModel.selectDate(weekMonday)
                         currentYear = weekMonday.year
                         @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
                         currentMonth = weekMonday.monthNumber
@@ -126,6 +128,7 @@ fun CalendarMonthView(
                     today = today,
                     onDateClick = { date -> viewModel.selectDate(date) },
                     onMonthChanged = { year, month ->
+                        viewModel.selectDate(LocalDate(year, month, 1))
                         currentYear = year
                         currentMonth = month
                     },
