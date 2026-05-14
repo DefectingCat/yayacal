@@ -2,6 +2,7 @@ package plus.rua.project.ui
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -9,6 +10,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
@@ -24,7 +26,7 @@ fun CalendarMonthView(
     var currentYear by remember { mutableIntStateOf(viewModel.currentYear) }
     var currentMonth by remember { mutableIntStateOf(viewModel.currentMonth) }
 
-    Column(modifier = modifier.fillMaxSize().statusBarsPadding()) {
+    Column(modifier = modifier.fillMaxSize().statusBarsPadding().padding(horizontal = 16.dp)) {
         MonthHeader(
             year = currentYear,
             month = currentMonth,
