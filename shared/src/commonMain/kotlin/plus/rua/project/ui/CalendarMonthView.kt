@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
@@ -19,7 +18,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
@@ -44,25 +42,33 @@ fun CalendarMonthView(
     val density = LocalDensity.current
 
     var calendarHeightPx by remember { mutableIntStateOf(0) }
-    var screenHeightPx by remember { mutableIntStateOf(0) }
-    var expandedCalendarHeightPx by remember { mutableIntStateOf(0) }
     var monthHeaderHeightPx by remember { mutableIntStateOf(0) }
     var weekdayHeaderHeightPx by remember { mutableIntStateOf(0) }
+    var screenHeightPx by remember { mutableIntStateOf(0) }
 
-    // 日历网格高度 = 总高度 - MonthHeader - WeekdayHeader
-    val expandedGridHeightPx = expandedCalendarHeightPx - monthHeaderHeightPx - weekdayHeaderHeightPx
-    // 折叠偏移量 = 进度 × 网格5行高度（保留1行可见）
-    val collapseOffsetPx = if (viewModel.isCollapsed) {
-        0
-    } else {
-        -(viewModel.collapseProgress * expandedGridHeightPx * 5f / 6f).toInt()
-    }
-    val cardTopPx = if (viewModel.isCollapsed) {
-        calendarHeightPx
-    } else {
-        expandedCalendarHeightPx + collapseOffsetPx
-    }
+    val p = viewModel.collapseProgress
+    val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
+
+    // 展开时网格高度 = 首次测量的日历总高度 - headers
+    val expandedGridHeightPx = calendarHeightPx - headerHeightPx
+    val weeksCount = 6
+
+    // 折叠时网格高度公式（与 CalendarMonthPage 一致）：
+    // gridH = rowH × (1 + (weeks-1) × (1-p))
+    // 其中 rowH = expandedGridHeightPx / weeksCount
+    val gridHeightPx = if (expandedGridHeightPx > 0 && p > 0f) {
+        val rowH = expandedGridHeightPx.toFloat() / weeksCount
+        (rowH * (1 + (weeksCount - 1) * (1f - p))).toInt()
+    } else if (expandedGridHeightPx > 0) {
+        expandedGridHeightPx
+    } else 0
+
+    val cardTopPx = headerHeightPx + gridHeightPx
     val cardHeightPx = screenHeightPx - cardTopPx
+
+    if (p > 0f) {
+        println("[View] p=$p monthH=$monthHeaderHeightPx weekdayH=$weekdayHeaderHeightPx expandedGridH=$expandedGridHeightPx gridH=$gridHeightPx cardTop=$cardTopPx cardH=$cardHeightPx screenH=$screenHeightPx calH=$calendarHeightPx isCollapsed=${viewModel.isCollapsed}")
+    }
 
     Box(
         modifier = modifier
@@ -73,12 +79,11 @@ fun CalendarMonthView(
             }
     ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp).onSizeChanged { size ->
-            calendarHeightPx = size.height
-            // 仅在首次展开时记录完整日历高度，折叠后不再覆盖
-            if (!viewModel.isCollapsed && viewModel.collapseProgress < 0.01f) {
-                expandedCalendarHeightPx = size.height
-            }
-        }) {
+                // 仅在展开时记录日历总高度（折叠时 HorizontalPager 不缩小）
+                if (p < 0.01f) {
+                    calendarHeightPx = size.height
+                }
+            }) {
             MonthHeader(
                 year = currentYear,
                 month = currentMonth,

@@ -1,6 +1,6 @@
 package plus.rua.project.ui
 
-import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -42,33 +42,64 @@ fun CalendarMonthPage(
         weeks.indexOfFirst { week -> week.any { it.date == selectedDate } }
     }
 
+    val hasSelectedWeek = selectedWeekIndex >= 0
+
     var rowHeightPx by remember { mutableIntStateOf(0) }
     val rowMeasured = rowHeightPx > 0
+    val H = rowHeightPx.toFloat()
 
-    // 选中行上移距离 = 上方行数 × 行高 × progress
-    val selectedOffsetPx = if (rowMeasured) {
-        -(selectedWeekIndex.toFloat() * rowHeightPx.toFloat() * collapseProgress)
+    // 总高度 = 6行 × 行高（展开时），或选中行高度（折叠时）
+    val totalHeightDp = if (rowMeasured) {
+        if (hasSelectedWeek) {
+            // 选中行高度 + 上方行压缩高度 + 下方行压缩高度
+            val aboveH = selectedWeekIndex * H * (1f - collapseProgress)
+            val belowH = (weeks.size - 1 - selectedWeekIndex) * H * (1f - collapseProgress)
+            val selH = H
+            with(density) { (aboveH + selH + belowH).toDp() }
+        } else {
+            with(density) { (weeks.size * H).toDp() }
+        }
     } else {
-        0f
+        null
     }
-    val selectedOffsetDp = with(density) { selectedOffsetPx.toDp() }
 
-    Column(modifier = modifier.clipToBounds()) {
+    Box(modifier = modifier.clipToBounds().then(
+        if (totalHeightDp != null) Modifier.height(totalHeightDp)
+        else Modifier
+    ).onSizeChanged { size ->
+        if (collapseProgress > 0f) {
+            println("[Page] totalH=${size.height}px p=$collapseProgress selWeek=$selectedWeekIndex rowH=$rowHeightPx")
+        }
+    }) {
         weeks.forEachIndexed { weekIndex, week ->
-            val isSelected = weekIndex == selectedWeekIndex
-            val isAboveSelected = weekIndex < selectedWeekIndex
-            val isBelowSelected = weekIndex > selectedWeekIndex
+            val isSelected = hasSelectedWeek && weekIndex == selectedWeekIndex
+            val isAbove = hasSelectedWeek && weekIndex < selectedWeekIndex
+            val isBelow = hasSelectedWeek && weekIndex > selectedWeekIndex
 
-            // 非选中行高度跟手压缩
             val rowScale = when {
-                isAboveSelected || isBelowSelected -> 1f - collapseProgress
+                isAbove || isBelow -> 1f - collapseProgress
                 else -> 1f
             }
 
             val rowHeightDp = if (rowMeasured && rowScale > 0.01f) {
-                with(density) { (rowHeightPx.toFloat() * rowScale).toDp() }
+                with(density) { (H * rowScale).toDp() }
             } else if (!rowMeasured) {
                 null
+            } else {
+                0.dp
+            }
+
+            // 手动计算每行的视觉 y 位置
+            val yOffsetDp = if (rowMeasured && hasSelectedWeek) {
+                val yPx = when {
+                    isAbove -> weekIndex * H * (1f - collapseProgress)
+                    isSelected -> selectedWeekIndex * H * (1f - collapseProgress)
+                    isBelow -> selectedWeekIndex * H * (1f - collapseProgress) + H + (weekIndex - selectedWeekIndex - 1) * H * (1f - collapseProgress)
+                    else -> weekIndex * H
+                }
+                with(density) { yPx.toDp() }
+            } else if (rowMeasured) {
+                with(density) { (weekIndex * H).toDp() }
             } else {
                 0.dp
             }
@@ -84,10 +115,7 @@ fun CalendarMonthPage(
                             if (rowHeightDp != null) Modifier.height(rowHeightDp)
                             else Modifier
                         )
-                        .then(
-                            if (isSelected && rowMeasured) Modifier.offset(y = selectedOffsetDp)
-                            else Modifier
-                        )
+                        .offset(y = yOffsetDp)
                         .onSizeChanged { size ->
                             if (size.height > 0 && !rowMeasured) {
                                 rowHeightPx = size.height
