@@ -10,6 +10,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
@@ -35,6 +36,7 @@ fun CalendarMonthPage(
     onDateClick: (LocalDate) -> Unit,
     collapseProgress: Float,
     rowHeightPx: Int,
+    onRowHeightMeasured: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val days = remember(year, month) {
@@ -113,6 +115,13 @@ fun CalendarMonthPage(
                         )
                         .offset(y = yOffsetDp)
                         .padding(vertical = 4.dp)
+                        .then(
+                            if (weekIndex == 0 && rowHeightPx == 0) {
+                                Modifier.onSizeChanged { size ->
+                                    if (size.height > 0) onRowHeightMeasured?.invoke(size.height)
+                                }
+                            } else Modifier
+                        )
                 ) {
                     week.forEach { dayData ->
                         DayCell(
