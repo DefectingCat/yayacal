@@ -16,7 +16,7 @@ const val COLLAPSE_THRESHOLD = 0.5f
 const val OFFSET_FRACTION_THRESHOLD = 0.01f
 
 /** 行内 vertical padding (dp) */
-const val ROW_PADDING_DP = 4
+const val ROW_PADDING_DP = 6
 
 /** 日历网格水平 padding (dp) */
 const val HORIZONTAL_PADDING_DP = 16

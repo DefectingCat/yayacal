@@ -111,7 +111,6 @@ fun CalendarMonthPage(
                             else Modifier
                         )
                         .offset(y = yOffsetDp)
-                        .padding(vertical = ROW_PADDING_DP.dp)
                         .then(
                             if (weekIndex == 0 && rowHeightPx == 0) {
                                 Modifier.onSizeChanged { size ->
@@ -121,6 +120,7 @@ fun CalendarMonthPage(
                                 }
                             } else Modifier
                         )
+                        .padding(vertical = ROW_PADDING_DP.dp)
                 ) {
                     week.forEach { dayData ->
                         DayCell(

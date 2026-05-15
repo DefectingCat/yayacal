@@ -58,11 +58,12 @@ fun CalendarMonthView(
 
     val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
 
-    val p = viewModel.collapseProgress
+    val collapseProgress = viewModel.collapseProgress
     val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
     val rowPaddingPx = with(density) { ROW_PADDING_DP.dp.toPx() }.toInt()
-    val cardGapPx = with(density) { lerp(CARD_GAP_EXPANDED_DP.toFloat(), CARD_GAP_COLLAPSED_DP.toFloat(), p).dp.toPx() }.toInt()
+    val cardGapPx = with(density) { lerp(CARD_GAP_EXPANDED_DP.toFloat(), CARD_GAP_COLLAPSED_DP.toFloat(), collapseProgress).dp.toPx() }.toInt()
 
+    // 翻页时在相邻月份行数之间插值，使 BottomCard 高度平滑过渡
     val interpolatedWeeks by remember {
         derivedStateOf {
             val fraction = pagerState.currentPageOffsetFraction
@@ -80,6 +81,7 @@ fun CalendarMonthView(
 
     // 预估行高：DayCell aspectRatio=1，宽度 = (screenWidth - horizontalPadding) / 7
     // 加上 Row 的 vertical padding (4dp × 2)
+    // 用于 rowHeightPx 尚未测量时的 fallback，避免首次布局高度为 0
     val estimatedRowHeightPx = if (screenWidthPx > 0) {
         val cellWidth = (screenWidthPx - with(density) { (HORIZONTAL_PADDING_DP * 2).dp.toPx() }) / 7
         val rowPadding = with(density) { (ROW_PADDING_DP * 2).dp.toPx() }
@@ -88,25 +90,27 @@ fun CalendarMonthView(
 
     val effectiveRowHeightPx = if (rowHeightPx > 0) rowHeightPx else estimatedRowHeightPx
 
-    // 折叠时网格高度公式（与 CalendarMonthPage 一致）：
-    // gridH = rowH × (1 + (weeks-1) × (1-p))
     val effectiveWeeks = interpolatedWeeks
 
-    // gridHeightPx 必须直接计算而非 derivedStateOf，因为 effectiveRowHeightPx 依赖 rowHeightPx state，
-    // derivedStateOf 无法追踪非 State 的局部变量变化，导致 rowHeightPx 从 0 变为测量值时 gridHeightPx 不更新
+    // 折叠时网格高度公式（与 CalendarMonthPage 一致）：
+    // collapseProgress=0 展开时 gridH = rowH × weeks；collapseProgress=1 折叠时 gridH = rowH × 1
+    // 中间态：gridH = rowH × (1 + (weeks-1) × (1-collapseProgress))
+    // 必须直接计算而非 derivedStateOf：effectiveRowHeightPx 依赖 rowHeightPx state，
+    // derivedStateOf 无法追踪非 State 局部变量变化，导致 rowHeightPx 从 0 变为测量值时 gridHeightPx 不更新
     val gridHeightPx = if (effectiveRowHeightPx > 0) {
         val rowH = effectiveRowHeightPx.toFloat()
-        if (p > OFFSET_FRACTION_THRESHOLD) {
-            (rowH * (1 + (effectiveWeeks - 1) * (1f - p))).toInt()
+        if (collapseProgress > OFFSET_FRACTION_THRESHOLD) {
+            (rowH * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))).toInt()
         } else {
             (rowH * effectiveWeeks).toInt()
         }
     } else 0
 
+    // BottomCard 高度 = 屏幕剩余空间（屏幕高度 - 日历区域高度）
     val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx + cardGapPx
     val cardHeightPx = if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
 
-    // 当 rowHeightPx 已知时，用计算的高度约束 pager；否则让 pager 自由扩展以测量行高
+    // 行高已知时约束 pager 高度，防止内容溢出；否则让 pager 自由扩展以触发首次行高测量
     val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
         Modifier
             .height(with(density) { gridHeightPx.toDp() })
@@ -138,13 +142,15 @@ fun CalendarMonthView(
                     weekdayHeaderHeightPx = size.height
                 }
             )
-            // 完全折叠且无动画时显示 WeekPager，否则显示 CalendarPager（含下拉恢复过程）
+            // 完全折叠且无动画时切换到 WeekPager（单行高效渲染），
+            // 否则使用 CalendarPager（含折叠动画和下拉恢复过程）
             if (viewModel.isCollapsed && viewModel.collapseProgress >= 1f) {
                 WeekPager(
                     selectedDate = viewModel.selectedDate,
                     today = today,
                     onDateClick = { date -> viewModel.selectDate(date) },
                     onWeekChanged = { weekMonday ->
+                        // 优先选中当周内的今天，否则选中该周周一
                         val weekSunday = weekMonday.plus(DatePeriod(days = 6))
                         val date = if (today in weekMonday..weekSunday) today else weekMonday
                         viewModel.selectDate(date)
@@ -157,6 +163,7 @@ fun CalendarMonthView(
                     today = today,
                     onDateClick = { date -> viewModel.selectDate(date) },
                     onMonthChanged = { year, month ->
+                        // 优先选中当月内的今天，否则选中该月1号
                         val date = if (year == today.year && today.month.number == month) today
                                    else LocalDate(year, month, 1)
                         viewModel.selectDate(date)
