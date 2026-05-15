@@ -31,8 +31,6 @@ import kotlin.math.abs
 import kotlin.time.Clock
 import plus.rua.project.CalendarViewModel
 
-private const val TAG = "CalendarMonthView"
-
 /**
  * 日历主界面，包含月/周视图切换和折叠动画。
  *
@@ -61,10 +59,8 @@ fun CalendarMonthView(
     val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
 
     val p = viewModel.collapseProgress
-    println("$TAG: collapseProgress=$p, isCollapsed=${viewModel.isCollapsed}")
     val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
     val rowPaddingPx = with(density) { ROW_PADDING_DP.dp.toPx() }.toInt()
-    println("$TAG: headerHeightPx=$headerHeightPx (month=$monthHeaderHeightPx, weekday=$weekdayHeaderHeightPx), rowPaddingPx=$rowPaddingPx")
 
     val interpolatedWeeks by remember {
         derivedStateOf {
@@ -89,8 +85,6 @@ fun CalendarMonthView(
         (cellWidth + rowPadding).toInt()
     } else 0
 
-    println("$TAG: screenWidthPx=$screenWidthPx, screenHeightPx=$screenHeightPx, estimatedRowHeightPx=$estimatedRowHeightPx, measuredRowHeightPx=$rowHeightPx")
-
     val effectiveRowHeightPx = if (rowHeightPx > 0) rowHeightPx else estimatedRowHeightPx
 
     // 折叠时网格高度公式（与 CalendarMonthPage 一致）：
@@ -110,7 +104,6 @@ fun CalendarMonthView(
 
     val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx
     val cardHeightPx = if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
-    println("$TAG: effectiveRowHeightPx=$effectiveRowHeightPx, effectiveWeeks=$effectiveWeeks, gridHeightPx=$gridHeightPx, calendarAreaHeightPx=$calendarAreaHeightPx, cardHeightPx=$cardHeightPx")
 
     // 当 rowHeightPx 已知时，用计算的高度约束 pager；否则让 pager 自由扩展以测量行高
     val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
@@ -146,7 +139,6 @@ fun CalendarMonthView(
             )
             // 完全折叠且无动画时显示 WeekPager，否则显示 CalendarPager（含下拉恢复过程）
             if (viewModel.isCollapsed && viewModel.collapseProgress >= 1f) {
-                println("$TAG: Showing WeekPager (isCollapsed=true, progress=${viewModel.collapseProgress})")
                 WeekPager(
                     selectedDate = viewModel.selectedDate,
                     today = today,
@@ -158,7 +150,6 @@ fun CalendarMonthView(
                     }
                 )
             } else {
-                println("$TAG: Showing CalendarPager (isCollapsed=${viewModel.isCollapsed}, progress=${viewModel.collapseProgress})")
                 CalendarPager(
                     selectedDate = viewModel.selectedDate,
                     today = today,
@@ -181,7 +172,6 @@ fun CalendarMonthView(
         }
 
         if (cardHeightPx > 0) {
-            println("$TAG: BottomCard height=${with(density) { cardHeightPx.toDp() }}")
             BottomCard(
                 viewModel = viewModel,
                 modifier = Modifier

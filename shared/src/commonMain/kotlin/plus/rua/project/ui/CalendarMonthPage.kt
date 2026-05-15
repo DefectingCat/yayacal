@@ -116,7 +116,6 @@ fun CalendarMonthPage(
                             if (weekIndex == 0 && rowHeightPx == 0) {
                                 Modifier.onSizeChanged { size ->
                                     if (size.height > 0) {
-                                        println("CalendarMonthPage: measured rowHeight=${size.height}px, reporting to parent")
                                         onRowHeightMeasured?.invoke(size.height)
                                     }
                                 }
