@@ -24,6 +24,9 @@ const val HORIZONTAL_PADDING_DP = 16
 /** BottomCard 拖拽手势范围 (dp) */
 const val DRAG_RANGE_DP = 200
 
+/** 日历与 BottomCard 之间的间距 (dp) */
+const val CARD_GAP_DP = 12
+
 /** 线性插值 */
 fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - start) * fraction
 

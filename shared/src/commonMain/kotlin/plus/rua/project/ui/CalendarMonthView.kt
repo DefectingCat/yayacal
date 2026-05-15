@@ -61,6 +61,7 @@ fun CalendarMonthView(
     val p = viewModel.collapseProgress
     val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
     val rowPaddingPx = with(density) { ROW_PADDING_DP.dp.toPx() }.toInt()
+    val cardGapPx = with(density) { CARD_GAP_DP.dp.toPx() }.toInt()
 
     val interpolatedWeeks by remember {
         derivedStateOf {
@@ -102,7 +103,7 @@ fun CalendarMonthView(
         }
     } else 0
 
-    val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx
+    val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx + cardGapPx
     val cardHeightPx = if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
 
     // 当 rowHeightPx 已知时，用计算的高度约束 pager；否则让 pager 自由扩展以测量行高

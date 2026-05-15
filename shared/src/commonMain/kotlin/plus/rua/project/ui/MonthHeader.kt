@@ -30,7 +30,7 @@ fun MonthHeader(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 14.dp),
+            .padding(vertical = 14.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
