@@ -30,8 +30,11 @@ data class CalendarDay(
  *
  * @param coroutineScope 协程作用域，用于驱动折叠动画
  */
-class CalendarViewModel(private val coroutineScope: CoroutineScope) {
-    private val today: LocalDate = Clock.System.todayIn(TimeZone.currentSystemDefault())
+class CalendarViewModel(
+    private val coroutineScope: CoroutineScope,
+    private val clock: Clock = Clock.System
+) {
+    private val today: LocalDate = clock.todayIn(TimeZone.currentSystemDefault())
 
     var selectedDate by mutableStateOf(today)
         private set

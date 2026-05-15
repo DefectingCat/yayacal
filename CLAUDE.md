@@ -13,10 +13,10 @@ YaYa is a calendar app built with Kotlin Multiplatform (KMP) + Compose Multiplat
 ./gradlew :androidApp:assembleDebug
 
 # Run shared module tests
-./gradlew :shared:allTests
+./gradlew :shared:testAndroidHostTest
 
 # Run a single test class
-./gradlew :shared:androidHostTest --tests "plus.rua.project.ComposeAppCommonTest"
+./gradlew :shared:testAndroidHostTest --tests "plus.rua.project.ui.CalendarUtilsTest"
 
 # Build iOS app — open iosApp/ in Xcode and run from there
 ```
