@@ -61,7 +61,7 @@ fun CalendarMonthView(
     val p = viewModel.collapseProgress
     val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
     val rowPaddingPx = with(density) { ROW_PADDING_DP.dp.toPx() }.toInt()
-    val cardGapPx = with(density) { CARD_GAP_DP.dp.toPx() }.toInt()
+    val cardGapPx = with(density) { lerp(CARD_GAP_EXPANDED_DP.toFloat(), CARD_GAP_COLLAPSED_DP.toFloat(), p).dp.toPx() }.toInt()
 
     val interpolatedWeeks by remember {
         derivedStateOf {
