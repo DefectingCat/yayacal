@@ -32,6 +32,7 @@ import plus.rua.project.CalendarViewModel
 
 private const val START_PAGE = Int.MAX_VALUE / 2
 private const val ROW_PADDING_DP = 4
+private const val HORIZONTAL_PADDING_DP = 16
 
 /**
  * 日历主界面，包含月/周视图切换和折叠动画。
@@ -89,8 +90,8 @@ fun CalendarMonthView(
     // 预估行高：DayCell aspectRatio=1，宽度 = (screenWidth - horizontalPadding) / 7
     // 加上 Row 的 vertical padding (4dp × 2)
     val estimatedRowHeightPx = if (screenWidthPx > 0) {
-        val cellWidth = (screenWidthPx - with(density) { 32.dp.toPx() }) / 7
-        val rowPadding = with(density) { 8.dp.toPx() }
+        val cellWidth = (screenWidthPx - with(density) { (HORIZONTAL_PADDING_DP * 2).dp.toPx() }) / 7
+        val rowPadding = with(density) { (ROW_PADDING_DP * 2).dp.toPx() }
         (cellWidth + rowPadding).toInt()
     } else 0
 
@@ -130,7 +131,7 @@ fun CalendarMonthView(
                 screenHeightPx = size.height
             }
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Column(modifier = Modifier.padding(horizontal = HORIZONTAL_PADDING_DP.dp)) {
             MonthHeader(
                 year = currentYear,
                 month = currentMonth,
@@ -140,9 +141,9 @@ fun CalendarMonthView(
                 }
             )
             WeekdayHeader(
-                modifier = Modifier.fillMaxWidth().onSizeChanged { size ->
+                modifier = Modifier.fillMaxWidth().padding(bottom = ROW_PADDING_DP.dp).onSizeChanged { size ->
                     weekdayHeaderHeightPx = size.height
-                }.padding(bottom = ROW_PADDING_DP.dp)
+                }
             )
             // 完全折叠且无动画时显示 WeekPager，否则显示 CalendarPager（含下拉恢复过程）
             if (viewModel.isCollapsed && viewModel.collapseProgress >= 1f) {
