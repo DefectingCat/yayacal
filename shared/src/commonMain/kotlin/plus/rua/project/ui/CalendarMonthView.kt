@@ -147,7 +147,8 @@ fun CalendarMonthView(
                         val weekSunday = weekMonday.plus(DatePeriod(days = 6))
                         val date = if (today in weekMonday..weekSunday) today else weekMonday
                         viewModel.selectDate(date)
-                    }
+                    },
+                    modifier = pagerModifier
                 )
             } else {
                 CalendarPager(

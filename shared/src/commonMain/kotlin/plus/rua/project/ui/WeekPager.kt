@@ -57,7 +57,7 @@ fun WeekPager(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 2.dp)
+                .padding(vertical = ROW_PADDING_DP.dp)
         ) {
             (0 until 7).forEach { dayOffset ->
                 val date = weekMonday.plus(DatePeriod(days = dayOffset))
