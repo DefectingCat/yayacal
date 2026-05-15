@@ -33,6 +33,7 @@ fun BottomCard(
 ) {
     val density = LocalDensity.current
     val dragRange = with(density) { DRAG_RANGE_DP.dp.toPx() }
+    println("BottomCard: isCollapsed=${viewModel.isCollapsed}, dragRange=$dragRange, progress=${viewModel.collapseProgress}")
 
     Surface(
         modifier = modifier

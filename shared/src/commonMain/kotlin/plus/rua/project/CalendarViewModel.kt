@@ -47,12 +47,14 @@ class CalendarViewModel(private val coroutineScope: CoroutineScope) {
     val currentMonth: Int get() = selectedDate.month.number
 
     fun selectDate(date: LocalDate) {
+        println("CalendarViewModel: selectDate $date (was $selectedDate)")
         selectedDate = date
     }
 
     fun onDrag(delta: Float) {
         coroutineScope.launch {
             val new = (_collapseAnimatable.value + delta).coerceIn(0f, 1f)
+            println("CalendarViewModel: onDrag delta=$delta, progress=${_collapseAnimatable.value} -> $new")
             _collapseAnimatable.snapTo(new)
         }
     }
@@ -61,17 +63,20 @@ class CalendarViewModel(private val coroutineScope: CoroutineScope) {
     fun onDragEnd() {
         coroutineScope.launch {
             val current = _collapseAnimatable.value
+            println("CalendarViewModel: onDragEnd current=$current, threshold=$COLLAPSE_THRESHOLD")
             if (current > COLLAPSE_THRESHOLD) {
                 _collapseAnimatable.animateTo(
                     targetValue = 1f,
                     animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
                 )
                 isCollapsed = true
+                println("CalendarViewModel: collapsed=true")
             } else {
                 _collapseAnimatable.animateTo(
                     targetValue = 0f,
                     animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
                 )
+                println("CalendarViewModel: snapped back to 0f")
             }
         }
     }
@@ -80,6 +85,7 @@ class CalendarViewModel(private val coroutineScope: CoroutineScope) {
     fun onExpandDrag(delta: Float) {
         coroutineScope.launch {
             val new = (_collapseAnimatable.value + delta).coerceIn(0f, 1f)
+            println("CalendarViewModel: onExpandDrag delta=$delta, progress=${_collapseAnimatable.value} -> $new")
             _collapseAnimatable.snapTo(new)
         }
     }
@@ -88,17 +94,20 @@ class CalendarViewModel(private val coroutineScope: CoroutineScope) {
     fun onExpandDragEnd() {
         coroutineScope.launch {
             val current = _collapseAnimatable.value
+            println("CalendarViewModel: onExpandDragEnd current=$current, threshold=$COLLAPSE_THRESHOLD")
             if (current < COLLAPSE_THRESHOLD) {
                 _collapseAnimatable.animateTo(
                     targetValue = 0f,
                     animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
                 )
                 isCollapsed = false
+                println("CalendarViewModel: expanded=false")
             } else {
                 _collapseAnimatable.animateTo(
                     targetValue = 1f,
                     animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
                 )
+                println("CalendarViewModel: snapped back to 1f")
             }
         }
     }
