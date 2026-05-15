@@ -52,12 +52,11 @@ fun CalendarMonthPage(
     }
 
     val hasSelectedWeek = selectedWeekIndex >= 0
-    val H = rowHeightPx.toFloat()
+    val h = rowHeightPx.toFloat()
 
     // 使用与 CalendarMonthView 一致的 effectiveWeeks 计算高度，避免滑动中高度不匹配
     val totalHeightDp = if (rowHeightPx > 0) {
-        val p = collapseProgress
-        val totalPx = H * (1 + (effectiveWeeks - 1) * (1f - p))
+        val totalPx = h * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))
         with(density) { totalPx.toDp() }
     } else {
         null
@@ -78,7 +77,7 @@ fun CalendarMonthPage(
             }
 
             val rowHeightDp = if (rowHeightPx > 0 && rowScale > 0.01f) {
-                with(density) { (H * rowScale).toDp() }
+                with(density) { (h * rowScale).toDp() }
             } else if (rowHeightPx <= 0) {
                 null
             } else {
@@ -87,14 +86,14 @@ fun CalendarMonthPage(
 
             val yOffsetDp = if (rowHeightPx > 0 && hasSelectedWeek) {
                 val yPx = when {
-                    isAbove -> weekIndex * H * (1f - collapseProgress)
-                    isSelected -> selectedWeekIndex * H * (1f - collapseProgress)
-                    isBelow -> selectedWeekIndex * H * (1f - collapseProgress) + H + (weekIndex - selectedWeekIndex - 1) * H * (1f - collapseProgress)
-                    else -> weekIndex * H
+                    isAbove -> weekIndex * h * (1f - collapseProgress)
+                    isSelected -> selectedWeekIndex * h * (1f - collapseProgress)
+                    isBelow -> selectedWeekIndex * h * (1f - collapseProgress) + h + (weekIndex - selectedWeekIndex - 1) * h * (1f - collapseProgress)
+                    else -> weekIndex * h
                 }
                 with(density) { yPx.toDp() }
             } else if (rowHeightPx > 0) {
-                val yPx = weekIndex * H
+                val yPx = weekIndex * h
                 with(density) { yPx.toDp() }
             } else {
                 0.dp
@@ -147,7 +146,7 @@ private fun generateMonthDays(year: Int, month: Int): List<DayData> {
     val offset = firstOfMonth.dayOfWeek.ordinal
     val startDate = firstOfMonth.minus(DatePeriod(days = offset))
     val nextMonth = if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
-    val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).dayOfMonth
+    val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).day
     val rows = ((offset + daysInMonth - 1) / 7) + 1
     val totalDays = rows * 7
 

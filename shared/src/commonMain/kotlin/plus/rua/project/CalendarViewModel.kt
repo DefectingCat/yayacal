@@ -137,7 +137,7 @@ class CalendarViewModel(private val coroutineScope: CoroutineScope) {
         val dayOfWeekOffset = firstOfMonth.dayOfWeek.ordinal
         val startDate = firstOfMonth.minus(DatePeriod(days = dayOfWeekOffset))
         val nextMonth = if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
-        val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).dayOfMonth
+        val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).day
         val rows = ((dayOfWeekOffset + daysInMonth - 1) / 7) + 1
         val totalDays = rows * 7
 

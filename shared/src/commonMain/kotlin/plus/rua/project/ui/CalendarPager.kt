@@ -1,9 +1,8 @@
 package plus.rua.project.ui
 
-import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
-import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -109,6 +108,6 @@ internal fun calculateWeeksCount(year: Int, month: Int): Int {
     val firstOfMonth = LocalDate(year, month, 1)
     val offset = firstOfMonth.dayOfWeek.ordinal
     val nextMonth = if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
-    val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).dayOfMonth
+    val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).day
     return ((offset + daysInMonth - 1) / 7) + 1
 }
