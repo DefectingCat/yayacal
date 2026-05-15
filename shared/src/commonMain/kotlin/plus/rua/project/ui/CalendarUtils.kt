@@ -38,6 +38,10 @@ fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - star
 
 /**
  * 计算月份在日历网格中需要的行数（4/5/6）。
+ *
+ * @param year 年份
+ * @param month 月份（1-12）
+ * @return 网格行数
  */
 fun calculateWeeksCount(year: Int, month: Int): Int {
     val firstOfMonth = LocalDate(year, month, 1)
@@ -49,9 +53,14 @@ fun calculateWeeksCount(year: Int, month: Int): Int {
 
 /**
  * 根据 pager 页码计算该页月份的行数。
+ *
+ * @param page 分页器页码
+ * @param today 今天的日期，用于确定起始月份
+ * @return 网格行数
  */
 fun calculateWeeksCountForPage(page: Int, today: LocalDate): Int {
     val initialYear = today.year
+    @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val initialMonth = today.month.number
     val offset = page - START_PAGE
     val totalMonths = initialYear * 12 + (initialMonth - 1) + offset
@@ -62,6 +71,14 @@ fun calculateWeeksCountForPage(page: Int, today: LocalDate): Int {
 
 /**
  * 页码转年月。
+ *
+ * 中心页 (Int.MAX_VALUE/2) 对应起始月份，向左递减、向右递增，
+ * 自动处理跨年（12月→1月）。
+ *
+ * @param page 分页器页码
+ * @param initialYear 起始年份（中心页对应的年份）
+ * @param initialMonth 起始月份（中心页对应的月份，1-12）
+ * @return Pair(year, month)
  */
 fun pageToYearMonth(page: Int, initialYear: Int, initialMonth: Int): Pair<Int, Int> {
     val offset = page - START_PAGE
@@ -71,6 +88,14 @@ fun pageToYearMonth(page: Int, initialYear: Int, initialMonth: Int): Pair<Int, I
 
 /**
  * 年月转页码。
+ *
+ * [pageToYearMonth] 的逆运算，用于点击跨月日期时定位目标页。
+ *
+ * @param year 目标年份
+ * @param month 目标月份（1-12）
+ * @param initialYear 起始年份
+ * @param initialMonth 起始月份
+ * @return 分页器页码
  */
 fun yearMonthToPage(year: Int, month: Int, initialYear: Int, initialMonth: Int): Int {
     val targetTotal = year * 12 + (month - 1)
@@ -80,6 +105,11 @@ fun yearMonthToPage(year: Int, month: Int, initialYear: Int, initialMonth: Int):
 
 /**
  * 获取日期所在周的周一。
+ *
+ * ISO 8601 周从周一开始。周一返回自身，其他日期回退到该周周一。
+ *
+ * @receiver 目标日期
+ * @return 该日期所在周的周一
  */
 fun LocalDate.toWeekMonday(): LocalDate {
     val dayOfWeekOrdinal = dayOfWeek.ordinal
@@ -88,6 +118,12 @@ fun LocalDate.toWeekMonday(): LocalDate {
 
 /**
  * 根据 pager 页码计算该页对应的周周一日期。
+ *
+ * 中心页对应参考周一，向左/右每页偏移一周。用于 WeekPager 的单周视图渲染。
+ *
+ * @param page 分页器页码
+ * @param initial 参考周一日期（中心页对应的周一）
+ * @return 该页周一的 LocalDate
  */
 fun pageToWeekMonday(page: Int, initial: LocalDate): LocalDate {
     val offset = page - START_PAGE

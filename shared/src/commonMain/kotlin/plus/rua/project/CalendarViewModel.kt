@@ -19,6 +19,14 @@ import kotlin.time.Clock
 import plus.rua.project.ui.COLLAPSE_THRESHOLD
 import plus.rua.project.ui.FLING_VELOCITY_THRESHOLD_DP
 
+/**
+ * 日历日期数据，用于网格单元格渲染。
+ *
+ * @param date 日期
+ * @param isCurrentMonth 是否属于当前显示月份
+ * @param isToday 是否为今天
+ * @param isSelected 是否为选中日期
+ */
 data class CalendarDay(
     val date: LocalDate,
     val isCurrentMonth: Boolean,
@@ -30,6 +38,7 @@ data class CalendarDay(
  * 日历状态管理，持有选中日期、折叠状态和 ISO 周号计算逻辑。
  *
  * @param coroutineScope 协程作用域，用于驱动折叠动画
+ * @param clock 时钟源，默认系统时钟；测试时可注入固定时钟
  */
 class CalendarViewModel(
     private val coroutineScope: CoroutineScope,
@@ -47,13 +56,25 @@ class CalendarViewModel(
     private val _collapseAnimatable = Animatable(0f)
     val collapseProgress: Float get() = _collapseAnimatable.value
 
-    val currentYear: Int get() = selectedDate.year
+    @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val currentMonth: Int get() = selectedDate.month.number
 
+    val currentYear: Int get() = selectedDate.year
+
+    /**
+     * 选中指定日期。
+     *
+     * @param date 目标日期
+     */
     fun selectDate(date: LocalDate) {
         selectedDate = date
     }
 
+    /**
+     * 展开状态下拖拽折叠，delta 正值推动 progress 向 1（折叠方向）。
+     *
+     * @param delta 拖拽增量，已归一化到 [0,1] 区间
+     */
     fun onDrag(delta: Float) {
         coroutineScope.launch {
             val new = (_collapseAnimatable.value + delta).coerceIn(0f, 1f)
@@ -61,8 +82,13 @@ class CalendarViewModel(
         }
     }
 
-    // 拖拽超过阈值时自动折叠到周视图，否则回弹到月视图
-    // velocityDpPerSec: 松手时的 fling 速度 (dp/s)，正值=上滑（折叠方向），负值=下滑（展开方向）
+    /**
+     * 展开状态拖拽结束，根据进度和速度决定折叠或回弹。
+     *
+     * 拖拽超过阈值时自动折叠到周视图，否则回弹到月视图。
+     *
+     * @param velocityDpPerSec 松手时的 fling 速度 (dp/s)，正值=上滑（折叠方向），负值=下滑（展开方向）
+     */
     fun onDragEnd(velocityDpPerSec: Float = 0f) {
         coroutineScope.launch {
             val progress = _collapseAnimatable.value
@@ -86,7 +112,11 @@ class CalendarViewModel(
         }
     }
 
-    // 折叠状态下下拉恢复：delta 为负值（向下拖）推动 progress 向 0
+    /**
+     * 折叠状态下下拉恢复，delta 为负值（向下拖）推动 progress 向 0。
+     *
+     * @param delta 拖拽增量，已归一化到 [0,1] 区间
+     */
     fun onExpandDrag(delta: Float) {
         coroutineScope.launch {
             val new = (_collapseAnimatable.value + delta).coerceIn(0f, 1f)
@@ -94,8 +124,13 @@ class CalendarViewModel(
         }
     }
 
-    // 下拉超过阈值时自动展开到月视图，否则回弹到周视图
-    // velocityDpPerSec: 同上，正值=上滑，负值=下滑
+    /**
+     * 折叠状态拖拽结束，根据进度和速度决定展开或回弹。
+     *
+     * 下拉超过阈值时自动展开到月视图，否则回弹到周视图。
+     *
+     * @param velocityDpPerSec 松手时的 fling 速度 (dp/s)，正值=上滑，负值=下滑
+     */
     fun onExpandDragEnd(velocityDpPerSec: Float = 0f) {
         coroutineScope.launch {
             val progress = _collapseAnimatable.value
@@ -149,6 +184,16 @@ class CalendarViewModel(
         return diff / 7 + 1
     }
 
+    /**
+     * 计算给定年月的日历网格数据，包含跨月填充至完整行。
+     *
+     * 网格行数按实际需要计算（4/5/6行），每行7格，首行从该月1号所在周的周一开始。
+     *
+     * @param year 年份
+     * @param month 月份（1-12）
+     * @return 日历网格列表，每项包含日期、是否当月、是否今天、是否选中
+     */
+    @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     fun getMonthDays(year: Int, month: Int): List<CalendarDay> {
         val firstOfMonth = LocalDate(year, month, 1)
         val dayOfWeekOffset = firstOfMonth.dayOfWeek.ordinal

@@ -17,12 +17,18 @@ import kotlinx.datetime.number
 /**
  * 月度日历分页器，HorizontalPager 实现无限左右滑动切换月份。
  *
+ * 使用 Int.MAX_VALUE 页数，中心页为起始月份。点击跨月日期时自动滚动到对应页。
+ * 跳过初始 snapshotFlow 发射以保留"今天"选中状态。
+ *
  * @param selectedDate 当前选中日期
  * @param today 今天的日期
  * @param onDateClick 日期点击回调
- * @param onMonthChanged 月份切换回调，滑动到新月份时触发
+ * @param onMonthChanged 月份切换回调，滑动到新月份稳定后触发
  * @param collapseProgress 折叠进度，0f=展开，1f=折叠
- * @param rowHeightPx 从外层传入的锁定行高（像素），折叠过程中不变
+ * @param rowHeightPx 锁定行高（像素）
+ * @param effectiveWeeks 当前有效行数（含翻页插值）
+ * @param onRowHeightMeasured 首次行高测量回调
+ * @param pagerState 外层共享的 PagerState，用于保持翻页状态
  * @param modifier 外部布局修饰符
  */
 @Composable
@@ -39,10 +45,11 @@ fun CalendarPager(
     modifier: Modifier = Modifier
 ) {
     val initialYear = remember { today.year }
+    @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val initialMonth = remember { today.month.number }
     val coroutineScope = rememberCoroutineScope()
 
-    // Sync settled page to onMonthChanged (skip initial emission to preserve "today" selection)
+    // 跳过初始发射，保留首次渲染时的"今天"选中状态
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.drop(1).collect { page ->
             val yearMonth = pageToYearMonth(page, initialYear, initialMonth)
@@ -63,9 +70,10 @@ fun CalendarPager(
             selectedDate = selectedDate,
             today = today,
             onDateClick = { date ->
-                onDateClick(date)
-                // If clicking a date in a different month, scroll to that page
-                val clickedYear = date.year
+                    onDateClick(date)
+                    // 点击跨月日期时，滚动到该月对应的页
+                    val clickedYear = date.year
+                @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
                 val clickedMonth = date.month.number
                 if (clickedYear != year || clickedMonth != month) {
                     val targetPage = yearMonthToPage(clickedYear, clickedMonth, initialYear, initialMonth)

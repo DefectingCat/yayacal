@@ -26,7 +26,16 @@ import kotlinx.datetime.plus
  * 折叠时非选中行高度按 (1-p) 缩放，选中行保持原始高度，
  * 所有行通过手动 y-offset 定位，形成向选中行收缩的视觉效果。
  *
+ * @param year 年份
+ * @param month 月份（1-12）
+ * @param selectedDate 当前选中日期
+ * @param today 今天的日期，用于高亮标记
+ * @param onDateClick 日期点击回调
+ * @param collapseProgress 折叠进度，0f=展开，1f=折叠
  * @param rowHeightPx 从外层传入的锁定行高（像素），折叠过程中不变
+ * @param effectiveWeeks 当前有效行数（含翻页插值），用于计算总高度
+ * @param onRowHeightMeasured 首次行高测量回调，外层据此锁定行高
+ * @param modifier 外部布局修饰符
  */
 @Composable
 fun CalendarMonthPage(
@@ -143,6 +152,7 @@ private data class DayData(
     val isCurrentMonth: Boolean
 )
 
+@Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
 private fun generateMonthDays(year: Int, month: Int): List<DayData> {
     val firstOfMonth = LocalDate(year, month, 1)
     val offset = firstOfMonth.dayOfWeek.ordinal

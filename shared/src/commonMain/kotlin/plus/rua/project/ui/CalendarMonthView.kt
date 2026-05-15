@@ -47,6 +47,7 @@ fun CalendarMonthView(
     val viewModel = remember { CalendarViewModel(coroutineScope) }
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
     val currentYear by remember { derivedStateOf { viewModel.selectedDate.year } }
+    @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val currentMonth by remember { derivedStateOf { viewModel.selectedDate.month.number } }
     val density = LocalDensity.current
 
@@ -64,6 +65,7 @@ fun CalendarMonthView(
     val cardGapPx = with(density) { lerp(CARD_GAP_EXPANDED_DP.toFloat(), CARD_GAP_COLLAPSED_DP.toFloat(), collapseProgress).dp.toPx() }.toInt()
 
     // 翻页时在相邻月份行数之间插值，使 BottomCard 高度平滑过渡
+    // abs(fraction) > 阈值时启用插值，避免静止时的浮点抖动
     val interpolatedWeeks by remember {
         derivedStateOf {
             val fraction = pagerState.currentPageOffsetFraction
@@ -80,7 +82,7 @@ fun CalendarMonthView(
     }
 
     // 预估行高：DayCell aspectRatio=1，宽度 = (screenWidth - horizontalPadding) / 7
-    // 加上 Row 的 vertical padding (4dp × 2)
+    // 加上 Row 的 vertical padding (6dp × 2)
     // 用于 rowHeightPx 尚未测量时的 fallback，避免首次布局高度为 0
     val estimatedRowHeightPx = if (screenWidthPx > 0) {
         val cellWidth = (screenWidthPx - with(density) { (HORIZONTAL_PADDING_DP * 2).dp.toPx() }) / 7
@@ -95,8 +97,8 @@ fun CalendarMonthView(
     // 折叠时网格高度公式（与 CalendarMonthPage 一致）：
     // collapseProgress=0 展开时 gridH = rowH × weeks；collapseProgress=1 折叠时 gridH = rowH × 1
     // 中间态：gridH = rowH × (1 + (weeks-1) × (1-collapseProgress))
-    // 必须直接计算而非 derivedStateOf：effectiveRowHeightPx 依赖 rowHeightPx state，
-    // derivedStateOf 无法追踪非 State 局部变量变化，导致 rowHeightPx 从 0 变为测量值时 gridHeightPx 不更新
+    // 直接计算而非 derivedStateOf：effectiveRowHeightPx 依赖 rowHeightPx state，
+    // derivedStateOf 无法追踪非 State 局部变量，rowHeightPx 从 0 变为测量值时 gridHeightPx 不会更新
     val gridHeightPx = if (effectiveRowHeightPx > 0) {
         val rowH = effectiveRowHeightPx.toFloat()
         if (collapseProgress > OFFSET_FRACTION_THRESHOLD) {
@@ -110,7 +112,7 @@ fun CalendarMonthView(
     val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx + cardGapPx
     val cardHeightPx = if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
 
-    // 行高已知时约束 pager 高度，防止内容溢出；否则让 pager 自由扩展以触发首次行高测量
+    // 行高已知时约束 pager 高度防止内容溢出；否则让 pager 自由扩展以触发首次行高测量
     val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
         Modifier
             .height(with(density) { gridHeightPx.toDp() })
@@ -164,6 +166,7 @@ fun CalendarMonthView(
                     onDateClick = { date -> viewModel.selectDate(date) },
                     onMonthChanged = { year, month ->
                         // 优先选中当月内的今天，否则选中该月1号
+                        @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
                         val date = if (year == today.year && today.month.number == month) today
                                    else LocalDate(year, month, 1)
                         viewModel.selectDate(date)
