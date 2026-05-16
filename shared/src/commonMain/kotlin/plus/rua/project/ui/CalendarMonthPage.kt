@@ -126,7 +126,10 @@ fun CalendarMonthPage(
                             if (rowHeightPx > 0) Modifier.height(with(density) { h.toDp() })
                             else Modifier
                         )
-                        .background(MaterialTheme.colorScheme.surface)
+                        .then(
+                            if (isAnchor) Modifier.background(MaterialTheme.colorScheme.surface)
+                            else Modifier
+                        )
                         .offset(y = yOffsetDp)
                         .then(
                             if (weekIndex == 0 && rowHeightPx == 0) {
