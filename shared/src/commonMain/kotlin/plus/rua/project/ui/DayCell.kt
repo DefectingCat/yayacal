@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
@@ -106,6 +108,10 @@ fun DayCell(
     Box(
         modifier = modifier
             .aspectRatio(1f)
+            .semantics {
+                @Suppress("DEPRECATION")
+                contentDescription = "${date.year}年${date.monthNumber}月${date.day}日"
+            }
             .clip(CircleShape)
             .drawBehind {
                 if (revealProgress > 0f) {

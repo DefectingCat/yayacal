@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -87,7 +86,7 @@ fun BottomCard(
                     .align(Alignment.TopCenter)
                     .padding(top = 8.dp, bottom = 8.dp)
                     .clip(RoundedCornerShape(2.dp))
-                    .background(Color.Gray.copy(alpha = 0.4f))
+                    .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
                     .fillMaxWidth(0.15f)
                     .height(4.dp)
             )
