@@ -260,6 +260,7 @@ fun CalendarMonthView(
                                 viewModel.selectDate(date)
                             },
                             shiftKindAt = { date -> viewModel.shiftKindAt(date) },
+                            showLegalHoliday = viewModel.showLegalHoliday,
                             modifier = pagerModifier
                         )
                     } else {
@@ -277,6 +278,7 @@ fun CalendarMonthView(
                             rowHeightPx = rowHeightPx,
                             effectiveWeeks = effectiveWeeks,
                             shiftKindAt = { date -> viewModel.shiftKindAt(date) },
+                            showLegalHoliday = viewModel.showLegalHoliday,
                             onRowHeightMeasured = { h ->
                                 if (h > 0) rowHeightPx = h
                             },

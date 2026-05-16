@@ -91,6 +91,12 @@ class CalendarViewModel(
     fun shiftKindAt(date: LocalDate): ShiftKind? = shiftPattern?.kindAt(date)
 
     /**
+     * 是否在右上角显示法定调休角标。默认禁用,此时右上角让位给个人排班。
+     * 开启后回到旧版布局:左上角=排班,右上角=法定调休。后续接入设置页持久化。
+     */
+    var showLegalHoliday by mutableStateOf(false)
+
+    /**
      * 选中指定日期。
      *
      * @param date 目标日期

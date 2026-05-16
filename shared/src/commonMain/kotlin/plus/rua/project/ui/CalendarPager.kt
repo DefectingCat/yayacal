@@ -30,6 +30,8 @@ import kotlin.math.abs
  * @param collapseProgress 折叠进度，0f=展开，1f=折叠
  * @param rowHeightPx 锁定行高（像素）
  * @param effectiveWeeks 当前有效行数（含翻页插值）
+ * @param shiftKindAt 日期 → 个人轮班类型的查询闭包
+ * @param showLegalHoliday 是否显示法定调休角标。详见 [DayCell] 的同名参数。
  * @param onRowHeightMeasured 首次行高测量回调
  * @param pagerState 外层共享的 PagerState，用于保持翻页状态
  * @param modifier 外部布局修饰符
@@ -44,6 +46,7 @@ fun CalendarPager(
     rowHeightPx: Int,
     effectiveWeeks: Float,
     shiftKindAt: (LocalDate) -> ShiftKind?,
+    showLegalHoliday: Boolean,
     onRowHeightMeasured: ((Int) -> Unit)? = null,
     pagerState: PagerState,
     modifier: Modifier = Modifier
@@ -97,6 +100,7 @@ fun CalendarPager(
             rowHeightPx = rowHeightPx,
             effectiveWeeks = effectiveWeeks,
             shiftKindAt = shiftKindAt,
+            showLegalHoliday = showLegalHoliday,
             onRowHeightMeasured = onRowHeightMeasured,
             modifier = Modifier.alpha(alpha)
         )

@@ -38,6 +38,8 @@ import plus.rua.project.ShiftKind
  * @param collapseProgress 折叠进度，0f=展开，1f=折叠
  * @param rowHeightPx 从外层传入的锁定行高（像素），折叠过程中不变
  * @param effectiveWeeks 当前有效行数（含翻页插值），用于计算总高度
+ * @param shiftKindAt 日期 → 个人轮班类型的查询闭包
+ * @param showLegalHoliday 是否显示法定调休角标。详见 [DayCell] 的同名参数。
  * @param onRowHeightMeasured 首次行高测量回调，外层据此锁定行高
  * @param modifier 外部布局修饰符
  */
@@ -52,6 +54,7 @@ fun CalendarMonthPage(
     rowHeightPx: Int,
     effectiveWeeks: Float,
     shiftKindAt: (LocalDate) -> ShiftKind?,
+    showLegalHoliday: Boolean,
     onRowHeightMeasured: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -155,6 +158,7 @@ fun CalendarMonthPage(
                             isSelected = dayData.date == selectedDate,
                             isToday = dayData.date == today,
                             shiftKind = shiftKindAt(dayData.date),
+                            showLegalHoliday = showLegalHoliday,
                             onClick = { onDateClick(dayData.date) },
                             modifier = Modifier.weight(1f)
                         )

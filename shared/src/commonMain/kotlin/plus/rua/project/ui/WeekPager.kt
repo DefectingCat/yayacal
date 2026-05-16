@@ -28,6 +28,8 @@ import kotlin.math.abs
  * @param today 今天的日期
  * @param onDateClick 日期点击回调
  * @param onWeekChanged 周切换回调，滑动到新周时触发，参数为该周周一日期
+ * @param shiftKindAt 日期 → 个人轮班类型的查询闭包
+ * @param showLegalHoliday 是否显示法定调休角标。详见 [DayCell] 的同名参数。
  * @param modifier 外部布局修饰符
  */
 @Composable
@@ -37,6 +39,7 @@ fun WeekPager(
     onDateClick: (LocalDate) -> Unit,
     onWeekChanged: (LocalDate) -> Unit,
     shiftKindAt: (LocalDate) -> ShiftKind?,
+    showLegalHoliday: Boolean,
     modifier: Modifier = Modifier
 ) {
     val initialWeekMonday = remember { selectedDate.toWeekMonday() }
@@ -85,6 +88,7 @@ fun WeekPager(
                     isSelected = date == selectedDate,
                     isToday = date == today,
                     shiftKind = shiftKindAt(date),
+                    showLegalHoliday = showLegalHoliday,
                     onClick = { onDateClick(date) },
                     modifier = Modifier.weight(1f)
                 )

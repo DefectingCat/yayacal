@@ -49,7 +49,10 @@ enum class DayCellState {
  * @param isCurrentMonth 是否属于当前显示月份
  * @param isSelected 是否为选中日期
  * @param isToday 是否为今天
- * @param shiftKind 个人轮班类型,左上角胶囊显示;null 表示不显示。与法定调休完全独立。
+ * @param shiftKind 个人轮班类型;null 表示不显示。与法定调休完全独立。
+ * @param showLegalHoliday 是否显示法定调休角标。
+ *   false(默认):排班放右上角,左上角空白,不显示法定调休。
+ *   true:排班放左上角,法定调休放右上角(旧版布局)。
  * @param onClick 点击回调
  * @param modifier 外部布局修饰符
  */
@@ -60,6 +63,7 @@ fun DayCell(
     isSelected: Boolean,
     isToday: Boolean,
     shiftKind: ShiftKind?,
+    showLegalHoliday: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -259,6 +263,13 @@ fun DayCell(
             }
             val shiftLabel = if (shiftKind == ShiftKind.WORK) "班" else "休"
             val shiftAlpha = if (isCurrentMonth) 1f else 0.38f
+            // showLegalHoliday=true 时排班让位左上角,法定调休占右上角;否则排班独占右上角
+            val shiftAlignment = if (showLegalHoliday) Alignment.TopStart else Alignment.TopEnd
+            val shiftPadding = if (showLegalHoliday) {
+                Modifier.padding(top = 1.dp, start = 2.dp)
+            } else {
+                Modifier.padding(top = 1.dp, end = 2.dp)
+            }
             Text(
                 text = shiftLabel,
                 color = shiftFgColor.copy(alpha = shiftAlpha),
@@ -266,14 +277,14 @@ fun DayCell(
                 fontWeight = FontWeight.Bold,
                 lineHeight = 9.sp,
                 modifier = Modifier
-                    .align(Alignment.TopStart)
+                    .align(shiftAlignment)
                     .zIndex(1f)
-                    .padding(top = 1.dp, start = 2.dp)
+                    .then(shiftPadding)
                     .background(shiftBgColor.copy(alpha = shiftAlpha), CircleShape)
                     .padding(horizontal = 2.dp)
             )
         }
-        if (holidayBadge != null) {
+        if (showLegalHoliday && holidayBadge != null) {
             Text(
                 text = holidayBadge,
                 color = holidayBadgeColor.copy(alpha = holidayBadgeAlpha),
