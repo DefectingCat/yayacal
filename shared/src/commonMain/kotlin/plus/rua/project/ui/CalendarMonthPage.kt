@@ -2,7 +2,6 @@ package plus.rua.project.ui
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
@@ -23,10 +22,10 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
 /**
- * 月度日历网格页面，支持折叠动画。
+ * 月度日历网格页面，支持逐行向上滑出的折叠动画。
  *
- * 折叠时非选中行高度按 (1-p) 缩放，选中行保持原始高度，
- * 所有行通过手动 y-offset 定位，形成向选中行收缩的视觉效果。
+ * 折叠时锚定行（包含选中日期）平滑移动到顶部固定，其余行从上到下依次向上滑出并淡出。
+ * 下方行从锚定行背后经过（z-index 遮挡），所有行高度不变，仅做 y 平移。
  *
  * @param year 年份
  * @param month 月份（1-12）
@@ -58,14 +57,19 @@ fun CalendarMonthPage(
     val density = LocalDensity.current
 
     val weeks = days.chunked(7)
-    val selectedWeekIndex = remember(weeks, selectedDate) {
+    val anchorIndex = remember(weeks, selectedDate) {
         weeks.indexOfFirst { week -> week.any { it.date == selectedDate } }
     }
-
-    val hasSelectedWeek = selectedWeekIndex >= 0
+    val hasAnchor = anchorIndex >= 0
     val h = rowHeightPx.toFloat()
 
-    // 使用与 CalendarMonthView 一致的 effectiveWeeks 计算高度，避免滑动中高度不匹配
+    // Stagger 参数：每行的动画延迟和持续时间
+    val totalNonAnchor = if (hasAnchor) weeks.size - 1 else weeks.size
+    val staggerGap = if (totalNonAnchor > 1) 0.5f / totalNonAnchor else 0f
+    val rowAnimDuration = if (totalNonAnchor > 1) {
+        (1f - (totalNonAnchor - 1) * staggerGap).coerceAtLeast(0.1f)
+    } else 1f
+
     val totalHeightDp = if (rowHeightPx > 0) {
         val totalPx = h * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))
         with(density) { totalPx.toDp() }
@@ -80,49 +84,46 @@ fun CalendarMonthPage(
         )
     ) {
         weeks.forEachIndexed { weekIndex, week ->
-            val isSelected = hasSelectedWeek && weekIndex == selectedWeekIndex
-            val isAbove = hasSelectedWeek && weekIndex < selectedWeekIndex
-            val isBelow = hasSelectedWeek && weekIndex > selectedWeekIndex
+            val isAnchor = hasAnchor && weekIndex == anchorIndex
 
-            val rowScale = when {
-                isAbove || isBelow -> 1f - collapseProgress
-                else -> 1f
+            // 退出顺序：从上到下视觉顺序，锚定行跳过
+            val exitOrder = when {
+                !hasAnchor -> weekIndex
+                weekIndex < anchorIndex -> weekIndex
+                weekIndex == anchorIndex -> -1
+                else -> weekIndex - 1
             }
 
-            val rowHeightDp = if (rowHeightPx > 0 && rowScale > 0.01f) {
-                with(density) { (h * rowScale).toDp() }
-            } else if (rowHeightPx <= 0) {
-                null
-            } else {
-                0.dp
+            // 每行的局部进度（staggered）
+            val localProgress = when {
+                collapseProgress <= 0f -> 0f
+                isAnchor -> collapseProgress
+                exitOrder < 0 -> 0f
+                totalNonAnchor <= 1 -> collapseProgress
+                else -> ((collapseProgress - exitOrder * staggerGap) / rowAnimDuration).coerceIn(0f, 1f)
             }
 
-            val yOffsetDp = if (rowHeightPx > 0 && hasSelectedWeek) {
-                val yPx = when {
-                    isAbove -> weekIndex * h * (1f - collapseProgress)
-                    isSelected -> selectedWeekIndex * h * (1f - collapseProgress)
-                    isBelow -> selectedWeekIndex * h * (1f - collapseProgress) + h + (weekIndex - selectedWeekIndex - 1) * h * (1f - collapseProgress)
-                    else -> weekIndex * h
+            // Y 偏移
+            val yOffsetDp = if (rowHeightPx > 0) {
+                val yPx = if (isAnchor) {
+                    anchorIndex * h * (1f - localProgress)
+                } else {
+                    val originalY = weekIndex * h
+                    originalY - localProgress * (originalY + h)
                 }
                 with(density) { yPx.toDp() }
-            } else if (rowHeightPx > 0) {
-                val yPx = weekIndex * h
-                with(density) { yPx.toDp() }
-            } else {
-                0.dp
-            }
+            } else 0.dp
 
-            val shouldShow = rowHeightDp == null || rowHeightDp > 0.dp
+            // 淡出
+            val rowAlpha = if (isAnchor) 1f else (1f - localProgress).coerceIn(0f, 1f)
 
-            val skipDayCells = (isAbove || isBelow) && rowScale < 0.1f && collapseProgress > 0.9f
-
-            if (shouldShow) {
+            if (rowAlpha > 0.01f) {
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .zIndex(if (isSelected) 1f else 0f)
+                        .zIndex(if (isAnchor) 1f else 0f)
                         .then(
-                            if (rowHeightDp != null) Modifier.height(rowHeightDp)
+                            if (rowHeightPx > 0) Modifier.height(with(density) { h.toDp() })
                             else Modifier
                         )
                         .offset(y = yOffsetDp)
@@ -137,25 +138,19 @@ fun CalendarMonthPage(
                         )
                         .padding(vertical = ROW_PADDING_DP.dp)
                         .then(
-                            if (isAbove || isBelow) Modifier.graphicsLayer {
-                                alpha = 1f - collapseProgress
-                            }
+                            if (rowAlpha < 1f) Modifier.graphicsLayer { alpha = rowAlpha }
                             else Modifier
                         )
                 ) {
-                    if (skipDayCells) {
-                        Spacer(Modifier.weight(1f))
-                    } else {
-                        week.forEach { dayData ->
-                            DayCell(
-                                date = dayData.date,
-                                isCurrentMonth = dayData.isCurrentMonth,
-                                isSelected = dayData.date == selectedDate,
-                                isToday = dayData.date == today,
-                                onClick = { onDateClick(dayData.date) },
-                                modifier = Modifier.weight(1f)
-                            )
-                        }
+                    week.forEach { dayData ->
+                        DayCell(
+                            date = dayData.date,
+                            isCurrentMonth = dayData.isCurrentMonth,
+                            isSelected = dayData.date == selectedDate,
+                            isToday = dayData.date == today,
+                            onClick = { onDateClick(dayData.date) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
