@@ -94,6 +94,7 @@ class CalendarViewModel(
                 )
                 isYearView = false
             } else {
+                yearViewYear = selectedDate.year
                 isYearView = true
                 _yearViewAnimatable.snapTo(0f)
                 _yearViewAnimatable.animateTo(
