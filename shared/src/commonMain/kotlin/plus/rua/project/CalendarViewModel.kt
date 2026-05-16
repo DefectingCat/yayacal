@@ -1,7 +1,9 @@
 package plus.rua.project
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -61,6 +63,16 @@ class CalendarViewModel(
 
     val currentYear: Int get() = selectedDate.year
 
+    var isYearView by mutableStateOf(false)
+        private set
+
+    private val _yearViewAnimatable = Animatable(0f)
+    val yearViewProgress: Float get() = _yearViewAnimatable.value
+
+    @Suppress("DEPRECATION") // monthNumber 无替代 API
+    var yearViewYear by mutableStateOf(today.year)
+        private set
+
     /**
      * 选中指定日期。
      *
@@ -68,6 +80,51 @@ class CalendarViewModel(
      */
     fun selectDate(date: LocalDate) {
         selectedDate = date
+    }
+
+    /**
+     * 切换年视图。仅在展开态可用。
+     */
+    fun toggleYearView() {
+        if (isCollapsed) return
+        coroutineScope.launch {
+            if (isYearView) {
+                _yearViewAnimatable.animateTo(
+                    0f, tween(400, easing = FastOutSlowInEasing)
+                )
+                isYearView = false
+            } else {
+                isYearView = true
+                _yearViewAnimatable.snapTo(0f)
+                _yearViewAnimatable.animateTo(
+                    1f, tween(400, easing = FastOutSlowInEasing)
+                )
+            }
+        }
+    }
+
+    /**
+     * 从年视图选择月份后返回月视图。
+     */
+    @Suppress("DEPRECATION") // monthNumber 无替代 API
+    fun selectMonthFromYearView(month: Int) {
+        val date = if (yearViewYear == today.year && today.month.number == month) today
+        else LocalDate(yearViewYear, month, 1)
+        selectedDate = date
+        coroutineScope.launch {
+            _yearViewAnimatable.animateTo(
+                0f, tween(400, easing = FastOutSlowInEasing)
+            )
+            isYearView = false
+        }
+    }
+
+    fun incrementYear() {
+        yearViewYear++
+    }
+
+    fun decrementYear() {
+        yearViewYear--
     }
 
     /**

@@ -19,6 +19,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -34,10 +36,10 @@ import kotlin.math.abs
 import kotlin.time.Clock
 
 /**
- * 日历主界面，包含月/周视图切换和折叠动画。
+ * 日历主界面，包含月/周视图切换、折叠动画和年视图缩放转场。
  *
  * 折叠时日历从月视图收缩为周视图（1行），BottomCard 同步上移填充空间。
- * 支持动态行数（4/5/6行），滑动切换月份时 BottomCard 跟手移动。
+ * 点击月份标题切换年视图，以当前月为锚点缩放转场。
  *
  * @param modifier 外部布局修饰符
  */
@@ -59,11 +61,11 @@ fun CalendarMonthView(
     var rowHeightPx by remember { mutableIntStateOf(0) }
     var screenWidthPx by remember { mutableIntStateOf(0) }
     var screenHeightPx by remember { mutableIntStateOf(0) }
+    var calendarContentHeightPx by remember { mutableIntStateOf(0) }
 
     val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
 
-    // 折叠态 WeekPager 切月时，持续同步 CalendarPager 的 pagerState，
-    // 避免展开时 CalendarPager 首帧显示旧月份导致闪白
+    // 折叠态 WeekPager 切月时，持续同步 CalendarPager 的 pagerState
     LaunchedEffect(viewModel.selectedDate) {
         @Suppress("DEPRECATION") // monthNumber 无替代 API
         val targetPage = yearMonthToPage(
@@ -76,6 +78,7 @@ fun CalendarMonthView(
     }
 
     val collapseProgress = viewModel.collapseProgress
+    val yearProgress = viewModel.yearViewProgress
     val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
     val rowPaddingPx = with(density) { ROW_PADDING_DP.dp.toPx() }.toInt()
     val cardGapPx = with(density) {
@@ -86,8 +89,6 @@ fun CalendarMonthView(
         ).dp.toPx()
     }.toInt()
 
-    // 翻页时在相邻月份行数之间插值，使 BottomCard 高度平滑过渡
-    // abs(fraction) > 阈值时启用插值，避免静止时的浮点抖动
     val interpolatedWeeks by remember {
         derivedStateOf {
             val fraction = pagerState.currentPageOffsetFraction
@@ -103,9 +104,6 @@ fun CalendarMonthView(
         }
     }
 
-    // 预估行高：DayCell aspectRatio=1，宽度 = (screenWidth - horizontalPadding) / 7
-    // 加上 Row 的 vertical padding (6dp × 2)
-    // 用于 rowHeightPx 尚未测量时的 fallback，避免首次布局高度为 0
     val estimatedRowHeightPx = if (screenWidthPx > 0) {
         val cellWidth =
             (screenWidthPx - with(density) { (HORIZONTAL_PADDING_DP * 2).dp.toPx() }) / 7
@@ -114,14 +112,8 @@ fun CalendarMonthView(
     } else 0
 
     val effectiveRowHeightPx = if (rowHeightPx > 0) rowHeightPx else estimatedRowHeightPx
-
     val effectiveWeeks = interpolatedWeeks
 
-    // 折叠时网格高度公式（与 CalendarMonthPage 一致）：
-    // collapseProgress=0 展开时 gridH = rowH × weeks；collapseProgress=1 折叠时 gridH = rowH × 1
-    // 中间态：gridH = rowH × (1 + (weeks-1) × (1-collapseProgress))
-    // 直接计算而非 derivedStateOf：effectiveRowHeightPx 依赖 rowHeightPx state，
-    // derivedStateOf 无法追踪非 State 局部变量，rowHeightPx 从 0 变为测量值时 gridHeightPx 不会更新
     val gridHeightPx = if (effectiveRowHeightPx > 0) {
         val rowH = effectiveRowHeightPx.toFloat()
         if (collapseProgress > OFFSET_FRACTION_THRESHOLD) {
@@ -131,12 +123,10 @@ fun CalendarMonthView(
         }
     } else 0
 
-    // BottomCard 高度 = 屏幕剩余空间（屏幕高度 - 日历区域高度）
     val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx + cardGapPx
     val cardHeightPx =
         if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
 
-    // 行高已知时约束 pager 高度防止内容溢出；否则让 pager 自由扩展以触发首次行高测量
     val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
         Modifier
             .height(with(density) { gridHeightPx.toDp() })
@@ -144,6 +134,18 @@ fun CalendarMonthView(
     } else {
         Modifier
     }
+
+    // 年视图锚点缩放：当前月在 4×3 网格中的归一化位置
+    val anchorPivotX = ((currentMonth - 1) % 3 + 0.5f) / 3f
+    val anchorPivotY = ((currentMonth - 1) / 3 + 0.5f) / 4f
+
+    // 月视图层缩放：从 1f 缩小到 ~0.3f（年网格单格 vs 月视图大小比）
+    val monthScale = 1f - yearProgress * 0.7f
+    val monthAlpha = (1f - yearProgress * 1.4f).coerceIn(0f, 1f)
+
+    // 年视图层缩放：从 ~3.3f 放大到 1f
+    val yearScale = lerp(3.3f, 1f, yearProgress)
+    val yearAlpha = ((yearProgress - 0.2f) / 0.8f).coerceIn(0f, 1f)
 
     Box(
         modifier = modifier
@@ -154,12 +156,25 @@ fun CalendarMonthView(
                 screenHeightPx = size.height
             }
     ) {
-        Column(modifier = Modifier.padding(horizontal = HORIZONTAL_PADDING_DP.dp)) {
+        // 月视图层
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    scaleX = monthScale
+                    scaleY = monthScale
+                    alpha = monthAlpha
+                    transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
+                }
+                .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
+        ) {
             MonthHeader(
                 year = currentYear,
                 month = currentMonth,
                 weekNumber = viewModel.getIsoWeekNumber(viewModel.selectedDate),
-                onClick = {
+                showToday = viewModel.selectedDate != today,
+                onToggleYearView = { viewModel.toggleYearView() },
+                onToday = {
                     viewModel.selectDate(today)
                     @Suppress("DEPRECATION") // monthNumber 无替代 API
                     val targetPage = yearMonthToPage(
@@ -180,8 +195,6 @@ fun CalendarMonthView(
                         weekdayHeaderHeightPx = size.height
                     }
             )
-            // 完全折叠且无动画时切换到 WeekPager（单行高效渲染），
-            // 否则使用 CalendarPager（含折叠动画和下拉恢复过程）
             if (viewModel.isCollapsed && viewModel.collapseProgress >= 1f) {
                 WeekPager(
                     selectedDate = viewModel.selectedDate,
@@ -193,11 +206,9 @@ fun CalendarMonthView(
                             today in weekMonday..weekSunday -> today
                             weekMonday.month != weekSunday.month -> {
                                 if (weekMonday < viewModel.selectedDate) {
-                                    // 后退到跨月周（如从5月回到4月27-5月3）：选较晚月份1号，留在当月
                                     @Suppress("DEPRECATION") // monthNumber 无替代 API
                                     LocalDate(weekSunday.year, weekSunday.month.number, 1)
                                 } else {
-                                    // 前进到跨月周（如从4月前进到4月27-5月3）：选该周周一，留在上个月
                                     weekMonday
                                 }
                             }
@@ -213,8 +224,7 @@ fun CalendarMonthView(
                     today = today,
                     onDateClick = { date -> viewModel.selectDate(date) },
                     onMonthChanged = { year, month ->
-                        // 优先选中当月内的今天，否则选中该月1号
-                        @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
+                        @Suppress("DEPRECATION") // monthNumber 无替代 API
                         val date = if (year == today.year && today.month.number == month) today
                         else LocalDate(year, month, 1)
                         viewModel.selectDate(date)
@@ -231,23 +241,58 @@ fun CalendarMonthView(
             }
         }
 
-        // 拖拽范围 = 折叠时日历实际高度变化量 (weeks-1)×rowHeight，使手指移动与视觉变化 1:1 对应
-        val dragRangeMinPx = with(density) { DRAG_RANGE_MIN_DP.dp.toPx() }
-        val dragRangePx = if (effectiveRowHeightPx > 0) {
-            maxOf((effectiveWeeks - 1) * effectiveRowHeightPx.toFloat(), dragRangeMinPx)
-        } else {
-            dragRangeMinPx
+        // 年视图层
+        if (viewModel.isYearView || yearProgress > 0.01f) {
+            YearGridView(
+                year = viewModel.yearViewYear,
+                selectedMonth = if (viewModel.yearViewYear == currentYear) currentMonth else 0,
+                onMonthClick = { month ->
+                    viewModel.selectMonthFromYearView(month)
+                    // 同步 CalendarPager 到目标月份
+                    @Suppress("DEPRECATION") // monthNumber 无替代 API
+                    val targetPage = yearMonthToPage(
+                        viewModel.yearViewYear, month,
+                        today.year, today.month.number
+                    )
+                    if (targetPage != pagerState.currentPage) {
+                        coroutineScope.launch { pagerState.scrollToPage(targetPage) }
+                    }
+                },
+                onYearChange = { newYear ->
+                    if (newYear > viewModel.yearViewYear) viewModel.incrementYear()
+                    else viewModel.decrementYear()
+                },
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        scaleX = yearScale
+                        scaleY = yearScale
+                        alpha = yearAlpha
+                        transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
+                    }
+                    .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
+            )
         }
 
-        if (cardHeightPx > 0) {
-            BottomCard(
-                viewModel = viewModel,
-                dragRangePx = dragRangePx,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(with(density) { cardHeightPx.toDp() })
-                    .align(Alignment.BottomCenter)
-            )
+        // BottomCard：年视图时隐藏
+        if (yearProgress < 0.01f) {
+            val dragRangeMinPx = with(density) { DRAG_RANGE_MIN_DP.dp.toPx() }
+            val dragRangePx = if (effectiveRowHeightPx > 0) {
+                maxOf((effectiveWeeks - 1) * effectiveRowHeightPx.toFloat(), dragRangeMinPx)
+            } else {
+                dragRangeMinPx
+            }
+
+            if (cardHeightPx > 0) {
+                BottomCard(
+                    viewModel = viewModel,
+                    dragRangePx = dragRangePx,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(with(density) { cardHeightPx.toDp() })
+                        .align(Alignment.BottomCenter)
+                )
+            }
         }
     }
 }
