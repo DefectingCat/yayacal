@@ -27,6 +27,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
+import kotlinx.coroutines.launch
 import plus.rua.project.CalendarViewModel
 import kotlin.math.abs
 import kotlin.time.Clock
@@ -144,6 +145,17 @@ fun CalendarMonthView(
                 year = currentYear,
                 month = currentMonth,
                 weekNumber = viewModel.getIsoWeekNumber(viewModel.selectedDate),
+                onClick = {
+                    viewModel.selectDate(today)
+                    @Suppress("DEPRECATION") // monthNumber 无替代 API
+                    val targetPage = yearMonthToPage(
+                        today.year, today.month.number,
+                        today.year, today.month.number
+                    )
+                    if (targetPage != pagerState.currentPage) {
+                        coroutineScope.launch { pagerState.animateScrollToPage(targetPage) }
+                    }
+                },
                 modifier = Modifier.onSizeChanged { size ->
                     monthHeaderHeightPx = size.height
                 }
