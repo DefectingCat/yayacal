@@ -246,6 +246,7 @@ fun CalendarMonthView(
             YearGridView(
                 year = viewModel.yearViewYear,
                 selectedMonth = if (viewModel.yearViewYear == currentYear) currentMonth else 0,
+                today = today,
                 onMonthClick = { month ->
                     viewModel.selectMonthFromYearView(month)
                     // 同步 CalendarPager 到目标月份
