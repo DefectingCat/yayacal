@@ -111,27 +111,68 @@ fun DayCell(
 
     val todayBorderColor = MaterialTheme.colorScheme.primary
 
-    val lunarText = remember(date) {
-        val lunarDay = SolarDay.fromYmd(date.year, date.monthNumber, date.day).getLunarDay()
+    data class DayAnnotation(val text: String, val isHighlight: Boolean)
+
+    val annotation = remember(date) {
+        val solarDay = SolarDay.fromYmd(date.year, date.monthNumber, date.day)
+        val lunarDay = solarDay.getLunarDay()
+
+        // 法定假日优先
+        val legalHoliday = solarDay.getLegalHoliday()
+        if (legalHoliday != null) {
+            val suffix = if (legalHoliday.isWork()) "班" else "休"
+            return@remember DayAnnotation("${legalHoliday.getName()}$suffix", true)
+        }
+
+        // 农历传统节日
+        val lunarFestival = lunarDay.getFestival()
+        if (lunarFestival != null) {
+            return@remember DayAnnotation(lunarFestival.getName(), true)
+        }
+
+        // 节气（当天才显示）
+        val termDay = solarDay.getTermDay()
+        if (termDay.getDayIndex() == 0) {
+            return@remember DayAnnotation(termDay.getSolarTerm().getName(), true)
+        }
+
+        // 公历节日
+        val solarFestival = solarDay.getFestival()
+        if (solarFestival != null) {
+            return@remember DayAnnotation(solarFestival.getName(), true)
+        }
+
+        // 默认：农历日期
         val name = lunarDay.getName()
-        if (name == "初一") {
+        val text = if (name == "初一") {
             val lunarMonth = lunarDay.getLunarMonth()
             "${lunarMonth.getName()}月"
         } else {
             name
         }
+        DayAnnotation(text, false)
     }
 
     val lunarColor by transition.animateColor(
         transitionSpec = { tween(250, easing = FastOutSlowInEasing) },
         label = "lunarColor"
     ) { state ->
-        when (state) {
-            DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
-            DayCellState.SELECTED -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
-            DayCellState.TODAY -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-            DayCellState.OTHER_MONTH -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.26f)
-            DayCellState.NORMAL -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        if (annotation.isHighlight) {
+            when (state) {
+                DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                DayCellState.SELECTED -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
+                DayCellState.TODAY -> MaterialTheme.colorScheme.primary
+                DayCellState.OTHER_MONTH -> MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                DayCellState.NORMAL -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+            }
+        } else {
+            when (state) {
+                DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                DayCellState.SELECTED -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+                DayCellState.TODAY -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                DayCellState.OTHER_MONTH -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.26f)
+                DayCellState.NORMAL -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+            }
         }
     }
 
@@ -174,7 +215,7 @@ fun DayCell(
                 style = MaterialTheme.typography.bodyMedium
             )
             Text(
-                text = lunarText,
+                text = annotation.text,
                 textAlign = TextAlign.Center,
                 color = lunarColor,
                 fontSize = 7.sp,
