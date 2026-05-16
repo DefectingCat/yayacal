@@ -1,5 +1,6 @@
 package plus.rua.project.ui
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,6 +16,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
+import androidx.compose.material3.MaterialTheme
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
@@ -124,6 +126,7 @@ fun CalendarMonthPage(
                             if (rowHeightPx > 0) Modifier.height(with(density) { h.toDp() })
                             else Modifier
                         )
+                        .background(MaterialTheme.colorScheme.surface)
                         .offset(y = yOffsetDp)
                         .then(
                             if (weekIndex == 0 && rowHeightPx == 0) {
