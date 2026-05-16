@@ -7,6 +7,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -101,6 +102,9 @@ class CalendarViewModel(
                 yearViewYear = selectedDate.year
                 isYearView = true
                 _yearViewAnimatable.snapTo(0f)
+                // 等待一帧让年视图先完成首次合成与布局，
+                // 避免首次进入年视图时动画时间被合成开销吞掉。
+                withFrameNanos { }
                 _yearViewAnimatable.animateTo(
                     1f, tween(400, easing = FastOutSlowInEasing)
                 )
