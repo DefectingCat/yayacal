@@ -179,21 +179,9 @@ fun CalendarMonthView(
                     today = today,
                     onDateClick = { date -> viewModel.selectDate(date) },
                     onWeekChanged = { weekMonday ->
+                        // 优先选中当周内的今天，否则选中该周周一
                         val weekSunday = weekMonday.plus(DatePeriod(days = 6))
-                        val date = when {
-                            today in weekMonday..weekSunday -> today
-                            weekMonday.month != weekSunday.month -> {
-                                if (weekMonday < viewModel.selectedDate) {
-                                    // 后退到跨月周（如从5月回到4月27-5月3）：选较晚月份1号
-                                    @Suppress("DEPRECATION") // monthNumber 无替代 API
-                                    LocalDate(weekSunday.year, weekSunday.month.number, 1)
-                                } else {
-                                    // 前进到跨月周（如从4月前进到4月27-5月3）：选该周周一
-                                    weekMonday
-                                }
-                            }
-                            else -> weekMonday
-                        }
+                        val date = if (today in weekMonday..weekSunday) today else weekMonday
                         viewModel.selectDate(date)
                     },
                     modifier = pagerModifier
