@@ -52,17 +52,6 @@ fun CalendarPager(
     val initialMonth = remember { today.month.number }
     val coroutineScope = rememberCoroutineScope()
 
-    // 展开后同步页面到 selectedDate 所在月份（修复折叠态切月后展开闪跳）
-    LaunchedEffect(Unit) {
-        @Suppress("DEPRECATION") // monthNumber 无替代 API
-        val targetPage = yearMonthToPage(
-            selectedDate.year, selectedDate.month.number, initialYear, initialMonth
-        )
-        if (targetPage != pagerState.currentPage) {
-            pagerState.scrollToPage(targetPage)
-        }
-    }
-
     // 跳过初始发射，保留首次渲染时的"今天"选中状态
     LaunchedEffect(pagerState) {
         snapshotFlow { pagerState.settledPage }.drop(1).collect { page ->
