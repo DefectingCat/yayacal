@@ -22,10 +22,10 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
 /**
- * 月度日历网格页面，支持逐行向上滑出的折叠动画。
+ * 月度日历网格页面，支持两阶段折叠动画。
  *
- * 折叠时锚定行（包含选中日期）平滑移动到顶部固定，其余行从上到下依次向上滑出并淡出。
- * 下方行从锚定行背后经过（z-index 遮挡），所有行高度不变，仅做 y 平移。
+ * Phase 1：所有行整体上移，直到选中行到达顶部 (y=0)，上方行被裁剪并淡出。
+ * Phase 2：选中行固定不动，下方行整体上移并淡出。
  *
  * @param year 年份
  * @param month 月份（1-12）
@@ -63,19 +63,27 @@ fun CalendarMonthPage(
     val hasAnchor = anchorIndex >= 0
     val h = rowHeightPx.toFloat()
 
-    // Stagger 参数：每行的动画延迟和持续时间
-    val totalNonAnchor = if (hasAnchor) weeks.size - 1 else weeks.size
-    val staggerGap = if (totalNonAnchor > 1) 0.5f / totalNonAnchor else 0f
-    val rowAnimDuration = if (totalNonAnchor > 1) {
-        (1f - (totalNonAnchor - 1) * staggerGap).coerceAtLeast(0.1f)
-    } else 1f
+    // Phase 1 结束点：选中行到顶部所需的比例
+    val phase1End = if (hasAnchor && anchorIndex > 0 && weeks.size > 1) {
+        anchorIndex.toFloat() / (weeks.size - 1)
+    } else 0f
+
+    val phase1 = if (phase1End > 0f) {
+        (collapseProgress / phase1End).coerceIn(0f, 1f)
+    } else if (collapseProgress > 0f) 1f else 0f
+
+    val phase2 = if (phase1End < 1f && collapseProgress > phase1End) {
+        ((collapseProgress - phase1End) / (1f - phase1End)).coerceIn(0f, 1f)
+    } else 0f
+
+    val belowRowsHeight = if (hasAnchor) {
+        (weeks.size - 1 - anchorIndex) * h
+    } else 0f
 
     val totalHeightDp = if (rowHeightPx > 0) {
         val totalPx = h * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))
         with(density) { totalPx.toDp() }
-    } else {
-        null
-    }
+    } else null
 
     Box(
         modifier = modifier.clipToBounds().then(
@@ -85,37 +93,27 @@ fun CalendarMonthPage(
     ) {
         weeks.forEachIndexed { weekIndex, week ->
             val isAnchor = hasAnchor && weekIndex == anchorIndex
+            val isAbove = hasAnchor && weekIndex < anchorIndex
+            val isBelow = hasAnchor && weekIndex > anchorIndex
 
-            // 退出顺序：从上到下视觉顺序，锚定行跳过
-            val exitOrder = when {
-                !hasAnchor -> weekIndex
-                weekIndex < anchorIndex -> weekIndex
-                weekIndex == anchorIndex -> -1
-                else -> weekIndex - 1
-            }
-
-            // 每行的局部进度（staggered）
-            val localProgress = when {
-                collapseProgress <= 0f -> 0f
-                isAnchor -> collapseProgress
-                exitOrder < 0 -> 0f
-                totalNonAnchor <= 1 -> collapseProgress
-                else -> ((collapseProgress - exitOrder * staggerGap) / rowAnimDuration).coerceIn(0f, 1f)
-            }
-
-            // Y 偏移
             val yOffsetDp = if (rowHeightPx > 0) {
-                val yPx = if (isAnchor) {
-                    anchorIndex * h * (1f - localProgress)
-                } else {
-                    val originalY = weekIndex * h
-                    originalY - localProgress * (originalY + h)
+                val yPx = when {
+                    !hasAnchor -> weekIndex * h - collapseProgress * weeks.size * h
+                    isAnchor -> anchorIndex * h * (1f - phase1)
+                    isAbove -> weekIndex * h - phase1 * anchorIndex * h
+                    isBelow -> weekIndex * h - phase1 * anchorIndex * h - phase2 * belowRowsHeight
+                    else -> weekIndex * h
                 }
                 with(density) { yPx.toDp() }
             } else 0.dp
 
-            // 淡出
-            val rowAlpha = if (isAnchor) 1f else (1f - localProgress).coerceIn(0f, 1f)
+            val rowAlpha = when {
+                !hasAnchor -> (1f - collapseProgress).coerceIn(0f, 1f)
+                isAnchor -> 1f
+                isAbove -> (1f - phase1).coerceIn(0f, 1f)
+                isBelow -> (1f - phase2).coerceIn(0f, 1f)
+                else -> 1f
+            }
 
             if (rowAlpha > 0.01f) {
                 Row(
