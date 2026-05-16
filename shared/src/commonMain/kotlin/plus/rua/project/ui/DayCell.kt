@@ -251,19 +251,23 @@ fun DayCell(
             }
         }
         if (shiftKind != null) {
-            val shiftBgColor = if (shiftKind == ShiftKind.WORK) {
+            val shiftAccentColor = if (shiftKind == ShiftKind.WORK) {
                 MaterialTheme.colorScheme.primary
             } else {
                 MaterialTheme.colorScheme.error
             }
-            val shiftFgColor = if (shiftKind == ShiftKind.WORK) {
+            val shiftOnAccentColor = if (shiftKind == ShiftKind.WORK) {
                 MaterialTheme.colorScheme.onPrimary
             } else {
                 MaterialTheme.colorScheme.onError
             }
             val shiftLabel = if (shiftKind == ShiftKind.WORK) "班" else "休"
             val shiftAlpha = if (isCurrentMonth) 1f else 0.38f
-            // showLegalHoliday=true 时排班让位左上角,法定调休占右上角;否则排班独占右上角
+            // 右上角(默认)沿用法定调休视觉:surface 背景 + 彩色文字;
+            // 左上角(showLegalHoliday=true 时)用实心胶囊,与右上角法定调休区分。
+            val shiftBgColor =
+                if (showLegalHoliday) shiftAccentColor else MaterialTheme.colorScheme.surface
+            val shiftFgColor = if (showLegalHoliday) shiftOnAccentColor else shiftAccentColor
             val shiftAlignment = if (showLegalHoliday) Alignment.TopStart else Alignment.TopEnd
             val shiftPadding = if (showLegalHoliday) {
                 Modifier.padding(top = 1.dp, start = 2.dp)
