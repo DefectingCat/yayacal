@@ -127,7 +127,7 @@ fun CalendarMonthPage(
                             else Modifier
                         )
                         .then(
-                            if (isAnchor) Modifier.background(MaterialTheme.colorScheme.surface)
+                            if (isAnchor && collapseProgress > 0f) Modifier.background(MaterialTheme.colorScheme.surface)
                             else Modifier
                         )
                         .offset(y = yOffsetDp)
