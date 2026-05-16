@@ -7,12 +7,15 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,7 +26,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.tyme.solar.SolarDay
 import kotlinx.datetime.LocalDate
 
 enum class DayCellState {
@@ -105,6 +111,30 @@ fun DayCell(
 
     val todayBorderColor = MaterialTheme.colorScheme.primary
 
+    val lunarText = remember(date) {
+        val lunarDay = SolarDay.fromYmd(date.year, date.monthNumber, date.day).getLunarDay()
+        val name = lunarDay.getName()
+        if (name == "初一") {
+            val lunarMonth = lunarDay.getLunarMonth()
+            "${lunarMonth.getName()}月"
+        } else {
+            name
+        }
+    }
+
+    val lunarColor by transition.animateColor(
+        transitionSpec = { tween(250, easing = FastOutSlowInEasing) },
+        label = "lunarColor"
+    ) { state ->
+        when (state) {
+            DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+            DayCellState.SELECTED -> MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.7f)
+            DayCellState.TODAY -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+            DayCellState.OTHER_MONTH -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.26f)
+            DayCellState.NORMAL -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+        }
+    }
+
     Box(
         modifier = modifier
             .aspectRatio(1f)
@@ -134,11 +164,24 @@ fun DayCell(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
-        Text(
-            text = date.day.toString(),
-            textAlign = TextAlign.Center,
-            color = contentColor,
-            style = MaterialTheme.typography.bodyMedium
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = date.day.toString(),
+                textAlign = TextAlign.Center,
+                color = contentColor,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                text = lunarText,
+                textAlign = TextAlign.Center,
+                color = lunarColor,
+                fontSize = 7.sp,
+                maxLines = 1,
+                overflow = TextOverflow.Clip,
+                lineHeight = 9.sp
+            )
+        }
     }
 }
