@@ -27,13 +27,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
-import kotlinx.coroutines.launch
 import plus.rua.project.CalendarViewModel
 import kotlin.math.abs
 import kotlin.time.Clock
@@ -255,6 +255,7 @@ fun CalendarMonthView(
                                             weekMonday
                                         }
                                     }
+
                                     else -> weekMonday
                                 }
                                 viewModel.selectDate(date)
@@ -270,8 +271,9 @@ fun CalendarMonthView(
                             onDateClick = { date -> viewModel.selectDate(date) },
                             onMonthChanged = { year, month ->
                                 @Suppress("DEPRECATION") // monthNumber 无替代 API
-                                val date = if (year == today.year && today.month.number == month) today
-                                else LocalDate(year, month, 1)
+                                val date =
+                                    if (year == today.year && today.month.number == month) today
+                                    else LocalDate(year, month, 1)
                                 viewModel.selectDate(date)
                             },
                             collapseProgress = viewModel.collapseProgress,

@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -25,10 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -173,7 +172,10 @@ fun DayCell(
     ) { state ->
         if (annotation.isHighlight) {
             when (state) {
-                DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                    alpha = 0.85f
+                )
+
                 DayCellState.SELECTED -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
                 DayCellState.TODAY -> MaterialTheme.colorScheme.primary
                 DayCellState.OTHER_MONTH -> MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
@@ -181,7 +183,10 @@ fun DayCell(
             }
         } else {
             when (state) {
-                DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                    alpha = 0.7f
+                )
+
                 DayCellState.SELECTED -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
                 DayCellState.TODAY -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
                 DayCellState.OTHER_MONTH -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.26f)
