@@ -41,6 +41,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -331,12 +332,9 @@ fun CalendarMonthView(
             }
         }
 
-        // 年视图层：仅在年视图激活时渲染；HorizontalPager 支持左右滑动切年。
+        // 年视图层：标题固定，HorizontalPager 只包裹网格。
         if (viewModel.isYearView) {
-            HorizontalPager(
-                state = yearPagerState,
-                beyondViewportPageCount = 1,
-                flingBehavior = PagerDefaults.flingBehavior(state = yearPagerState),
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
@@ -346,31 +344,51 @@ fun CalendarMonthView(
                         transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
                     }
                     .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
-            ) { page ->
-                val pageYear = viewModel.selectedDate.year + (page - START_PAGE)
-                YearGridView(
-                    year = pageYear,
-                    selectedMonth = if (pageYear == currentYear) currentMonth else 0,
-                    today = today,
-                    onMonthClick = { month ->
-                        viewModel.selectMonthFromYearView(month)
-                        @Suppress("DEPRECATION") // monthNumber 无替代 API
-                        val targetPage = yearMonthToPage(
-                            viewModel.yearViewYear, month,
-                            today.year, today.month.number
-                        )
-                        if (targetPage != pagerState.currentPage) {
-                            coroutineScope.launch { pagerState.scrollToPage(targetPage) }
-                        }
-                    },
+            ) {
+                YearHeader(
+                    year = viewModel.yearViewYear,
                     onYearChange = { newYear ->
-                        val offset = newYear - pageYear
+                        val offset = newYear - viewModel.yearViewYear
                         val targetPage = yearPagerState.currentPage + offset
                         if (targetPage != yearPagerState.currentPage) {
                             coroutineScope.launch { yearPagerState.animateScrollToPage(targetPage) }
                         }
                     }
                 )
+                HorizontalPager(
+                    state = yearPagerState,
+                    beyondViewportPageCount = 1,
+                    flingBehavior = PagerDefaults.flingBehavior(state = yearPagerState),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                ) { page ->
+                    val pageOffset = abs(yearPagerState.currentPageOffsetFraction)
+                    val isCurrentPage = page == yearPagerState.currentPage
+                    val crossFadeAlpha = if (isCurrentPage) {
+                        1f - pageOffset
+                    } else {
+                        pageOffset
+                    }
+                    val pageYear = viewModel.selectedDate.year + (page - START_PAGE)
+                    YearGridView(
+                        year = pageYear,
+                        selectedMonth = if (pageYear == currentYear) currentMonth else 0,
+                        today = today,
+                        onMonthClick = { month ->
+                            viewModel.selectMonthFromYearView(month)
+                            @Suppress("DEPRECATION") // monthNumber 无替代 API
+                            val targetPage = yearMonthToPage(
+                                viewModel.yearViewYear, month,
+                                today.year, today.month.number
+                            )
+                            if (targetPage != pagerState.currentPage) {
+                                coroutineScope.launch { pagerState.scrollToPage(targetPage) }
+                            }
+                        },
+                        modifier = Modifier.alpha(crossFadeAlpha)
+                    )
+                }
             }
         }
 

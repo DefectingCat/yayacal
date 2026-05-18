@@ -1,5 +1,10 @@
 package plus.rua.project.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -31,16 +36,12 @@ import kotlinx.datetime.plus
 private val WEEKDAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
 
 /**
- * 年度网格视图，显示 4×3 精简月历网格，支持年份切换。
- *
- * 每格显示一个精简版月历（月份标题 + 星期行 + 日期数字网格），
- * 选中月份高亮，点击进入该月。
+ * 年视图 4×3 月历网格。
  *
  * @param year 显示的年份
  * @param selectedMonth 当前选中月份（1-12）
  * @param today 今天的日期
  * @param onMonthClick 月份点击回调
- * @param onYearChange 年份切换回调
  * @param modifier 外部布局修饰符
  */
 @Composable
@@ -49,49 +50,12 @@ fun YearGridView(
     selectedMonth: Int,
     today: LocalDate,
     onMonthClick: (Int) -> Unit,
-    onYearChange: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 年份导航行
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "‹",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable { onYearChange(year - 1) }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-            Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                Text(
-                    text = "${year}年",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-            Text(
-                text = "›",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier
-                    .clip(CircleShape)
-                    .clickable { onYearChange(year + 1) }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-        }
-
         // 4×3 月历网格
         Column(
             modifier = Modifier
@@ -241,6 +205,70 @@ private fun generateMiniMonthDays(year: Int, month: Int): List<MiniDayData> {
         MiniDayData(
             date = date,
             isCurrentMonth = date.month.number == month && date.year == year
+        )
+    }
+}
+
+/**
+ * 年视图标题栏，显示年份文字和左右导航箭头。
+ *
+ * 年份切换时文字有垂直滑动过渡动画，方向由新旧年份大小决定。
+ *
+ * @param year 当前年份
+ * @param onYearChange 年份切换回调
+ * @param modifier 外部布局修饰符
+ */
+@Composable
+fun YearHeader(
+    year: Int,
+    onYearChange: (Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "‹",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable { onYearChange(year - 1) }
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        )
+        Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
+            AnimatedContent(
+                targetState = year,
+                transitionSpec = {
+                    if (targetState > initialState) {
+                        slideInVertically(tween(250)) { -it } togetherWith
+                            slideOutVertically(tween(250)) { it }
+                    } else {
+                        slideInVertically(tween(250)) { it } togetherWith
+                            slideOutVertically(tween(250)) { -it }
+                    }
+                }
+            ) { y ->
+                Text(
+                    text = "${y}年",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+        Text(
+            text = "›",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier
+                .clip(CircleShape)
+                .clickable { onYearChange(year + 1) }
+                .padding(horizontal = 16.dp, vertical = 8.dp)
         )
     }
 }

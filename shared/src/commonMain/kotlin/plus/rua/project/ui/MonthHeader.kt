@@ -2,8 +2,6 @@ package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -52,11 +50,11 @@ fun MonthHeader(
             targetState = Pair(year, month),
             transitionSpec = {
                 if (targetState.second > initialState.second) {
-                    slideInVertically(tween(250)) { -it } + fadeIn(tween(250)) togetherWith
-                            slideOutVertically(tween(250)) { it } + fadeOut(tween(250))
+                    slideInVertically(tween(250)) { -it } togetherWith
+                            slideOutVertically(tween(250)) { it }
                 } else {
-                    slideInVertically(tween(250)) { it } + fadeIn(tween(250)) togetherWith
-                            slideOutVertically(tween(250)) { -it } + fadeOut(tween(250))
+                    slideInVertically(tween(250)) { it } togetherWith
+                            slideOutVertically(tween(250)) { -it }
                 }
             }
         ) { (y, m) ->
@@ -70,11 +68,11 @@ fun MonthHeader(
             targetState = weekNumber,
             transitionSpec = {
                 if (targetState > initialState) {
-                    slideInVertically(tween(250)) { -it } + fadeIn(tween(250)) togetherWith
-                            slideOutVertically(tween(250)) { it } + fadeOut(tween(250))
+                    slideInVertically(tween(250)) { -it } togetherWith
+                            slideOutVertically(tween(250)) { it }
                 } else {
-                    slideInVertically(tween(250)) { it } + fadeIn(tween(250)) togetherWith
-                            slideOutVertically(tween(250)) { -it } + fadeOut(tween(250))
+                    slideInVertically(tween(250)) { it } togetherWith
+                            slideOutVertically(tween(250)) { -it }
                 }
             },
             modifier = Modifier

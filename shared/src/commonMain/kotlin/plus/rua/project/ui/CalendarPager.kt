@@ -72,7 +72,12 @@ fun CalendarPager(
         modifier = modifier
     ) { page ->
         val pageOffset = abs(pagerState.currentPageOffsetFraction)
-        val alpha = 1f - pageOffset.coerceIn(0f, 0.3f) / 0.3f
+        val isCurrentPage = page == pagerState.currentPage
+        val alpha = if (isCurrentPage) {
+            1f - pageOffset
+        } else {
+            pageOffset
+        }
         val (year, month) = pageToYearMonth(page, initialYear, initialMonth)
         CalendarMonthPage(
             year = year,
