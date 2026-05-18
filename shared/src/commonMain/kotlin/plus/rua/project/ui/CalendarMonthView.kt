@@ -51,7 +51,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -93,22 +92,9 @@ fun CalendarMonthView(
     var screenHeightPx by remember { mutableIntStateOf(0) }
     var calendarContentHeightPx by remember { mutableIntStateOf(0) }
     var isMenuExpanded by remember { mutableStateOf(false) }
-    var yearPagerBeyondViewport by remember { mutableStateOf(0) }
-
     // 视图切换时自动关闭菜单
     LaunchedEffect(viewModel.isYearView) {
         isMenuExpanded = false
-    }
-
-    // 年视图动画完成后再恢复预组合，避免动画期间触发邻页组合阻塞帧
-    LaunchedEffect(viewModel.isYearView) {
-        if (viewModel.isYearView) {
-            snapshotFlow { viewModel.yearViewProgress }
-                .first { it >= 1f }
-            yearPagerBeyondViewport = 1
-        } else {
-            yearPagerBeyondViewport = 0
-        }
     }
 
     val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
@@ -364,7 +350,7 @@ fun CalendarMonthView(
                 )
                 HorizontalPager(
                     state = yearPagerState,
-                    beyondViewportPageCount = yearPagerBeyondViewport,
+                    beyondViewportPageCount = 0,
                     flingBehavior = PagerDefaults.flingBehavior(state = yearPagerState),
                     modifier = Modifier
                         .fillMaxWidth()

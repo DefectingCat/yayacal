@@ -66,7 +66,7 @@ fun WeekPager(
 
     HorizontalPager(
         state = pagerState,
-        beyondViewportPageCount = 1,
+        beyondViewportPageCount = 0,
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
         modifier = modifier
     ) { page ->
