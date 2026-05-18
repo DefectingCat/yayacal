@@ -1,7 +1,9 @@
 package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -16,12 +18,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.runtime.getValue
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -59,7 +60,7 @@ fun MonthHeader(
                 } else {
                     slideInVertically(tween(250)) { it } togetherWith
                             slideOutVertically(tween(250)) { -it }
-                }
+                } using SizeTransform { _, _ -> snap() }
             }
         ) { (y, m) ->
             Text(
@@ -77,7 +78,7 @@ fun MonthHeader(
                 } else {
                     slideInVertically(tween(250)) { it } togetherWith
                             slideOutVertically(tween(250)) { -it }
-                }
+                } using SizeTransform { _, _ -> snap() }
             },
             modifier = Modifier
         ) { week ->
