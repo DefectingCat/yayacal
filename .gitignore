@@ -21,3 +21,4 @@ node_modules/
 # OMC runtime state
 .omc/
 logs/
+.claude/

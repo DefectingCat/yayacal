@@ -19,6 +19,8 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
+import plus.rua.project.composeTraceBeginSection
+import plus.rua.project.composeTraceEndSection
 import plus.rua.project.ui.COLLAPSE_THRESHOLD
 import plus.rua.project.ui.FLING_VELOCITY_THRESHOLD_DP
 import kotlin.time.Clock
@@ -186,8 +188,9 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onDrag(delta: Float) {
+        val old = _collapseAnimatable.value
         coroutineScope.launch {
-            val new = (_collapseAnimatable.value + delta).coerceIn(0f, 1f)
+            val new = (old + delta).coerceIn(0f, 1f)
             _collapseAnimatable.snapTo(new)
         }
     }
@@ -203,9 +206,9 @@ class CalendarViewModel(
         coroutineScope.launch {
             val progress = _collapseAnimatable.value
             val shouldCollapse = when {
-                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> true   // 快速上滑→折叠
-                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> false // 快速下滑→展开
-                else -> progress > COLLAPSE_THRESHOLD                    // 慢速按 progress 判断
+                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> true
+                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> false
+                else -> progress > COLLAPSE_THRESHOLD
             }
             if (shouldCollapse) {
                 _collapseAnimatable.animateTo(
@@ -228,8 +231,9 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onExpandDrag(delta: Float) {
+        val old = _collapseAnimatable.value
         coroutineScope.launch {
-            val new = (_collapseAnimatable.value + delta).coerceIn(0f, 1f)
+            val new = (old + delta).coerceIn(0f, 1f)
             _collapseAnimatable.snapTo(new)
         }
     }
@@ -245,9 +249,9 @@ class CalendarViewModel(
         coroutineScope.launch {
             val progress = _collapseAnimatable.value
             val shouldExpand = when {
-                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> true  // 快速下滑→展开
-                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> false  // 快速上滑→保持折叠
-                else -> progress < 1f - COLLAPSE_THRESHOLD                    // 慢速按 progress 判断
+                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> true
+                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> false
+                else -> progress < 1f - COLLAPSE_THRESHOLD
             }
             if (shouldExpand) {
                 _collapseAnimatable.animateTo(
