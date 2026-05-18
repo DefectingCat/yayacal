@@ -38,6 +38,44 @@ import com.tyme.solar.SolarDay
 import kotlinx.datetime.LocalDate
 import plus.rua.project.ShiftKind
 
+// P0-C: 静态缓存 SolarDay 计算结果，避免 Pager 滑动/切换时重复创建对象触发 GC
+@Suppress("DEPRECATION") // monthNumber 无替代 API
+private fun computeDayCellInfo(date: LocalDate): Triple<String, Boolean, String?> {
+    val solarDay = SolarDay.fromYmd(date.year, date.monthNumber, date.day)
+    val holidayBadge = solarDay.getLegalHoliday()?.let { if (it.isWork()) "班" else "休" }
+    val lunarDay = solarDay.getLunarDay()
+
+    // 农历传统节日（仅当天）
+    val lunarFestival = lunarDay.getFestival()
+    if (lunarFestival != null) {
+        return Triple(lunarFestival.getName(), true, holidayBadge)
+    }
+
+    // 节气（当天才显示）
+    val termDay = solarDay.getTermDay()
+    if (termDay.getDayIndex() == 0) {
+        return Triple(termDay.getSolarTerm().getName(), true, holidayBadge)
+    }
+
+    // 公历节日（仅当天）
+    val solarFestival = solarDay.getFestival()
+    if (solarFestival != null) {
+        return Triple(solarFestival.getName(), true, holidayBadge)
+    }
+
+    // 默认：农历日期
+    val name = lunarDay.getName()
+    val text = if (name == "初一") {
+        val lunarMonth = lunarDay.getLunarMonth()
+        "${lunarMonth.getName()}月"
+    } else {
+        name
+    }
+    return Triple(text, false, holidayBadge)
+}
+
+private val dayCellInfoCache = mutableMapOf<LocalDate, Triple<String, Boolean, String?>>()
+
 enum class DayCellState {
     NORMAL, OTHER_MONTH, TODAY, SELECTED, SELECTED_TODAY
 }
@@ -124,53 +162,16 @@ fun DayCell(
 
     val selectedOutlineColor = MaterialTheme.colorScheme.primary
 
-    data class DayAnnotation(val text: String, val isHighlight: Boolean)
-
-    val holidayBadge = remember(date) {
-        @Suppress("DEPRECATION") // monthNumber 无替代 API
-        val solarDay = SolarDay.fromYmd(date.year, date.monthNumber, date.day)
-        solarDay.getLegalHoliday()?.let { if (it.isWork()) "班" else "休" }
-    }
-
-    val annotation = remember(date) {
-        @Suppress("DEPRECATION") // monthNumber 无替代 API
-        val solarDay = SolarDay.fromYmd(date.year, date.monthNumber, date.day)
-        val lunarDay = solarDay.getLunarDay()
-
-        // 农历传统节日（仅当天）
-        val lunarFestival = lunarDay.getFestival()
-        if (lunarFestival != null) {
-            return@remember DayAnnotation(lunarFestival.getName(), true)
-        }
-
-        // 节气（当天才显示）
-        val termDay = solarDay.getTermDay()
-        if (termDay.getDayIndex() == 0) {
-            return@remember DayAnnotation(termDay.getSolarTerm().getName(), true)
-        }
-
-        // 公历节日（仅当天）
-        val solarFestival = solarDay.getFestival()
-        if (solarFestival != null) {
-            return@remember DayAnnotation(solarFestival.getName(), true)
-        }
-
-        // 默认：农历日期
-        val name = lunarDay.getName()
-        val text = if (name == "初一") {
-            val lunarMonth = lunarDay.getLunarMonth()
-            "${lunarMonth.getName()}月"
-        } else {
-            name
-        }
-        DayAnnotation(text, false)
+    // P0-C: 使用静态缓存避免每次重组时重复创建 SolarDay 对象
+    val (annotationText, isAnnotationHighlight, holidayBadge) = remember(date) {
+        dayCellInfoCache.getOrPut(date) { computeDayCellInfo(date) }
     }
 
     val lunarColor by transition.animateColor(
         transitionSpec = { tween(150, easing = FastOutSlowInEasing) },
         label = "lunarColor"
     ) { state ->
-        if (annotation.isHighlight) {
+        if (isAnnotationHighlight) {
             when (state) {
                 DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(
                     alpha = 0.85f
@@ -250,7 +251,7 @@ fun DayCell(
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
-                    text = annotation.text,
+                    text = annotationText,
                     textAlign = TextAlign.Center,
                     color = lunarColor,
                     fontSize = 7.sp,
