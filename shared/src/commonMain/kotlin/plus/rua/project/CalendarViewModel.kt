@@ -108,13 +108,12 @@ class CalendarViewModel(
     /**
      * 切换年视图。仅在展开态可用。
      *
-     * 切换瞬间立即翻转 isYearView，让对应方向的目标视图立刻接管渲染，
-     * 当前视图被直接移除；动画只作用在目标视图的 scale/alpha 上。
+     * 月/年视图始终共存于组合树中，由 alpha 控制可见性。
+     * 翻转 isYearView 后启动 Animatable 动画，驱动对应方向视图的 scale/alpha 变化。
      */
     fun toggleYearView() {
         yearViewJob?.cancel()
         yearViewJob = coroutineScope.launch {
-            // 折叠态先展开回月视图，再切换年视图
             if (isCollapsed) {
                 _collapseAnimatable.animateTo(
                     0f, spring(dampingRatio = 0.8f, stiffness = 400f)
@@ -122,32 +121,19 @@ class CalendarViewModel(
                 isCollapsed = false
             }
             if (isYearView) {
-                // 年 → 月：先启动动画（年视图开始淡出），等一帧后翻转 isYearView（月视图开始组合）
-                composeTraceBeginSection("YearView→MonthView")
-                _yearViewAnimatable.snapTo(1f)
-                val animJob = launch {
-                    _yearViewAnimatable.animateTo(
-                        0f, tween(400, easing = FastOutSlowInEasing)
-                    )
-                }
-                withFrameNanos { }
+                // 年 → 月：动画驱动 yearViewProgress 1f→0f，月视图同步放大/淡入
+                _yearViewAnimatable.animateTo(
+                    0f, tween(400, easing = FastOutSlowInEasing)
+                )
                 isYearView = false
-                animJob.join()
-                composeTraceEndSection()
             } else {
-                // 月 → 年：先启动动画（月视图开始缩小），等一帧后翻转 isYearView（年视图开始组合）
-                composeTraceBeginSection("MonthView→YearView")
+                // 月 → 年：动画驱动 yearViewProgress 0f→1f，年视图同步缩小/淡入
                 yearViewYear = selectedDate.year
                 _yearViewAnimatable.snapTo(0f)
-                val animJob = launch {
-                    _yearViewAnimatable.animateTo(
-                        1f, tween(400, easing = FastOutSlowInEasing)
-                    )
-                }
-                withFrameNanos { }
+                _yearViewAnimatable.animateTo(
+                    1f, tween(400, easing = FastOutSlowInEasing)
+                )
                 isYearView = true
-                animJob.join()
-                composeTraceEndSection()
             }
         }
     }
