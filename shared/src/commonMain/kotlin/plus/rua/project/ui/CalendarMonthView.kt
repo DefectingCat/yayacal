@@ -414,12 +414,12 @@ fun CalendarMonthView(
                 initialScale = 0.2f,
                 animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
                 transformOrigin = TransformOrigin(0f, 1f)
-            ) + fadeIn(tween(300)),
+            ) + fadeIn(tween(150)),
             exit = scaleOut(
                 targetScale = 0.2f,
                 animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
                 transformOrigin = TransformOrigin(0f, 1f)
-            ) + fadeOut(tween(200)),
+            ) + fadeOut(tween(100)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(
@@ -429,7 +429,7 @@ fun CalendarMonthView(
         ) {
             Card(
                 shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             ) {
                 Column(modifier = Modifier.width(140.dp)) {
