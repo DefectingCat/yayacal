@@ -137,7 +137,6 @@ fun CalendarMonthView(
     }
 
     val collapseProgress = viewModel.collapseProgress
-    val yearProgress = viewModel.yearViewProgress
     val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
     val rowPaddingPx = with(density) { ROW_PADDING_DP.dp.toPx() }.toInt()
     val cardGapPx = with(density) {
@@ -198,16 +197,6 @@ fun CalendarMonthView(
     val anchorPivotX = ((currentMonth - 1) % 3 + 0.5f) / 3f
     val anchorPivotY = ((currentMonth - 1) / 3 + 0.5f) / 4f
 
-    // 过渡进度：0=目标视图刚出现，1=目标视图完全到位。
-    // 月→年时 yearProgress 从 0→1，年→月时从 1→0，因此用 isYearView 同步翻转方向。
-    val transitionProgress = if (viewModel.isYearView) yearProgress else 1f - yearProgress
-    val targetAlpha = transitionProgress.coerceIn(0f, 1f)
-
-    // 月视图层缩放：从 0.3f（年网格单格大小）放大到 1f
-    val monthScale = lerp(0.3f, 1f, transitionProgress)
-    // 年视图层缩放：从 3.3f（月视图被放大到一格那么大的反向比例）缩小到 1f
-    val yearScale = lerp(3.3f, 1f, transitionProgress)
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -230,9 +219,10 @@ fun CalendarMonthView(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        scaleX = monthScale
-                        scaleY = monthScale
-                        alpha = targetAlpha
+                        val progress = if (viewModel.isYearView) viewModel.yearViewProgress else 1f - viewModel.yearViewProgress
+                        scaleX = lerp(0.3f, 1f, progress)
+                        scaleY = lerp(0.3f, 1f, progress)
+                        alpha = progress.coerceIn(0f, 1f)
                         transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
                     }
             ) {
@@ -338,9 +328,11 @@ fun CalendarMonthView(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        scaleX = yearScale
-                        scaleY = yearScale
-                        alpha = targetAlpha
+                        val progress = if (viewModel.isYearView) viewModel.yearViewProgress else 1f - viewModel.yearViewProgress
+                        val scale = lerp(3.3f, 1f, progress)
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = progress.coerceIn(0f, 1f)
                         transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
                     }
                     .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
