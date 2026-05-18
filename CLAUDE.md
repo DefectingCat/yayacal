@@ -47,8 +47,14 @@ CalendarMonthView          ← top-level screen (MonthHeader + WeekdayHeader + p
   │           └── DayCell      ← single day circle with selection/today states
   ├── WeekPager            ← HorizontalPager for single-week view (collapsed state)
   │     └── DayCell
+  ├── YearGridView         ← 4×3 mini-month grid with year navigation (year view)
+  │     └── MiniMonth      ← compact month: title + weekday row + day numbers
   └── BottomCard           ← drag handle card, drives collapse/expand gestures
 ```
+
+`ShiftPattern` (in `plus.rua.project`) defines personal shift cycles (WORK/OFF) independent of public holidays. Uses modular arithmetic: `(date - anchorDate) mod cycle.size`.
+
+`CalendarUtils` (in `plus.rua.project.ui`) holds pager constants (`START_PAGE = Int.MAX_VALUE/2`, `COLLAPSE_THRESHOLD = 0.25f`) and page↔date arithmetic (`pageToYearMonth`, `yearMonthToPage`, `pageToWeekMonday`).
 
 **Collapse/expand animation:** `CalendarMonthView` supports month↔week transition via `CalendarViewModel.collapseProgress` (0f=month, 1f=week). `BottomCard` captures vertical drag gestures and calls `viewModel.onDrag()`/`onExpandDrag()`. When progress crosses 50% on release, a spring animation snaps to the nearest state. `CalendarMonthPage` compresses non-selected weeks toward zero height during collapse. When fully collapsed, `WeekPager` replaces `CalendarPager` for efficient single-week paging.
 
@@ -58,9 +64,10 @@ CalendarMonthView          ← top-level screen (MonthHeader + WeekdayHeader + p
 
 ## Key Dependencies
 
-- Kotlin 2.3.21, Compose Multiplatform 1.10.3, Material 3 1.10.0-alpha05
+- Kotlin 2.3.21, Compose Multiplatform 1.11.0, Material 3 1.10.0-alpha05
 - `kotlinx-datetime` 0.8.0 for all date logic (no java.util.Calendar)
-- AGP 9.2.1, compileSdk/targetSdk 36, minSdk 24
+- `tyme4kt` for Chinese traditional calendar (lunar dates, solar terms, festivals)
+- AGP 9.2.1, compileSdk/targetSdk 37, minSdk 24
 - JVM target: 17
 
 ## Conventions
