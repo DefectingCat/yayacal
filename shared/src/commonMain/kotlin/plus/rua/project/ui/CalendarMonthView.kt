@@ -5,6 +5,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -18,6 +19,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.foundation.pager.HorizontalPager
@@ -368,7 +371,11 @@ fun CalendarMonthView(
         }
 
         // Scrim：菜单展开时覆盖全屏，点击关闭
-        if (isMenuExpanded) {
+        AnimatedVisibility(
+            visible = isMenuExpanded,
+            enter = fadeIn(tween(300)),
+            exit = fadeOut(tween(200))
+        ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -383,43 +390,45 @@ fun CalendarMonthView(
         AnimatedVisibility(
             visible = isMenuExpanded,
             enter = scaleIn(
-                initialScale = 0.6f,
-                animationSpec = tween(150),
+                initialScale = 0.2f,
+                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
                 transformOrigin = TransformOrigin(0f, 1f)
-            ) + fadeIn(tween(150)),
+            ) + fadeIn(tween(300)),
             exit = scaleOut(
-                targetScale = 0.6f,
-                animationSpec = tween(100),
+                targetScale = 0.2f,
+                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
                 transformOrigin = TransformOrigin(0f, 1f)
-            ) + fadeOut(tween(100)),
+            ) + fadeOut(tween(200)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 16.dp, bottom = with(density) { cardHeightPx.toDp() } + 72.dp)
+                .padding(
+                    start = 16.dp,
+                    bottom = with(density) { cardHeightPx.toDp() } + 16.dp + 56.dp + 8.dp
+                )
         ) {
-            Column(
-                modifier = Modifier
-                    .background(
-                        MaterialTheme.colorScheme.surfaceContainerHigh,
-                        RoundedCornerShape(12.dp)
-                    )
-                    .width(140.dp)
+            Card(
+                shape = RoundedCornerShape(12.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 3.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             ) {
-                MenuItem(
-                    text = "月视图",
-                    selected = !viewModel.isYearView,
-                    onClick = {
-                        isMenuExpanded = false
-                        if (viewModel.isYearView) viewModel.toggleYearView()
-                    }
-                )
-                MenuItem(
-                    text = "年视图",
-                    selected = viewModel.isYearView,
-                    onClick = {
-                        isMenuExpanded = false
-                        if (!viewModel.isYearView) viewModel.toggleYearView()
-                    }
-                )
+                Column(modifier = Modifier.width(140.dp)) {
+                    MenuItem(
+                        text = "月视图",
+                        selected = !viewModel.isYearView,
+                        onClick = {
+                            isMenuExpanded = false
+                            if (viewModel.isYearView) viewModel.toggleYearView()
+                        }
+                    )
+                    MenuItem(
+                        text = "年视图",
+                        selected = viewModel.isYearView,
+                        onClick = {
+                            isMenuExpanded = false
+                            if (!viewModel.isYearView) viewModel.toggleYearView()
+                        }
+                    )
+                }
             }
         }
     }
@@ -436,8 +445,11 @@ private fun MenuItem(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .background(
-                if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+            .then(
+                if (selected) Modifier.background(
+                    MaterialTheme.colorScheme.primaryContainer,
+                    RoundedCornerShape(8.dp)
+                ) else Modifier
             )
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
