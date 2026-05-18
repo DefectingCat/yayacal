@@ -216,7 +216,6 @@ fun CalendarMonthView(
                         month = currentMonth,
                         weekNumber = viewModel.getIsoWeekNumber(viewModel.selectedDate),
                         showToday = viewModel.selectedDate != today,
-                        onToggleYearView = { viewModel.toggleYearView() },
                         onToday = {
                             viewModel.selectDate(today)
                             @Suppress("DEPRECATION") // monthNumber 无替代 API

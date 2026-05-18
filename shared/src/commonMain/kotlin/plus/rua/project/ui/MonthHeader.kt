@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.sp
  * @param month 月份（1-12）
  * @param weekNumber 当前 ISO 周号
  * @param showToday 是否显示「今天」按钮（当 selectedDate ≠ today 时）
- * @param onToggleYearView 点击标题切换年视图
  * @param onToday 点击「今天」按钮跳转今天
  * @param modifier 外部布局修饰符
  */
@@ -40,15 +39,13 @@ fun MonthHeader(
     month: Int,
     weekNumber: Int,
     showToday: Boolean,
-    onToggleYearView: () -> Unit,
     onToday: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(vertical = 14.dp, horizontal = 12.dp)
-            .clickable(onClick = onToggleYearView),
+            .padding(vertical = 14.dp, horizontal = 12.dp),
         verticalAlignment = Alignment.Bottom
     ) {
         AnimatedContent(
