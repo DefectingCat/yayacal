@@ -172,18 +172,28 @@ fun CalendarMonthView(
     val effectiveRowHeightPx = if (rowHeightPx > 0) rowHeightPx else estimatedRowHeightPx
     val effectiveWeeks = interpolatedWeeks
 
-    val gridHeightPx = if (effectiveRowHeightPx > 0) {
-        val rowH = effectiveRowHeightPx.toFloat()
-        if (collapseProgress > OFFSET_FRACTION_THRESHOLD) {
-            (rowH * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))).toInt()
-        } else {
-            (rowH * effectiveWeeks).toInt()
+    val gridHeightPx by remember {
+        derivedStateOf {
+            if (effectiveRowHeightPx > 0) {
+                val rowH = effectiveRowHeightPx.toFloat()
+                if (collapseProgress > OFFSET_FRACTION_THRESHOLD) {
+                    (rowH * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))).toInt()
+                } else {
+                    (rowH * effectiveWeeks).toInt()
+                }
+            } else 0
         }
-    } else 0
+    }
 
-    val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx + cardGapPx
-    val cardHeightPx =
-        if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
+    val calendarAreaHeightPx by remember {
+        derivedStateOf { headerHeightPx + gridHeightPx + rowPaddingPx + cardGapPx }
+    }
+
+    val cardHeightPx by remember {
+        derivedStateOf {
+            if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
+        }
+    }
 
     val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
         Modifier
