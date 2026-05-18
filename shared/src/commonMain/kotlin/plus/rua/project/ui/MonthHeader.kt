@@ -1,6 +1,7 @@
 package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
@@ -18,6 +19,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -83,14 +87,19 @@ fun MonthHeader(
             )
         }
         Spacer(modifier = Modifier.weight(1f))
-        if (showToday && onToday != null) {
+        val todayAlpha by animateFloatAsState(
+            targetValue = if (showToday && onToday != null) 1f else 0f,
+            animationSpec = tween(200)
+        )
+        if (onToday != null) {
             Text(
                 text = "今天",
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 14.sp,
                 modifier = Modifier
+                    .graphicsLayer { alpha = todayAlpha }
                     .clip(RoundedCornerShape(12.dp))
-                    .clickable(onClick = onToday)
+                    .clickable(enabled = showToday, onClick = onToday)
                     .padding(horizontal = 10.dp, vertical = 4.dp)
             )
         }
