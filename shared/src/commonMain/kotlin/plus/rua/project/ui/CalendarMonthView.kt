@@ -1,5 +1,14 @@
 package plus.rua.project.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,6 +16,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
@@ -15,6 +28,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -22,8 +36,10 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -65,6 +81,12 @@ fun CalendarMonthView(
     var screenWidthPx by remember { mutableIntStateOf(0) }
     var screenHeightPx by remember { mutableIntStateOf(0) }
     var calendarContentHeightPx by remember { mutableIntStateOf(0) }
+    var isMenuExpanded by remember { mutableStateOf(false) }
+
+    // 视图切换时自动关闭菜单
+    LaunchedEffect(viewModel.isYearView) {
+        isMenuExpanded = false
+    }
 
     val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
 
@@ -344,5 +366,86 @@ fun CalendarMonthView(
                 )
             }
         }
+
+        // Scrim：菜单展开时覆盖全屏，点击关闭
+        if (isMenuExpanded) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        detectTapGestures { isMenuExpanded = false }
+                    }
+                    .background(Color.Black.copy(alpha = 0.32f))
+            )
+        }
+
+        // 缩放动画菜单
+        AnimatedVisibility(
+            visible = isMenuExpanded,
+            enter = scaleIn(
+                initialScale = 0.6f,
+                animationSpec = tween(150),
+                transformOrigin = TransformOrigin(0f, 1f)
+            ) + fadeIn(tween(150)),
+            exit = scaleOut(
+                targetScale = 0.6f,
+                animationSpec = tween(100),
+                transformOrigin = TransformOrigin(0f, 1f)
+            ) + fadeOut(tween(100)),
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 16.dp, bottom = with(density) { cardHeightPx.toDp() } + 72.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .background(
+                        MaterialTheme.colorScheme.surfaceContainerHigh,
+                        RoundedCornerShape(12.dp)
+                    )
+                    .width(140.dp)
+            ) {
+                MenuItem(
+                    text = "月视图",
+                    selected = !viewModel.isYearView,
+                    onClick = {
+                        isMenuExpanded = false
+                        if (viewModel.isYearView) viewModel.toggleYearView()
+                    }
+                )
+                MenuItem(
+                    text = "年视图",
+                    selected = viewModel.isYearView,
+                    onClick = {
+                        isMenuExpanded = false
+                        if (!viewModel.isYearView) viewModel.toggleYearView()
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MenuItem(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .background(
+                if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+            )
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Text(
+            text = text,
+            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+            else MaterialTheme.colorScheme.onSurface,
+            style = MaterialTheme.typography.bodyLarge
+        )
     }
 }
