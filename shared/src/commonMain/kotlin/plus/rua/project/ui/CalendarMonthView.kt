@@ -59,6 +59,8 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import plus.rua.project.CalendarViewModel
+import plus.rua.project.composeTraceBeginSection
+import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
 import kotlin.time.Clock
 
@@ -206,33 +208,36 @@ fun CalendarMonthView(
                 screenHeightPx = size.height
             }
     ) {
-        // 月视图层：始终存在于组合树中，通过 alpha 控制可见性/触摸，避免 isYearView
-        // 切换时触发整棵树销毁（Compose:onForgotten 600ms）。scale 动画保留在 graphicsLayer。
-        val monthProgress = 1f - viewModel.yearViewProgress
-        val layoutReady = rowHeightPx > 0
-        val monthAlpha = if (layoutReady) monthProgress.coerceIn(0f, 1f) else 0f
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(monthAlpha)
-                .graphicsLayer {
-                    val scale = lerp(0.3f, 1f, monthProgress)
-                    scaleX = scale
-                    scaleY = scale
-                    transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
-                }
-        ) {
+        // 月视图层：仅在非年视图时渲染，年视图激活时立即移除。
+        if (!viewModel.isYearView) {
+            composeTraceBeginSection("MonthView:Compose")
             val dragRangeMinPx = with(density) { DRAG_RANGE_MIN_DP.dp.toPx() }
             val dragRangePx = if (effectiveRowHeightPx > 0) {
                 maxOf((effectiveWeeks - 1) * effectiveRowHeightPx.toFloat(), dragRangeMinPx)
             } else {
                 dragRangeMinPx
             }
-            Column(
+
+            val monthProgress = 1f - viewModel.yearViewProgress
+            // 组合阶段计算：lambda 捕获快照值，避免 draw 阶段读到已更新的 rowHeightPx
+            // 但 layout 仍用旧值导致行堆叠
+            val layoutReady = rowHeightPx > 0
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
+                    .graphicsLayer {
+                        val scale = lerp(0.3f, 1f, monthProgress)
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = if (layoutReady) monthProgress.coerceIn(0f, 1f) else 0f
+                        transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
+                    }
             ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
+                ) {
                     MonthHeader(
                         year = currentYear,
                         month = currentMonth,
@@ -314,21 +319,25 @@ fun CalendarMonthView(
                     )
                 }
             }
-        // 年视图层：始终存在于组合树中，通过 alpha 控制可见性/触摸。
-        val yearProgress = viewModel.yearViewProgress
-        val yearAlpha = yearProgress.coerceIn(0f, 1f)
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .alpha(yearAlpha)
-                .graphicsLayer {
-                    val scale = lerp(3.3f, 1f, yearProgress)
-                    scaleX = scale
-                    scaleY = scale
-                    transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
-                }
-                .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
-        ) {
+            composeTraceEndSection()
+        }
+
+        // 年视图层：标题固定，HorizontalPager 只包裹网格。
+        if (viewModel.isYearView) {
+            val yearProgress = viewModel.yearViewProgress
+            composeTraceBeginSection("YearView:Compose")
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .graphicsLayer {
+                        val scale = lerp(3.3f, 1f, yearProgress)
+                        scaleX = scale
+                        scaleY = scale
+                        alpha = yearProgress.coerceIn(0f, 1f)
+                        transformOrigin = TransformOrigin(anchorPivotX, anchorPivotY)
+                    }
+                    .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
+            ) {
                 YearHeader(
                     year = viewModel.yearViewYear,
                     onYearChange = { newYear ->
@@ -374,6 +383,9 @@ fun CalendarMonthView(
                     )
                 }
             }
+            composeTraceEndSection()
+        }
+
         // FAB 浮动按钮
         FloatingActionButton(
             onClick = { isMenuExpanded = !isMenuExpanded },
