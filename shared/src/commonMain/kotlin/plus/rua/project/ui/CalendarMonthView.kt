@@ -52,6 +52,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -100,10 +101,11 @@ fun CalendarMonthView(
         isMenuExpanded = false
     }
 
-    // 年视图首帧后恢复预组合，避免首帧同时组合 3 页 × 12 月 = 36 个 MiniMonth
+    // 年视图动画完成后再恢复预组合，避免动画期间触发邻页组合阻塞帧
     LaunchedEffect(viewModel.isYearView) {
         if (viewModel.isYearView) {
-            withFrameNanos { }
+            snapshotFlow { viewModel.yearViewProgress }
+                .first { it >= 1f }
             yearPagerBeyondViewport = 1
         } else {
             yearPagerBeyondViewport = 0

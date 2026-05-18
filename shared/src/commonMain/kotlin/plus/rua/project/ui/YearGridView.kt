@@ -25,12 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.DatePeriod
@@ -42,6 +43,16 @@ import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 
 private val WEEKDAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
+
+private data class MiniMonthColors(
+    val titleSelected: Color,
+    val titleNormal: Color,
+    val weekday: Color,
+    val day: Color,
+    val otherMonth: Color,
+    val todayBg: Color,
+    val todayText: Color
+)
 
 /**
  * 年视图 4×3 月历网格。
@@ -61,6 +72,41 @@ fun YearGridView(
     modifier: Modifier = Modifier
 ) {
     composeTraceBeginSection("YearGridView:$year")
+
+    // P0-F: 主题色在 YearGridView 级别一次性读取并缓存
+    val colorScheme = MaterialTheme.colorScheme
+    val colors = remember(colorScheme) {
+        MiniMonthColors(
+            titleSelected = colorScheme.primary,
+            titleNormal = colorScheme.onSurface,
+            weekday = colorScheme.onSurface.copy(alpha = 0.4f),
+            day = colorScheme.onSurface.copy(alpha = 0.6f),
+            otherMonth = colorScheme.onSurface.copy(alpha = 0.2f),
+            todayBg = colorScheme.primaryContainer,
+            todayText = colorScheme.onPrimaryContainer
+        )
+    }
+
+    // P0-F: 预计算全年 12 个月的日期数据，翻年时复用
+    val monthDays = remember(year) {
+        (1..12).map { generateMiniMonthDays(year, it) }
+    }
+
+    // P0-G: 共享 TextMeasurer
+    val textMeasurer = rememberTextMeasurer()
+    val dayTextStyle = remember { TextStyle(fontSize = 8.sp, lineHeight = 12.sp) }
+
+    // P0-D: 预测量 1..31 × 3 种颜色 = 93 个 TextLayoutResult
+    val dayLayouts = remember(textMeasurer, dayTextStyle, colors) {
+        val days = 1..31
+        val colorList = listOf(colors.day, colors.todayText, colors.otherMonth)
+        days.flatMap { d ->
+            colorList.map { c ->
+                (d to c) to textMeasurer.measure(d.toString(), dayTextStyle.copy(color = c))
+            }
+        }.toMap()
+    }
+
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -81,10 +127,14 @@ fun YearGridView(
                     (0 until 3).forEach { col ->
                         val month = row * 3 + col + 1
                         MiniMonth(
-                            year = year,
                             month = month,
                             isSelected = month == selectedMonth,
                             today = today,
+                            days = monthDays[month - 1],
+                            colors = colors,
+                            textMeasurer = textMeasurer,
+                            dayTextStyle = dayTextStyle,
+                            dayLayouts = dayLayouts,
                             onClick = { onMonthClick(month) },
                             modifier = Modifier.weight(1f)
                         )
@@ -101,29 +151,18 @@ fun YearGridView(
  */
 @Composable
 private fun MiniMonth(
-    year: Int,
     month: Int,
     isSelected: Boolean,
     today: LocalDate,
+    days: List<MiniDayData>,
+    colors: MiniMonthColors,
+    textMeasurer: TextMeasurer,
+    dayTextStyle: TextStyle,
+    dayLayouts: Map<Pair<Int, Color>, androidx.compose.ui.text.TextLayoutResult>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val days = remember(year, month) { generateMiniMonthDays(year, month) }
-    val titleColor = if (isSelected) {
-        MaterialTheme.colorScheme.primary
-    } else {
-        MaterialTheme.colorScheme.onSurface
-    }
-    val weekdayColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.4f)
-    val dayColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-    val otherMonthColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.2f)
-    val todayBgColor = MaterialTheme.colorScheme.primaryContainer
-    val todayTextColor = MaterialTheme.colorScheme.onPrimaryContainer
-
-    val textMeasurer = rememberTextMeasurer()
-    val dayTextStyle = remember {
-        TextStyle(fontSize = 8.sp, lineHeight = 12.sp)
-    }
+    val titleColor = if (isSelected) colors.titleSelected else colors.titleNormal
 
     Column(
         modifier = modifier
@@ -148,7 +187,7 @@ private fun MiniMonth(
             WEEKDAY_LABELS.forEach { label ->
                 Text(
                     text = label,
-                    color = weekdayColor,
+                    color = colors.weekday,
                     fontSize = 8.sp,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.weight(1f)
@@ -170,34 +209,32 @@ private fun MiniMonth(
                 val centerY = row * rowHeightPx + rowHeightPx / 2f
 
                 val isToday = dayData.date == today && dayData.isCurrentMonth
-                val text = if (dayData.isCurrentMonth) dayData.date.day.toString() else ""
+                val dayNum = if (dayData.isCurrentMonth) dayData.date.day else 0
                 val textColor: Color = when {
-                    !dayData.isCurrentMonth -> otherMonthColor
-                    isToday -> todayTextColor
-                    else -> dayColor
+                    !dayData.isCurrentMonth -> colors.otherMonth
+                    isToday -> colors.todayText
+                    else -> colors.day
                 }
 
                 if (isToday) {
                     val radius = cellWidth.coerceAtMost(rowHeightPx) / 2f * 0.8f
                     drawCircle(
-                        color = todayBgColor,
+                        color = colors.todayBg,
                         radius = radius,
                         center = Offset(centerX, centerY)
                     )
                 }
 
-                if (text.isNotEmpty()) {
-                    val measured = textMeasurer.measure(
-                        text = text,
-                        style = dayTextStyle.copy(color = textColor)
-                    )
-                    drawText(
-                        textLayoutResult = measured,
-                        topLeft = Offset(
-                            x = centerX - measured.size.width / 2f,
-                            y = centerY - measured.size.height / 2f
+                if (dayNum > 0) {
+                    dayLayouts[dayNum to textColor]?.let { layoutResult ->
+                        drawText(
+                            textLayoutResult = layoutResult,
+                            topLeft = Offset(
+                                x = centerX - layoutResult.size.width / 2f,
+                                y = centerY - layoutResult.size.height / 2f
+                            )
                         )
-                    )
+                    }
                 }
             }
         }
