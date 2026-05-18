@@ -375,20 +375,15 @@ fun CalendarMonthView(
         }
 
         // FAB 浮动按钮
-        if (cardHeightPx > 0) {
-            FloatingActionButton(
-                onClick = { isMenuExpanded = !isMenuExpanded },
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(
-                        start = 16.dp,
-                        bottom = with(density) { cardHeightPx.toDp() } + 16.dp
-                    ),
-                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-            ) {
-                MenuIcon()
-            }
+        FloatingActionButton(
+            onClick = { isMenuExpanded = !isMenuExpanded },
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 24.dp, bottom = 32.dp),
+            containerColor = MaterialTheme.colorScheme.primaryContainer,
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+        ) {
+            MenuIcon()
         }
 
         // Scrim：菜单展开时覆盖全屏，点击关闭
@@ -422,10 +417,7 @@ fun CalendarMonthView(
             ) + fadeOut(tween(100)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(
-                    start = 16.dp,
-                    bottom = with(density) { cardHeightPx.toDp() } + 16.dp + 56.dp + 8.dp
-                )
+                .padding(start = 24.dp, bottom = 32.dp + 56.dp + 8.dp)
         ) {
             Card(
                 shape = RoundedCornerShape(12.dp),
