@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -103,16 +102,15 @@ fun CalendarMonthPage(
             val isAbove = hasAnchor && weekIndex < anchorIndex
             val isBelow = hasAnchor && weekIndex > anchorIndex
 
-            val yOffsetDp = if (rowHeightPx > 0) {
-                val yPx = when {
+            val yOffsetPx = if (rowHeightPx > 0) {
+                when {
                     !hasAnchor -> weekIndex * h - collapseProgress * weeks.size * h
                     isAnchor -> anchorIndex * h * (1f - phase1)
                     isAbove -> weekIndex * h - phase1 * anchorIndex * h
                     isBelow -> weekIndex * h - phase1 * anchorIndex * h - phase2 * belowRowsHeight
                     else -> weekIndex * h
                 }
-                with(density) { yPx.toDp() }
-            } else 0.dp
+            } else 0f
 
             val rowAlpha = when {
                 !hasAnchor -> (1f - collapseProgress).coerceIn(0f, 1f)
@@ -135,7 +133,10 @@ fun CalendarMonthPage(
                             if (isAnchor && phase1 >= 1f) Modifier.background(MaterialTheme.colorScheme.surface)
                             else Modifier
                         )
-                        .offset(y = yOffsetDp)
+                        .graphicsLayer {
+                            translationY = yOffsetPx
+                            alpha = rowAlpha
+                        }
                         .then(
                             if (weekIndex == 0 && rowHeightPx == 0) {
                                 Modifier.onSizeChanged { size ->
@@ -146,10 +147,6 @@ fun CalendarMonthPage(
                             } else Modifier
                         )
                         .padding(vertical = ROW_PADDING_DP.dp)
-                        .then(
-                            if (rowAlpha < 1f) Modifier.graphicsLayer { alpha = rowAlpha }
-                            else Modifier
-                        )
                 ) {
                     week.forEach { dayData ->
                         DayCell(
