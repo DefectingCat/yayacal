@@ -61,7 +61,6 @@ import kotlinx.datetime.todayIn
 import plus.rua.project.CalendarViewModel
 import kotlin.math.abs
 import kotlin.time.Clock
-import android.util.Log
 
 /**
  * 日历主界面，包含月/周视图切换、折叠动画和年视图缩放转场。
@@ -169,7 +168,6 @@ fun CalendarMonthView(
         val cellWidth = (screenWidthPx - horizontalPaddingPx) / 7
         (cellWidth + rowPadding2Px).toInt()
     } else 0
-    Log.d("CalLayout", "estimatedRow=$estimatedRowHeightPx screenW=$screenWidthPx screenH=$screenHeightPx")
 
     val effectiveRowHeightPx = if (rowHeightPx > 0) rowHeightPx else estimatedRowHeightPx
     val effectiveWeeks = interpolatedWeeks
@@ -182,22 +180,17 @@ fun CalendarMonthView(
             (rowH * effectiveWeeks).toInt()
         }
     } else 0
-    Log.d("CalLayout", "gridHeightPx=$gridHeightPx rowH=$effectiveRowHeightPx weeks=$effectiveWeeks collapse=$collapseProgress")
 
     val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx + cardGapPx
-    Log.d("CalLayout", "calendarArea=$calendarAreaHeightPx header=$headerHeightPx grid=$gridHeightPx rowPad=$rowPaddingPx cardGap=$cardGapPx")
 
     val cardHeightPx =
         if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
-    Log.d("CalLayout", "cardHeight=$cardHeightPx screenH=$screenHeightPx calArea=$calendarAreaHeightPx")
 
     val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
-        Log.d("CalLayout", "pagerModifier: height=${with(density) { gridHeightPx.toDp() }} rowH=$rowHeightPx gridH=$gridHeightPx")
         Modifier
             .height(with(density) { gridHeightPx.toDp() })
             .clipToBounds()
     } else {
-        Log.d("CalLayout", "pagerModifier: EMPTY rowH=$rowHeightPx gridH=$gridHeightPx")
         Modifier
     }
 
@@ -318,7 +311,6 @@ fun CalendarMonthView(
                 }
 
                 if (cardHeightPx > 0) {
-                    Log.d("CalLayout", "BottomCard: height=${with(density) { cardHeightPx.toDp() }} cardH=$cardHeightPx isCollapsed=${viewModel.isCollapsed}")
                     BottomCard(
                         viewModel = viewModel,
                         dragRangePx = dragRangePx,
