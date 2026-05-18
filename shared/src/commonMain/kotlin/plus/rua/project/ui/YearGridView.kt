@@ -26,12 +26,10 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.DatePeriod
@@ -107,6 +105,30 @@ fun YearGridView(
         }.toMap()
     }
 
+    // P0-H: 预测量月份标题（选中/非选中两种颜色）
+    val titleLayouts = remember(textMeasurer, colors) {
+        (1..12).flatMap { month ->
+            val text = "${month}月"
+            listOf(
+                (month to true) to textMeasurer.measure(
+                    text,
+                    TextStyle(fontSize = 10.sp, color = colors.titleSelected, fontWeight = FontWeight.Bold)
+                ),
+                (month to false) to textMeasurer.measure(
+                    text,
+                    TextStyle(fontSize = 10.sp, color = colors.titleNormal)
+                )
+            )
+        }.toMap()
+    }
+
+    // P0-H: 预测量星期标签
+    val weekdayLayouts = remember(textMeasurer, colors) {
+        WEEKDAY_LABELS.associate { label ->
+            label to textMeasurer.measure(label, TextStyle(fontSize = 8.sp, color = colors.weekday))
+        }
+    }
+
     Column(
         modifier = modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -132,9 +154,9 @@ fun YearGridView(
                             today = today,
                             days = monthDays[month - 1],
                             colors = colors,
-                            textMeasurer = textMeasurer,
-                            dayTextStyle = dayTextStyle,
                             dayLayouts = dayLayouts,
+                            titleLayouts = titleLayouts,
+                            weekdayLayouts = weekdayLayouts,
                             onClick = { onMonthClick(month) },
                             modifier = Modifier.weight(1f)
                         )
@@ -147,7 +169,9 @@ fun YearGridView(
 }
 
 /**
- * 精简版月历：月份标题 + 星期行 + 日期数字网格。
+ * 精简版月历：月份标题 + 星期行 + 日期数字网格，全部 Canvas 绘制。
+ *
+ * 消除 Text 组件避免 TextStringSimpleNode::measure 开销。
  */
 @Composable
 private fun MiniMonth(
@@ -156,13 +180,20 @@ private fun MiniMonth(
     today: LocalDate,
     days: List<MiniDayData>,
     colors: MiniMonthColors,
-    textMeasurer: TextMeasurer,
-    dayTextStyle: TextStyle,
     dayLayouts: Map<Pair<Int, Color>, androidx.compose.ui.text.TextLayoutResult>,
+    titleLayouts: Map<Pair<Int, Boolean>, androidx.compose.ui.text.TextLayoutResult>,
+    weekdayLayouts: Map<String, androidx.compose.ui.text.TextLayoutResult>,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val titleColor = if (isSelected) colors.titleSelected else colors.titleNormal
+    val density = LocalDensity.current
+    val dayRowCount = days.size / 7
+    val titleHeightPx = with(density) { 14.sp.toPx() }
+    val weekdayHeightPx = with(density) { 12.sp.toPx() }
+    val dayCellHeightPx = with(density) { (12.sp.toPx() + 4.dp.toPx()) }
+    val totalHeight = with(density) {
+        (titleHeightPx + weekdayHeightPx + dayRowCount * dayCellHeightPx).toDp()
+    }
 
     Column(
         modifier = modifier
@@ -171,42 +202,40 @@ private fun MiniMonth(
             .padding(vertical = 2.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // 月份标题
-        Text(
-            text = "${month}月",
-            color = titleColor,
-            fontSize = 10.sp,
-            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-            textAlign = TextAlign.Center
-        )
-        // 星期行
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceEvenly
-        ) {
-            WEEKDAY_LABELS.forEach { label ->
-                Text(
-                    text = label,
-                    color = colors.weekday,
-                    fontSize = 8.sp,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.weight(1f)
+        Canvas(modifier = Modifier.fillMaxWidth().height(totalHeight)) {
+            val cellWidth = size.width / 7f
+
+            // 1. 绘制标题
+            val titleLayout = titleLayouts[month to isSelected]!!
+            drawText(
+                textLayoutResult = titleLayout,
+                topLeft = Offset(
+                    (size.width - titleLayout.size.width) / 2f,
+                    0f
+                )
+            )
+
+            // 2. 绘制星期行
+            val weekdayY = titleHeightPx
+            WEEKDAY_LABELS.forEachIndexed { i, label ->
+                val layout = weekdayLayouts[label]!!
+                drawText(
+                    textLayoutResult = layout,
+                    topLeft = Offset(
+                        i * cellWidth + (cellWidth - layout.size.width) / 2f,
+                        weekdayY + (weekdayHeightPx - layout.size.height) / 2f
+                    )
                 )
             }
-        }
-        // 日期网格 — Canvas 绘制
-        val density = LocalDensity.current
-        val dayRowCount = days.size / 7
-        val canvasHeight = with(density) { (dayRowCount * (12.sp.toPx() + 4.dp.toPx())).toDp() }
-        Canvas(modifier = Modifier.fillMaxWidth().height(canvasHeight)) {
-            val cellWidth = size.width / 7f
-            val rowHeightPx = size.height / dayRowCount
+
+            // 3. 绘制日期网格
+            val dayGridY = titleHeightPx + weekdayHeightPx
 
             days.forEachIndexed { index, dayData ->
                 val row = index / 7
                 val col = index % 7
                 val centerX = col * cellWidth + cellWidth / 2f
-                val centerY = row * rowHeightPx + rowHeightPx / 2f
+                val centerY = dayGridY + row * dayCellHeightPx + dayCellHeightPx / 2f
 
                 val isToday = dayData.date == today && dayData.isCurrentMonth
                 val dayNum = if (dayData.isCurrentMonth) dayData.date.day else 0
@@ -217,7 +246,7 @@ private fun MiniMonth(
                 }
 
                 if (isToday) {
-                    val radius = cellWidth.coerceAtMost(rowHeightPx) / 2f * 0.8f
+                    val radius = cellWidth.coerceAtMost(dayCellHeightPx) / 2f * 0.8f
                     drawCircle(
                         color = colors.todayBg,
                         radius = radius,
