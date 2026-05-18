@@ -46,7 +46,7 @@ fun MonthHeader(
         modifier = modifier
             .fillMaxWidth()
             .padding(vertical = 14.dp, horizontal = 12.dp),
-        verticalAlignment = Alignment.Bottom
+        verticalAlignment = Alignment.CenterVertically
     ) {
         AnimatedContent(
             targetState = Pair(year, month),
@@ -77,7 +77,7 @@ fun MonthHeader(
                             slideOutVertically(tween(250)) { -it } + fadeOut(tween(250))
                 }
             },
-            modifier = Modifier.padding(bottom = 2.dp)
+            modifier = Modifier
         ) { week ->
             Text(
                 text = "第${week}周",
