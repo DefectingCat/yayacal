@@ -14,7 +14,8 @@ junit = "4.13.2"
 kotlin = "2.3.21"
 material3 = "1.10.0-alpha05"
 kotlinx-datetime = "0.8.0"
-tyme4kt = "1.4.4"
+tyme4kt = "1.4.5"
+sketch = "4.4.0"
 
 [libraries]
 kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
@@ -30,6 +31,9 @@ compose-uiToolingPreview = { module = "org.jetbrains.compose.ui:ui-tooling-previ
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version = "1.11.0" }
 tyme4kt = { module = "cn.6tail:tyme4kt", version.ref = "tyme4kt" }
+sketch-compose = { module = "io.github.panpf.sketch4:sketch-compose", version.ref = "sketch" }
+sketch-animated-gif = { module = "io.github.panpf.sketch4:sketch-animated-gif", version.ref = "sketch" }
+sketch-compose-resources = { module = "io.github.panpf.sketch4:sketch-compose-resources", version.ref = "sketch" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }

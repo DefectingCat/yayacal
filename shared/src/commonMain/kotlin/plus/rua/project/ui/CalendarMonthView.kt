@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -311,6 +312,8 @@ fun CalendarMonthView(
                 if (cardHeightPx > 0) {
                     BottomCard(
                         viewModel = viewModel,
+                        selectedDate = viewModel.selectedDate,
+                        today = today,
                         dragRangePx = dragRangePx,
                         modifier = Modifier
                             .fillMaxWidth()
@@ -392,6 +395,7 @@ fun CalendarMonthView(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 24.dp, bottom = 32.dp),
+            shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) {

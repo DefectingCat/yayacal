@@ -111,3 +111,142 @@ CalendarMonthView (顶层屏幕)
 **折叠动画：** `CalendarViewModel.collapseProgress` 控制 0f(月)↔1f(周) 过渡。`BottomCard` 捕获垂直拖拽，释放时超过 50% 则弹簧动画吸附到最近状态。完全折叠后 `WeekPager` 替代 `CalendarPager` 实现高效单周分页。
 
 **分页映射：** 两个 Pager 均使用 `Int.MAX_VALUE` 页数，中心页为 `Int.MAX_VALUE / 2`。页码到日期为算术转换，无索引列表。两者均跳过初始 `snapshotFlow` 发射 (`.drop(1)`) 以保留首次渲染时的"今日"选中。
+
+## 性能排查（Perfetto / Systrace）
+
+项目使用 `composeTraceBeginSection` / `composeTraceEndSection` 在关键代码段插入 trace marker，Android 上会被记录到系统 trace 中。iOS 为空操作。
+
+已有的 trace section：
+- `MonthView:Compose` / `YearView:Compose` — 顶层重组耗时
+- `YearView→MonthView` / `MonthView→YearView` — 年视图切换动画
+- `YearGridView:$year` / `generateMiniMonthDays:$year-$month` — 年网格渲染
+- `getMonthDays:$year-$month` — 月网格数据生成
+
+### 分析折叠器卡顿的方法
+
+1. **录制 trace**：Android Studio → Profiler → CPU → 选择 "Trace Java Methods" 或命令行：
+   ```bash
+   adb shell perfetto -c - --txt \<<EOF
+   buffers: { size_kb: 65536 }
+   data_sources: {
+     config {
+       name: "linux.ftrace"
+       ftrace_config {
+         ftrace_events: "ftrace/print"
+         ftrace_events: "sched/sched_switch"
+         buffer_size_kb: 8192
+       }
+     }
+   }
+   data_sources: {
+     config {
+       name: "android.packages_list"
+     }
+   }
+   duration_ms: 10000
+   EOF
+   ```
+
+2. **用 Python 分析 trace**（无需 Perfetto UI）：
+
+   ```python
+   def read_varint(data, offset):
+       result = 0; shift = 0
+       while offset < len(data):
+           byte = data[offset]
+           result |= (byte & 0x7F) << shift
+           offset += 1
+           if not (byte & 0x80): break
+           shift += 7
+       return result, offset
+
+   def parse_trace(path):
+       with open(path, 'rb') as f:
+           data = f.read()
+
+       # 1) 读取所有 TracePacket
+       packets = []
+       offset = 0
+       while offset < len(data):
+           if data[offset] != 0x0a:
+               offset += 1; continue
+           offset += 1
+           try:
+               length, new_offset = read_varint(data, offset)
+               if 0 < length < 1_000_000 and new_offset + length <= len(data):
+                   packets.append(data[new_offset:new_offset + length])
+                   offset = new_offset + length
+               else:
+                   offset = new_offset
+           except:
+               offset += 1
+
+       # 2) 在 ftrace_events 中搜索自定义 marker
+       events = []
+       for pkt in packets:
+           # 找 field 2 (ftrace_events bundle)
+           po = 0
+           while po < len(pkt):
+               if po >= len(pkt): break
+               tag = pkt[po]; po += 1
+               fn = tag >> 3; wt = tag & 0x07
+               if wt == 0:
+                   _, po = read_varint(pkt, po)
+               elif wt == 2:
+                   length, po = read_varint(pkt, po)
+                   chunk = pkt[po:po + length]
+                   if fn == 2:
+                       # 扫描 bundle 内的 FtraceEvent (field 1, 0x0a)
+                       eo = 0
+                       while eo < len(chunk):
+                           if chunk[eo] != 0x0a:
+                               eo += 1; continue
+                           eo += 1
+                           try:
+                               el, eno = read_varint(chunk, eo)
+                               if el > 0 and eno + el <= len(chunk):
+                                   evt = chunk[eno:eno + el]
+                                   # 提取 timestamp (field 1, varint)
+                                   if len(evt) > 1 and evt[0] == 0x08:
+                                       ts, _ = read_varint(evt, 1)
+                                       # 搜索 marker 字符串
+                                       for pat in [b'BC:', b'VM:', b'MonthView:']:
+                                           idx = evt.find(pat)
+                                           if idx >= 0:
+                                               me = idx
+                                               while me < len(evt) and 32 <= evt[me] < 127:
+                                                   me += 1
+                                               name = evt[idx:me].decode()
+                                               events.append((ts, name))
+                                               break
+                                   eo = eno + el
+                               else:
+                                   eo = eno
+                           except:
+                               eo += 1
+                   po += length
+               elif wt in (1, 5):
+                   po += 8 if wt == 1 else 4
+               else:
+                   break
+
+       events.sort()
+       return events
+
+   # 使用
+   events = parse_trace('cpu-perfetto-xxxx.trace')
+   for ts, name in events:
+       print(f"{ts}: {name}")
+   ```
+
+3. **关注点**：
+   - **触摸事件间隔**：统计相邻 `BC:delta` marker 的时间差。理想间隔 ≤16ms；若出现 >33ms 说明丢帧，>100ms 说明触摸断流。
+   - **重组耗时**：`VM:collapseProgress` → `MonthView:Compose` 的间隔，应在亚毫秒级。
+   - **ViewModel → Compose 延迟**：从 `snapTo` 调用到下一帧重组完成的间隔。
+
+### 已知排查结论（2026-05-19）
+
+对折叠器 trace 的分析显示：
+- **重组本身很快**（VM progress → Compose 约 500μs），不是卡顿来源。
+- **触摸事件采样间隔不均匀**是主要问题。某些拖拽序列中出现 30-50ms 的触摸事件间隔，偶尔有 >100ms 的断流。这属于系统/模拟器层的事件分发问题，而非 Compose 代码问题。
+- 若在真机上复现，建议检查是否有 CPU 抢占或手指短暂离屏。

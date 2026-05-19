@@ -46,6 +46,9 @@ kotlin {
             implementation(libs.androidx.lifecycle.runtimeCompose)
             implementation(libs.kotlinx.datetime)
             implementation(libs.tyme4kt)
+            implementation(libs.sketch.compose)
+            implementation(libs.sketch.animated.gif)
+            implementation(libs.sketch.compose.resources)
         }
         commonTest.dependencies {
             implementation(libs.kotlin.test)

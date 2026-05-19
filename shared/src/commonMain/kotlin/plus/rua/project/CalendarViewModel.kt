@@ -106,7 +106,8 @@ class CalendarViewModel(
     }
 
     /**
-     * 切换年视图。仅在展开态可用。
+     * 切换年视图。折叠态下保持折叠（`isCollapsed` 不变），
+     * 月视图层以折叠形态参与缩放转场；从年视图返回时仍是周视图。
      *
      * 切换瞬间立即翻转 isYearView，让对应方向的目标视图立刻接管渲染，
      * 当前视图被直接移除；动画只作用在目标视图的 scale/alpha 上。
@@ -114,13 +115,6 @@ class CalendarViewModel(
     fun toggleYearView() {
         yearViewJob?.cancel()
         yearViewJob = coroutineScope.launch {
-            // 折叠态先展开回月视图，再切换年视图
-            if (isCollapsed) {
-                _collapseAnimatable.animateTo(
-                    0f, spring(dampingRatio = 0.8f, stiffness = 400f)
-                )
-                isCollapsed = false
-            }
             if (isYearView) {
                 // 年 → 月：先启动动画（年视图开始淡出），等一帧后翻转 isYearView（月视图开始组合）
                 composeTraceBeginSection("YearView→MonthView")
@@ -186,8 +180,9 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onDrag(delta: Float) {
+        val old = _collapseAnimatable.value
         coroutineScope.launch {
-            val new = (_collapseAnimatable.value + delta).coerceIn(0f, 1f)
+            val new = (old + delta).coerceIn(0f, 1f)
             _collapseAnimatable.snapTo(new)
         }
     }
@@ -203,9 +198,9 @@ class CalendarViewModel(
         coroutineScope.launch {
             val progress = _collapseAnimatable.value
             val shouldCollapse = when {
-                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> true   // 快速上滑→折叠
-                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> false // 快速下滑→展开
-                else -> progress > COLLAPSE_THRESHOLD                    // 慢速按 progress 判断
+                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> true
+                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> false
+                else -> progress > COLLAPSE_THRESHOLD
             }
             if (shouldCollapse) {
                 _collapseAnimatable.animateTo(
@@ -228,8 +223,9 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onExpandDrag(delta: Float) {
+        val old = _collapseAnimatable.value
         coroutineScope.launch {
-            val new = (_collapseAnimatable.value + delta).coerceIn(0f, 1f)
+            val new = (old + delta).coerceIn(0f, 1f)
             _collapseAnimatable.snapTo(new)
         }
     }
@@ -245,9 +241,9 @@ class CalendarViewModel(
         coroutineScope.launch {
             val progress = _collapseAnimatable.value
             val shouldExpand = when {
-                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> true  // 快速下滑→展开
-                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> false  // 快速上滑→保持折叠
-                else -> progress < 1f - COLLAPSE_THRESHOLD                    // 慢速按 progress 判断
+                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> true
+                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> false
+                else -> progress < 1f - COLLAPSE_THRESHOLD
             }
             if (shouldExpand) {
                 _collapseAnimatable.animateTo(
