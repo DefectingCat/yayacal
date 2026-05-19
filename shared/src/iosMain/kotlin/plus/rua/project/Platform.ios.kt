@@ -1,6 +1,7 @@
 package plus.rua.project
 
 import androidx.compose.runtime.Composable
+import platform.Foundation.NSBundle
 import platform.UIKit.UIDevice
 
 class IOSPlatform : Platform {
@@ -13,6 +14,15 @@ actual fun getPlatform(): Platform = IOSPlatform()
 actual fun getGifUri(gifFile: String): String = "compose.resource://files/$gifFile"
 
 actual fun getAppIconUri(): String = "compose.resource://files/app_icon.png?v=2"
+
+@Composable
+actual fun getAppVersion(): String {
+    return try {
+        NSBundle.mainBundle.objectForInfoDictionaryKey("CFBundleShortVersionString") as? String ?: "unknown"
+    } catch (_: Throwable) {
+        "unknown"
+    }
+}
 
 @Composable
 actual fun PredictiveBackHandler(

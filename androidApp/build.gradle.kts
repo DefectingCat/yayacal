@@ -1,8 +1,24 @@
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
 plugins {
     alias(libs.plugins.androidApplication)
     alias(libs.plugins.composeMultiplatform)
     alias(libs.plugins.composeCompiler)
 }
+
+val baseVersion = findProperty("app.version.base") as? String ?: "1.0.0"
+
+val gitHash = try {
+    providers.exec {
+        commandLine("git", "rev-parse", "--short=5", "HEAD")
+    }.standardOutput.asText.get().trim()
+} catch (_: Exception) {
+    "unknown"
+}
+
+val buildDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMyy"))
+val appVersionName = "${baseVersion}_${gitHash}_${buildDate}"
 
 android {
     namespace = "plus.rua.project"
@@ -13,7 +29,7 @@ android {
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "1.0"
+        versionName = appVersionName
 
         ndk {
             abiFilters += listOf("arm64-v8a", "armeabi-v7a")

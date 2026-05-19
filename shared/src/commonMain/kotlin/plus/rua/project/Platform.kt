@@ -18,6 +18,9 @@ expect fun getGifUri(gifFile: String): String
 
 expect fun getAppIconUri(): String
 
+@Composable
+expect fun getAppVersion(): String
+
 /**
  * 预测性返回手势处理器（Android 13+）。
  *

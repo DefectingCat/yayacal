@@ -5,6 +5,7 @@ import androidx.activity.BackEventCompat
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 
@@ -17,6 +18,25 @@ actual fun getPlatform(): Platform = AndroidPlatform()
 actual fun getGifUri(gifFile: String): String = "file:///android_asset/gifs/$gifFile"
 
 actual fun getAppIconUri(): String = "file:///android_asset/app_icon.png?v=2"
+
+@Composable
+actual fun getAppVersion(): String {
+    val context = LocalContext.current.applicationContext
+    return try {
+        val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageInfo(
+                context.packageName,
+                android.content.pm.PackageManager.PackageInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }
+        packageInfo.versionName ?: "unknown"
+    } catch (_: Exception) {
+        "unknown"
+    }
+}
 
 @Composable
 actual fun PredictiveBackHandler(

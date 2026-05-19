@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.github.panpf.sketch.AsyncImage
 import plus.rua.project.AppInfo
 import plus.rua.project.getAppIconUri
+import plus.rua.project.getAppVersion
 
 /**
  * 关于页面，展示应用图标、名称、版本号及开源许可入口。
@@ -100,7 +101,7 @@ fun AboutScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "版本：${AppInfo.VERSION}",
+                text = "版本：${getAppVersion()}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
