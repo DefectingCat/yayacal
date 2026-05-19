@@ -8,9 +8,6 @@
 # tyme4kt (Chinese traditional calendar)
 -keep class cn.tyme.** { *; }
 
-# Compose runtime reflective lookups
--keep class androidx.compose.runtime.** { *; }
-
 # ViewModel (used by CalendarViewModel)
 -keep class * extends androidx.lifecycle.ViewModel { *; }
 
