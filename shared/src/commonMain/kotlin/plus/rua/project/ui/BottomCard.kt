@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.LocalDate
 import plus.rua.project.CalendarViewModel
+import plus.rua.project.ShiftKind
 
 /**
  * 底部卡片，折叠状态下支持垂直拖拽触发折叠动画。
@@ -55,6 +56,11 @@ fun BottomCard(
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val solarDesc = "${selectedDate.monthNumber}月${selectedDate.day}日"
     val lunarDesc = formatLunarDate(selectedDate)
+    val shiftMessage = when (viewModel.shiftKindAt(selectedDate)) {
+        ShiftKind.WORK -> "小小上班，轻松拿下！"
+        ShiftKind.OFF -> "耶耶耶，美美休息！"
+        null -> null
+    }
 
     Surface(
         modifier = modifier
@@ -142,6 +148,17 @@ fun BottomCard(
                 // 右侧：C（农历日期）
                 Text(
                     text = lunarDesc,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontSize = 14.sp
+                )
+            }
+            if (shiftMessage != null) {
+                Text(
+                    text = shiftMessage,
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .padding(top = 12.dp, bottom = 6.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     fontSize = 14.sp
