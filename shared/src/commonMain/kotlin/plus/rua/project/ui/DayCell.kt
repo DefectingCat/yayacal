@@ -5,6 +5,7 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -291,6 +292,7 @@ fun DayCell(
                 modifier = Modifier
                     .align(shiftAlignment)
                     .zIndex(1f)
+                    .background(MaterialTheme.colorScheme.background)
                     .then(shiftPadding)
                     .padding(horizontal = 2.dp)
             )
@@ -305,6 +307,7 @@ fun DayCell(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .zIndex(1f)
+                    .background(MaterialTheme.colorScheme.background)
                     .padding(top = 1.dp, end = 2.dp)
                     .padding(horizontal = 2.dp)
             )

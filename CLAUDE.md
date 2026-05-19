@@ -12,13 +12,22 @@ YaYa is a calendar app built with Kotlin Multiplatform (KMP) + Compose Multiplat
 # Build Android debug APK
 ./gradlew :androidApp:assembleDebug
 
-# Run shared module tests
+# Install Android debug APK to connected device
+./gradlew :androidApp:installDebug
+
+# Run all shared module tests
+./gradlew :shared:allTests
+
+# Run shared module tests on Android host only
 ./gradlew :shared:testAndroidHostTest
 
 # Run a single test class
 ./gradlew :shared:testAndroidHostTest --tests "plus.rua.project.ui.CalendarUtilsTest"
 
-# Build iOS app — open iosApp/ in Xcode and run from there
+# Generate iOS framework (required before first Xcode open or after clean)
+./gradlew :shared:generateDummyFramework
+
+# Build iOS app — open iosApp/iosApp.xcworkspace in Xcode and run from there
 ```
 
 Gradle configuration cache and build cache are enabled by default (`gradle.properties`).
@@ -62,13 +71,17 @@ CalendarMonthView          ← top-level screen (MonthHeader + WeekdayHeader + p
 
 `CalendarViewModel` holds `selectedDate` and `isCollapsed` state, computes month day grids (6×7=42 cells) and ISO week numbers. Week starts on Monday (ISO 8601).
 
+**Performance tracing:** `ComposeTrace.kt` provides `composeTraceBeginSection`/`composeTraceEndSection` via expect/actual — Android routes to `android.os.Trace`, iOS is a no-op. Custom markers are inserted at key points (e.g., `MonthView:Compose`, `YearView:Compose`, `VM:collapseProgress`) for Perfetto/Systrace analysis. See `DEVELOPMENT.md` for trace recording and Python parsing scripts.
+
 ## Key Dependencies
 
 - Kotlin 2.3.21, Compose Multiplatform 1.11.0, Material 3 1.10.0-alpha05
 - `kotlinx-datetime` 0.8.0 for all date logic (no java.util.Calendar)
 - `tyme4kt` for Chinese traditional calendar (lunar dates, solar terms, festivals)
+- `sketch` 4.4.0 for animated GIF display (`AsyncImage` with `sketch-animated-gif`)
 - AGP 9.2.1, compileSdk/targetSdk 37, minSdk 24
 - JVM target: 17
+- R8 full mode enabled (`android.enableR8.fullMode=true`)
 
 ## Conventions
 

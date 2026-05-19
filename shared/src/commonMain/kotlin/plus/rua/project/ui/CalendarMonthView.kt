@@ -1,6 +1,8 @@
 package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -28,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -75,7 +78,8 @@ import kotlin.time.Clock
  */
 @Composable
 fun CalendarMonthView(
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToAbout: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     val viewModel = remember { CalendarViewModel(coroutineScope) }
@@ -203,6 +207,7 @@ fun CalendarMonthView(
     Box(
         modifier = modifier
             .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
             .statusBarsPadding()
             .onSizeChanged { size ->
                 screenWidthPx = size.width
@@ -402,11 +407,11 @@ fun CalendarMonthView(
             MenuIcon()
         }
 
-        // Scrim：菜单展开时覆盖全屏，点击关闭
+        // Scrim：全透明，仅拦截点击关闭菜单，无动画
         AnimatedVisibility(
             visible = isMenuExpanded,
-            enter = fadeIn(tween(300)),
-            exit = fadeOut(tween(200))
+            enter = EnterTransition.None,
+            exit = ExitTransition.None
         ) {
             Box(
                 modifier = Modifier
@@ -414,7 +419,6 @@ fun CalendarMonthView(
                     .pointerInput(Unit) {
                         detectTapGestures { isMenuExpanded = false }
                     }
-                    .background(Color.Black.copy(alpha = 0.32f))
             )
         }
 
@@ -455,6 +459,19 @@ fun CalendarMonthView(
                         onClick = {
                             isMenuExpanded = false
                             if (!viewModel.isYearView) viewModel.toggleYearView()
+                        }
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    MenuItem(
+                        text = "关于",
+                        selected = false,
+                        onClick = {
+                            isMenuExpanded = false
+                            onNavigateToAbout()
                         }
                     )
                 }
