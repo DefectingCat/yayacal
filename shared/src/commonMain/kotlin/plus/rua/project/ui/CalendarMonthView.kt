@@ -311,6 +311,8 @@ fun CalendarMonthView(
                 if (cardHeightPx > 0) {
                     BottomCard(
                         viewModel = viewModel,
+                        selectedDate = viewModel.selectedDate,
+                        today = today,
                         dragRangePx = dragRangePx,
                         modifier = Modifier
                             .fillMaxWidth()

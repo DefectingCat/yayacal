@@ -1,7 +1,9 @@
 package plus.rua.project.ui
 
+import com.tyme.solar.SolarDay
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.daysUntil
 import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
@@ -129,4 +131,41 @@ fun LocalDate.toWeekMonday(): LocalDate {
 fun pageToWeekMonday(page: Int, initial: LocalDate): LocalDate {
     val offset = page - START_PAGE
     return initial.plus(DatePeriod(days = offset * 7))
+}
+
+/**
+ * 计算选中日期相对于今天的天数描述。
+ *
+ * 例如今天 19 日，选中 18 日返回"昨天"，17 日返回"2天前"，
+ * 20 日返回"明天"，21 日返回"2天后"，选中当天返回"今天"。
+ *
+ * @param selectedDate 选中日期
+ * @param today 今天日期
+ * @return 相对天数描述
+ */
+fun relativeDayDescription(selectedDate: LocalDate, today: LocalDate): String {
+    val diff = today.daysUntil(selectedDate)
+    return when {
+        diff == 0 -> "今天"
+        diff == -1 -> "昨天"
+        diff == 1 -> "明天"
+        diff < 0 -> "${-diff}天前"
+        else -> "${diff}天后"
+    }
+}
+
+/**
+ * 将公历日期格式化为农历日期字符串。
+ *
+ * 格式为"农历{月}{日}"，例如"农历四月初三"。
+ *
+ * @param date 公历日期
+ * @return 农历日期描述
+ */
+@Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
+fun formatLunarDate(date: LocalDate): String {
+    val solarDay = SolarDay.fromYmd(date.year, date.monthNumber, date.day)
+    val lunarDay = solarDay.getLunarDay()
+    val lunarMonth = lunarDay.getLunarMonth()
+    return "农历${lunarMonth.getName()}${lunarDay.getName()}"
 }
