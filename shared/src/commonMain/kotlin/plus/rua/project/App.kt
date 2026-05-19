@@ -95,7 +95,13 @@ fun App() {
         scope.launch {
             backAnimProgress.snapTo(backProgress)
             backProgress = 0f
-            backAnimProgress.animateTo(1f, spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioNoBouncy))
+            backAnimProgress.animateTo(
+                1f,
+                spring(
+                    stiffness = Spring.StiffnessMedium,
+                    dampingRatio = Spring.DampingRatioNoBouncy
+                )
+            )
             currentScreen = when (currentScreen) {
                 Screen.About -> Screen.Main
                 Screen.Licenses -> Screen.About
@@ -165,7 +171,9 @@ fun App() {
                                 val fp = forwardProgress.value
                                 when {
                                     bp > 0.001f -> applyDismissTransform(bp)
-                                    fp < 0.999f && forwardTarget == Screen.About -> applyEnterTransform(fp)
+                                    fp < 0.999f && forwardTarget == Screen.About -> applyEnterTransform(
+                                        fp
+                                    )
                                 }
                             }
 
@@ -184,7 +192,9 @@ fun App() {
                         val fp = forwardProgress.value
                         when {
                             bp > 0.001f -> applyDismissTransform(bp)
-                            fp < 0.999f && forwardTarget == Screen.Licenses -> applyEnterTransform(fp)
+                            fp < 0.999f && forwardTarget == Screen.Licenses -> applyEnterTransform(
+                                fp
+                            )
                         }
                     }
                 )
