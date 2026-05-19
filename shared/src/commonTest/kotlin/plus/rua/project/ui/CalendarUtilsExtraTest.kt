@@ -26,35 +26,50 @@ class CalendarUtilsExtraTest {
     fun calculateWeeksCountForPage_forwardOnePage_returnsNextMonthRows() {
         // From May 2026, +1 -> June 2026
         val today = LocalDate(2026, 5, 15)
-        assertEquals(calculateWeeksCount(2026, 6), calculateWeeksCountForPage(START_PAGE + 1, today))
+        assertEquals(
+            calculateWeeksCount(2026, 6),
+            calculateWeeksCountForPage(START_PAGE + 1, today)
+        )
     }
 
     @Test
     fun calculateWeeksCountForPage_backwardOnePage_returnsPreviousMonthRows() {
         // From May 2026, -1 -> April 2026
         val today = LocalDate(2026, 5, 15)
-        assertEquals(calculateWeeksCount(2026, 4), calculateWeeksCountForPage(START_PAGE - 1, today))
+        assertEquals(
+            calculateWeeksCount(2026, 4),
+            calculateWeeksCountForPage(START_PAGE - 1, today)
+        )
     }
 
     @Test
     fun calculateWeeksCountForPage_crossYearForward() {
         // From December 2026, +1 -> January 2027
         val today = LocalDate(2026, 12, 10)
-        assertEquals(calculateWeeksCount(2027, 1), calculateWeeksCountForPage(START_PAGE + 1, today))
+        assertEquals(
+            calculateWeeksCount(2027, 1),
+            calculateWeeksCountForPage(START_PAGE + 1, today)
+        )
     }
 
     @Test
     fun calculateWeeksCountForPage_crossYearBackward() {
         // From January 2026, -1 -> December 2025
         val today = LocalDate(2026, 1, 10)
-        assertEquals(calculateWeeksCount(2025, 12), calculateWeeksCountForPage(START_PAGE - 1, today))
+        assertEquals(
+            calculateWeeksCount(2025, 12),
+            calculateWeeksCountForPage(START_PAGE - 1, today)
+        )
     }
 
     @Test
     fun calculateWeeksCountForPage_twelvePagesForward_returnsSameMonthOfNextYear() {
         val today = LocalDate(2026, 5, 15)
         // +12 -> May 2027
-        assertEquals(calculateWeeksCount(2027, 5), calculateWeeksCountForPage(START_PAGE + 12, today))
+        assertEquals(
+            calculateWeeksCount(2027, 5),
+            calculateWeeksCountForPage(START_PAGE + 12, today)
+        )
     }
 
     // ---- relativeDayDescription ----

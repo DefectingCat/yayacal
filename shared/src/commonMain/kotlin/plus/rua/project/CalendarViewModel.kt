@@ -19,8 +19,6 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
-import plus.rua.project.composeTraceBeginSection
-import plus.rua.project.composeTraceEndSection
 import plus.rua.project.ui.COLLAPSE_THRESHOLD
 import plus.rua.project.ui.FLING_VELOCITY_THRESHOLD_DP
 import kotlin.time.Clock

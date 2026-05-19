@@ -112,7 +112,11 @@ fun YearGridView(
             listOf(
                 (month to true) to textMeasurer.measure(
                     text,
-                    TextStyle(fontSize = 10.sp, color = colors.titleSelected, fontWeight = FontWeight.Bold)
+                    TextStyle(
+                        fontSize = 10.sp,
+                        color = colors.titleSelected,
+                        fontWeight = FontWeight.Bold
+                    )
                 ),
                 (month to false) to textMeasurer.measure(
                     text,

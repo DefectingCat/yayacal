@@ -5,7 +5,6 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -274,10 +273,8 @@ fun DayCell(
             }
             val shiftLabel = if (shiftKind == ShiftKind.WORK) "班" else "休"
             val shiftAlpha = if (isCurrentMonth) 1f else 0.38f
-            // 右上角(默认)沿用法定调休视觉:surface 背景 + 彩色文字;
+            // 右上角(默认)无背景,文字直接浮在单元格上;
             // 左上角(showLegalHoliday=true 时)用实心胶囊,与右上角法定调休区分。
-            val shiftBgColor =
-                if (showLegalHoliday) shiftAccentColor else MaterialTheme.colorScheme.surface
             val shiftFgColor = if (showLegalHoliday) shiftOnAccentColor else shiftAccentColor
             val shiftAlignment = if (showLegalHoliday) Alignment.TopStart else Alignment.TopEnd
             val shiftPadding = if (showLegalHoliday) {
@@ -295,7 +292,6 @@ fun DayCell(
                     .align(shiftAlignment)
                     .zIndex(1f)
                     .then(shiftPadding)
-                    .background(shiftBgColor.copy(alpha = shiftAlpha), CircleShape)
                     .padding(horizontal = 2.dp)
             )
         }
@@ -310,7 +306,6 @@ fun DayCell(
                     .align(Alignment.TopEnd)
                     .zIndex(1f)
                     .padding(top = 1.dp, end = 2.dp)
-                    .background(MaterialTheme.colorScheme.surface, CircleShape)
                     .padding(horizontal = 2.dp)
             )
         }

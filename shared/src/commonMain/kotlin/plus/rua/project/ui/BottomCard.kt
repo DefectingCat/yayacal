@@ -22,7 +22,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.LocalDate
@@ -52,6 +51,7 @@ fun BottomCard(
 ) {
     val density = LocalDensity.current
     val relativeDesc = relativeDayDescription(selectedDate, today)
+
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val solarDesc = "${selectedDate.monthNumber}月${selectedDate.day}日"
     val lunarDesc = formatLunarDate(selectedDate)
