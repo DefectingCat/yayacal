@@ -101,7 +101,7 @@ fun App() {
                 Screen.Licenses -> Screen.About
                 else -> currentScreen
             }
-            backAnimProgress.animateTo(0f, spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioNoBouncy))
+            backAnimProgress.snapTo(0f)
             isHandlingBack = false
         }
     }
