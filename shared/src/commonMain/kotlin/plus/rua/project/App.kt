@@ -95,7 +95,7 @@ fun App() {
                 Screen.Licenses -> Screen.About
                 else -> currentScreen
             }
-            backAnimProgress.snapTo(0f)
+            backAnimProgress.animateTo(0f, tween(100, easing = FastOutSlowInEasing))
         }
     }
 
@@ -186,7 +186,7 @@ fun App() {
             // 预测性返回手势
             if (currentScreen != Screen.Main) {
                 PredictiveBackHandler(
-                    enabled = backProgress == 0f && !backAnimProgress.isRunning && forwardTarget == null,
+                    enabled = !backAnimProgress.isRunning && forwardTarget == null,
                     onProgress = { backProgress = it },
                     onBack = handleBack,
                     onCancel = handleCancel
