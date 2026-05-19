@@ -281,7 +281,8 @@ fun CalendarMonthView(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) {
-            MenuIcon()
+            val iconColor = MaterialTheme.colorScheme.onPrimaryContainer
+            MenuIcon(color = iconColor)
         }
 
         // Scrim：全透明，仅拦截点击关闭菜单，无动画
@@ -358,7 +359,7 @@ fun CalendarMonthView(
 }
 
 @Composable
-private fun MenuIcon(modifier: Modifier = Modifier) {
+private fun MenuIcon(color: Color, modifier: Modifier = Modifier) {
     Canvas(modifier = modifier.size(24.dp)) {
         val strokeWidth = 2.dp.toPx()
         val lineSpacing = 4.dp.toPx()
@@ -366,7 +367,7 @@ private fun MenuIcon(modifier: Modifier = Modifier) {
         val startY = (size.height - totalHeight) / 2
         repeat(3) { i ->
             drawLine(
-                color = Color.White,
+                color = color,
                 start = Offset(0f, startY + i * (strokeWidth + lineSpacing)),
                 end = Offset(size.width, startY + i * (strokeWidth + lineSpacing)),
                 strokeWidth = strokeWidth

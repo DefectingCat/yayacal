@@ -48,19 +48,20 @@ fun AboutScreen(
                 title = { Text("关于鸭鸭日历") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
+                        val arrowColor = MaterialTheme.colorScheme.onSurface
                         Canvas(modifier = Modifier.size(24.dp)) {
                             val strokeWidth = 2.dp.toPx()
                             drawLine(
-                                color = Color.White,
-                                start = Offset(size.width * 0.75f, size.height * 0.25f),
+                                color = arrowColor,
+                                start = Offset(size.width * 0.75f, size.height * 0.15f),
                                 end = Offset(size.width * 0.25f, size.height * 0.5f),
                                 strokeWidth = strokeWidth,
                                 cap = StrokeCap.Round
                             )
                             drawLine(
-                                color = Color.White,
+                                color = arrowColor,
                                 start = Offset(size.width * 0.25f, size.height * 0.5f),
-                                end = Offset(size.width * 0.75f, size.height * 0.75f),
+                                end = Offset(size.width * 0.75f, size.height * 0.85f),
                                 strokeWidth = strokeWidth,
                                 cap = StrokeCap.Round
                             )
