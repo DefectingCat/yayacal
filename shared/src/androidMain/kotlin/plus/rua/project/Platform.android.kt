@@ -16,7 +16,7 @@ actual fun getPlatform(): Platform = AndroidPlatform()
 
 actual fun getGifUri(gifFile: String): String = "file:///android_asset/gifs/$gifFile"
 
-actual fun getAppIconUri(): String = "file:///android_asset/app_icon.png"
+actual fun getAppIconUri(): String = "file:///android_asset/app_icon.png?v=2"
 
 @Composable
 actual fun PredictiveBackHandler(

@@ -12,7 +12,7 @@ actual fun getPlatform(): Platform = IOSPlatform()
 
 actual fun getGifUri(gifFile: String): String = "compose.resource://files/$gifFile"
 
-actual fun getAppIconUri(): String = "compose.resource://files/app_icon.png"
+actual fun getAppIconUri(): String = "compose.resource://files/app_icon.png?v=2"
 
 @Composable
 actual fun PredictiveBackHandler(
