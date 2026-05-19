@@ -30,6 +30,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -458,6 +459,16 @@ fun CalendarMonthView(
                             isMenuExpanded = false
                             if (!viewModel.isYearView) viewModel.toggleYearView()
                         }
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    MenuItem(
+                        text = "关于",
+                        selected = false,
+                        onClick = { /* TODO: 后续接入设置页 */ }
                     )
                 }
             }
