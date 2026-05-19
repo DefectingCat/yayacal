@@ -147,6 +147,15 @@ fun BottomCard(
                     fontSize = 14.sp
                 )
             }
+            Spacer(modifier = Modifier.height(12.dp))
+            AnimatedGif(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .align(Alignment.CenterHorizontally),
+                contentDescription = "可爱小狗",
+                seed = selectedDate,
+            )
         }
     }
 }
