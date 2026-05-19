@@ -2,8 +2,11 @@ package plus.rua.project
 
 import android.os.Build
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.CancellationException
+import androidx.compose.runtime.LaunchedEffect
+import androidx.navigationevent.NavigationEventInfo
+import androidx.navigationevent.NavigationEventTransitionState
+import androidx.navigationevent.compose.NavigationBackHandler
+import androidx.navigationevent.compose.rememberNavigationEventState
 
 class AndroidPlatform : Platform {
     override val name: String = "Android ${Build.VERSION.SDK_INT}"
@@ -22,19 +25,19 @@ actual fun PredictiveBackHandler(
     onBack: () -> Unit,
     onCancel: () -> Unit
 ) {
-    if (Build.VERSION.SDK_INT >= 34) {
-        rememberCoroutineScope()
-        androidx.activity.compose.PredictiveBackHandler(enabled) { progress ->
-            try {
-                progress.collect { backEvent ->
-                    onProgress(backEvent.progress)
-                }
-                onBack()
-            } catch (e: CancellationException) {
-                onCancel()
-            }
+    val navState = rememberNavigationEventState(NavigationEventInfo.None)
+
+    NavigationBackHandler(
+        state = navState,
+        isBackEnabled = enabled,
+        onBackCancelled = onCancel,
+        onBackCompleted = onBack
+    )
+
+    LaunchedEffect(navState.transitionState) {
+        val ts = navState.transitionState
+        if (ts is NavigationEventTransitionState.InProgress) {
+            onProgress(ts.latestEvent.progress)
         }
-    } else {
-        androidx.activity.compose.BackHandler(enabled = enabled, onBack = onBack)
     }
 }

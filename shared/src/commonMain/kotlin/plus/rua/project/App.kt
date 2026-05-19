@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.GraphicsLayerScope
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -31,6 +32,35 @@ import plus.rua.project.ui.LicensesScreen
 import plus.rua.project.ui.lerp
 
 private enum class Screen { Main, About, Licenses }
+
+/** 返回手势动画：顶层页面滑出 + 淡出 + 缩小 + 圆角阴影 */
+private fun GraphicsLayerScope.applyDismissTransform(progress: Float) {
+    translationX = progress * size.width * 0.5f
+    scaleX = 1f - progress * 0.08f
+    scaleY = 1f - progress * 0.08f
+    alpha = 1f - progress * 0.8f
+    shadowElevation = 32.dp.toPx() * progress
+    shape = RoundedCornerShape(28.dp * progress)
+    clip = progress > 0.01f
+}
+
+/** 底层页面缩放：随返回进度从 baseScale 放大到 1.0 */
+private fun GraphicsLayerScope.applyRevealTransform(
+    progress: Float,
+    forwardProgress: Float,
+    isForwardAnimating: Boolean
+) {
+    val baseScale = 0.92f + 0.08f * progress
+    val scale = if (isForwardAnimating) lerp(1f, baseScale, forwardProgress) else baseScale
+    scaleX = scale
+    scaleY = scale
+}
+
+/** 前向导航动画：新页面从右侧滑入 */
+private fun GraphicsLayerScope.applyEnterTransform(progress: Float) {
+    translationX = (1f - progress) * size.width
+    alpha = progress
+}
 
 /**
  * 应用入口 Composable，根据系统主题切换明暗 ColorScheme 并管理页面导航。
@@ -59,7 +89,7 @@ fun App() {
         scope.launch {
             backAnimProgress.snapTo(backProgress)
             backProgress = 0f
-            backAnimProgress.animateTo(1f, tween(200, easing = FastOutSlowInEasing))
+            backAnimProgress.animateTo(1f, tween(250, easing = FastOutSlowInEasing))
             currentScreen = when (currentScreen) {
                 Screen.About -> Screen.Main
                 Screen.Licenses -> Screen.About
@@ -96,14 +126,11 @@ fun App() {
             CalendarMonthView(
                 modifier = Modifier.graphicsLayer {
                     if (currentScreen != Screen.Main) {
-                        val baseScale = 0.92f + 0.08f * effectiveBackProgress
-                        val scale = if (forwardTarget != null) {
-                            lerp(1f, baseScale, forwardProgress.value)
-                        } else {
-                            baseScale
-                        }
-                        scaleX = scale
-                        scaleY = scale
+                        applyRevealTransform(
+                            effectiveBackProgress,
+                            forwardProgress.value,
+                            forwardTarget != null
+                        )
                     }
                 },
                 onNavigateToAbout = { navigateTo(Screen.About) }
@@ -120,34 +147,18 @@ fun App() {
                     },
                     modifier = Modifier.graphicsLayer {
                         when (currentScreen) {
-                            Screen.Licenses -> {
-                                val baseScale = 0.92f + 0.08f * effectiveBackProgress
-                                val scale = if (forwardTarget == Screen.Licenses) {
-                                    lerp(1f, baseScale, forwardProgress.value)
-                                } else {
-                                    baseScale
-                                }
-                                scaleX = scale
-                                scaleY = scale
-                            }
+                            Screen.Licenses -> applyRevealTransform(
+                                effectiveBackProgress,
+                                forwardProgress.value,
+                                forwardTarget == Screen.Licenses
+                            )
 
                             Screen.About -> {
                                 val bp = effectiveBackProgress
                                 val fp = forwardProgress.value
                                 when {
-                                    bp > 0.001f -> {
-                                        translationX = bp * size.width * 0.3f
-                                        scaleX = 1f - bp * 0.05f
-                                        scaleY = 1f - bp * 0.05f
-                                        shadowElevation = 32.dp.toPx() * bp
-                                        shape = RoundedCornerShape(28.dp * bp)
-                                        clip = bp > 0.01f
-                                    }
-
-                                    fp < 0.999f && forwardTarget == Screen.About -> {
-                                        translationX = (1f - fp) * size.width
-                                        alpha = fp
-                                    }
+                                    bp > 0.001f -> applyDismissTransform(bp)
+                                    fp < 0.999f && forwardTarget == Screen.About -> applyEnterTransform(fp)
                                 }
                             }
 
@@ -165,19 +176,8 @@ fun App() {
                         val bp = effectiveBackProgress
                         val fp = forwardProgress.value
                         when {
-                            bp > 0.001f -> {
-                                translationX = bp * size.width * 0.3f
-                                scaleX = 1f - bp * 0.05f
-                                scaleY = 1f - bp * 0.05f
-                                shadowElevation = 32.dp.toPx() * bp
-                                shape = RoundedCornerShape(28.dp * bp)
-                                clip = bp > 0.01f
-                            }
-
-                            fp < 0.999f && forwardTarget == Screen.Licenses -> {
-                                translationX = (1f - fp) * size.width
-                                alpha = fp
-                            }
+                            bp > 0.001f -> applyDismissTransform(bp)
+                            fp < 0.999f && forwardTarget == Screen.Licenses -> applyEnterTransform(fp)
                         }
                     }
                 )
