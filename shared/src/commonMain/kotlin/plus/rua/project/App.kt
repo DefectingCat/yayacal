@@ -1,117 +1,196 @@
 package plus.rua.project
 
-import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
 import plus.rua.project.ui.AboutScreen
 import plus.rua.project.ui.CalendarMonthView
 import plus.rua.project.ui.LicensesScreen
+import plus.rua.project.ui.lerp
 
 private enum class Screen { Main, About, Licenses }
 
 /**
  * 应用入口 Composable，根据系统主题切换明暗 ColorScheme 并管理页面导航。
+ *
+ * 使用 Box 分层布局替代 AnimatedContent，支持预测性返回手势：
+ * - 底层页面始终组合（状态保持），缩放显现
+ * - 顶层页面在手势期间平滑位移、缩放、圆角、阴影
+ * - 前向导航从右侧滑入，返回导航跟手驱动
  */
 @Composable
 @Preview(name = "Calendar App")
 fun App() {
     var currentScreen by remember { mutableStateOf(Screen.Main) }
     var backProgress by remember { mutableFloatStateOf(0f) }
+    val scope = rememberCoroutineScope()
+
+    val backAnimProgress = remember { Animatable(0f) }
+    val effectiveBackProgress by remember {
+        derivedStateOf { maxOf(backProgress, backAnimProgress.value) }
+    }
+
+    var forwardTarget by remember { mutableStateOf<Screen?>(null) }
+    val forwardProgress = remember { Animatable(1f) }
 
     val handleBack: () -> Unit = {
-        backProgress = 0f
-        when (currentScreen) {
-            Screen.About -> currentScreen = Screen.Main
-            Screen.Licenses -> currentScreen = Screen.About
-            else -> {}
+        scope.launch {
+            backAnimProgress.snapTo(backProgress)
+            backProgress = 0f
+            backAnimProgress.animateTo(1f, tween(200, easing = FastOutSlowInEasing))
+            currentScreen = when (currentScreen) {
+                Screen.About -> Screen.Main
+                Screen.Licenses -> Screen.About
+                else -> currentScreen
+            }
+            backAnimProgress.snapTo(0f)
         }
     }
 
     val handleCancel: () -> Unit = {
-        backProgress = 0f
+        scope.launch {
+            backAnimProgress.snapTo(backProgress)
+            backProgress = 0f
+            backAnimProgress.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+        }
+    }
+
+    val navigateTo: (Screen) -> Unit = { target ->
+        if (forwardTarget == null) {
+            scope.launch {
+                forwardTarget = target
+                currentScreen = target
+                forwardProgress.snapTo(0f)
+                forwardProgress.animateTo(1f, tween(350, easing = FastOutSlowInEasing))
+                forwardTarget = null
+            }
+        }
     }
 
     val colorScheme = if (isSystemInDarkTheme()) darkColorScheme() else lightColorScheme()
     MaterialTheme(colorScheme = colorScheme) {
-        AnimatedContent(
-            targetState = currentScreen,
-            transitionSpec = {
-                if (targetState.ordinal > initialState.ordinal) {
-                    // 正向导航：新页面从右侧滑入覆盖，旧页面略微左移+淡出
-                    (slideInHorizontally { it } + fadeIn()) togetherWith
-                            (slideOutHorizontally { -it / 4 } + fadeOut())
-                } else {
-                    // 返回导航：新页面从左侧滑入，旧页面向右侧滑出
-                    (slideInHorizontally(animationSpec = tween(250)) { -it } + fadeIn(
-                        animationSpec = tween(
-                            250
-                        )
-                    )) togetherWith
-                            (slideOutHorizontally(animationSpec = tween(250)) { it } + fadeOut(
-                                animationSpec = tween(250)
-                            ))
-                }
-            },
-            modifier = Modifier.fillMaxSize()
-        ) { screen ->
-            when (screen) {
-                Screen.Main -> CalendarMonthView(
-                    modifier = Modifier,
-                    onNavigateToAbout = { currentScreen = Screen.About }
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Layer 0: CalendarMonthView（始终组合以保持状态）
+            CalendarMonthView(
+                modifier = Modifier.graphicsLayer {
+                    if (currentScreen != Screen.Main) {
+                        val baseScale = 0.92f + 0.08f * effectiveBackProgress
+                        val scale = if (forwardTarget != null) {
+                            lerp(1f, baseScale, forwardProgress.value)
+                        } else {
+                            baseScale
+                        }
+                        scaleX = scale
+                        scaleY = scale
+                    }
+                },
+                onNavigateToAbout = { navigateTo(Screen.About) }
+            )
+
+            // Layer 1: AboutScreen（About 或 Licenses 页面时组合）
+            if (currentScreen == Screen.About || currentScreen == Screen.Licenses) {
+                AboutScreen(
+                    onBack = {
+                        if (currentScreen == Screen.About) handleBack()
+                    },
+                    onNavigateToLicenses = {
+                        if (currentScreen == Screen.About) navigateTo(Screen.Licenses)
+                    },
+                    modifier = Modifier.graphicsLayer {
+                        when (currentScreen) {
+                            Screen.Licenses -> {
+                                val baseScale = 0.92f + 0.08f * effectiveBackProgress
+                                val scale = if (forwardTarget == Screen.Licenses) {
+                                    lerp(1f, baseScale, forwardProgress.value)
+                                } else {
+                                    baseScale
+                                }
+                                scaleX = scale
+                                scaleY = scale
+                            }
+
+                            Screen.About -> {
+                                val bp = effectiveBackProgress
+                                val fp = forwardProgress.value
+                                when {
+                                    bp > 0.001f -> {
+                                        translationX = bp * size.width * 0.3f
+                                        scaleX = 1f - bp * 0.05f
+                                        scaleY = 1f - bp * 0.05f
+                                        shadowElevation = 32.dp.toPx() * bp
+                                        shape = RoundedCornerShape(28.dp * bp)
+                                        clip = bp > 0.01f
+                                    }
+
+                                    fp < 0.999f && forwardTarget == Screen.About -> {
+                                        translationX = (1f - fp) * size.width
+                                        alpha = fp
+                                    }
+                                }
+                            }
+
+                            else -> {}
+                        }
+                    }
                 )
+            }
 
-                Screen.About -> {
-                    PredictiveBackHandler(
-                        enabled = backProgress == 0f,
-                        onProgress = { backProgress = it },
-                        onBack = handleBack,
-                        onCancel = handleCancel
-                    )
-                    AboutScreen(
-                        onBack = { currentScreen = Screen.Main },
-                        onNavigateToLicenses = { currentScreen = Screen.Licenses },
-                        modifier = Modifier.graphicsLayer {
-                            translationX = backProgress * size.width * 0.3f
-                            scaleX = 1f - backProgress * 0.05f
-                            scaleY = 1f - backProgress * 0.05f
-                        }
-                    )
-                }
+            // Layer 2: LicensesScreen（Licenses 页面时组合）
+            if (currentScreen == Screen.Licenses) {
+                LicensesScreen(
+                    onBack = handleBack,
+                    modifier = Modifier.graphicsLayer {
+                        val bp = effectiveBackProgress
+                        val fp = forwardProgress.value
+                        when {
+                            bp > 0.001f -> {
+                                translationX = bp * size.width * 0.3f
+                                scaleX = 1f - bp * 0.05f
+                                scaleY = 1f - bp * 0.05f
+                                shadowElevation = 32.dp.toPx() * bp
+                                shape = RoundedCornerShape(28.dp * bp)
+                                clip = bp > 0.01f
+                            }
 
-                Screen.Licenses -> {
-                    PredictiveBackHandler(
-                        enabled = backProgress == 0f,
-                        onProgress = { backProgress = it },
-                        onBack = handleBack,
-                        onCancel = handleCancel
-                    )
-                    LicensesScreen(
-                        onBack = { currentScreen = Screen.About },
-                        modifier = Modifier.graphicsLayer {
-                            translationX = backProgress * size.width * 0.3f
-                            scaleX = 1f - backProgress * 0.05f
-                            scaleY = 1f - backProgress * 0.05f
+                            fp < 0.999f && forwardTarget == Screen.Licenses -> {
+                                translationX = (1f - fp) * size.width
+                                alpha = fp
+                            }
                         }
-                    )
-                }
+                    }
+                )
+            }
+
+            // 预测性返回手势
+            if (currentScreen != Screen.Main) {
+                PredictiveBackHandler(
+                    enabled = backProgress == 0f && !backAnimProgress.isRunning && forwardTarget == null,
+                    onProgress = { backProgress = it },
+                    onBack = handleBack,
+                    onCancel = handleCancel
+                )
             }
         }
     }
