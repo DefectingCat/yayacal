@@ -15,6 +15,11 @@ actual fun getGifUri(gifFile: String): String = "compose.resource://files/$gifFi
 actual fun getAppIconUri(): String = "compose.resource://files/app_icon.png"
 
 @Composable
-actual fun BackHandler(enabled: Boolean, onBack: () -> Unit) {
-    // iOS 没有系统返回键，由导航栏按钮处理
+actual fun PredictiveBackHandler(
+    enabled: Boolean,
+    onProgress: (Float) -> Unit,
+    onBack: () -> Unit,
+    onCancel: () -> Unit
+) {
+    // iOS 没有预测性返回手势，由导航栏按钮处理
 }

@@ -19,10 +19,17 @@ expect fun getGifUri(gifFile: String): String
 expect fun getAppIconUri(): String
 
 /**
- * 拦截系统返回手势。
+ * 预测性返回手势处理器（Android 13+）。
  *
- * @param enabled 是否启用拦截
- * @param onBack 返回回调
+ * @param enabled 是否启用
+ * @param onProgress 手势进度回调（0.0~1.0），跟手过程中持续调用
+ * @param onBack 手势完成回调（滑动距离足够，执行返回）
+ * @param onCancel 手势取消回调（滑动距离不足，回弹）
  */
 @Composable
-expect fun BackHandler(enabled: Boolean = true, onBack: () -> Unit)
+expect fun PredictiveBackHandler(
+    enabled: Boolean = true,
+    onProgress: (Float) -> Unit = {},
+    onBack: () -> Unit,
+    onCancel: () -> Unit = {}
+)
