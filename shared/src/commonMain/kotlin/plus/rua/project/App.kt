@@ -35,13 +35,15 @@ private enum class Screen { Main, About, Licenses }
 
 /** 返回手势动画：顶层页面滑出 + 淡出 + 缩小 + 圆角阴影 */
 private fun GraphicsLayerScope.applyDismissTransform(progress: Float) {
-    translationX = progress * size.width * 0.5f
-    scaleX = 1f - progress * 0.08f
-    scaleY = 1f - progress * 0.08f
-    alpha = 1f - progress
-    shadowElevation = 32.dp.toPx() * progress
-    shape = RoundedCornerShape(28.dp * progress)
-    clip = progress > 0.01f
+    // 二次缓动：小幅手势产生更柔和的视觉变化，大幅手势仍达到完整效果
+    val p = progress * progress
+    translationX = p * size.width * 0.5f
+    scaleX = 1f - p * 0.08f
+    scaleY = 1f - p * 0.08f
+    alpha = 1f - p
+    shadowElevation = 32.dp.toPx() * p
+    shape = RoundedCornerShape(28.dp * p)
+    clip = p > 0.01f
 }
 
 /** 底层页面缩放：随返回进度从 baseScale 放大到 1.0 */
@@ -50,7 +52,8 @@ private fun GraphicsLayerScope.applyRevealTransform(
     forwardProgress: Float,
     isForwardAnimating: Boolean
 ) {
-    val baseScale = 0.92f + 0.08f * progress
+    val p = progress * progress
+    val baseScale = 0.92f + 0.08f * p
     val scale = if (isForwardAnimating) lerp(1f, baseScale, forwardProgress) else baseScale
     scaleX = scale
     scaleY = scale
@@ -85,17 +88,21 @@ fun App() {
     var forwardTarget by remember { mutableStateOf<Screen?>(null) }
     val forwardProgress = remember { Animatable(1f) }
 
-    val handleBack: () -> Unit = {
+    var isHandlingBack by remember { mutableStateOf(false) }
+    val handleBack: () -> Unit = lambda@{
+        if (isHandlingBack) return@lambda
+        isHandlingBack = true
         scope.launch {
             backAnimProgress.snapTo(backProgress)
             backProgress = 0f
-            backAnimProgress.animateTo(1f, tween(250, easing = FastOutSlowInEasing))
+            backAnimProgress.animateTo(1f, spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioNoBouncy))
             currentScreen = when (currentScreen) {
                 Screen.About -> Screen.Main
                 Screen.Licenses -> Screen.About
                 else -> currentScreen
             }
-            backAnimProgress.animateTo(0f, tween(100, easing = FastOutSlowInEasing))
+            backAnimProgress.animateTo(0f, spring(stiffness = Spring.StiffnessMedium, dampingRatio = Spring.DampingRatioNoBouncy))
+            isHandlingBack = false
         }
     }
 
@@ -186,7 +193,7 @@ fun App() {
             // 预测性返回手势
             if (currentScreen != Screen.Main) {
                 PredictiveBackHandler(
-                    enabled = !backAnimProgress.isRunning && forwardTarget == null,
+                    enabled = !backAnimProgress.isRunning && !isHandlingBack && forwardTarget == null,
                     onProgress = { backProgress = it },
                     onBack = handleBack,
                     onCancel = handleCancel

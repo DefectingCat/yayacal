@@ -1,6 +1,7 @@
 package plus.rua.project
 
 import android.os.Build
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.navigationevent.NavigationEventInfo
@@ -39,5 +40,10 @@ actual fun PredictiveBackHandler(
         if (ts is NavigationEventTransitionState.InProgress) {
             onProgress(ts.latestEvent.progress)
         }
+    }
+
+    // 降级：部分设备（如 OPPO/ColorOS）不通过 OnBackInvokedCallback 分发返回事件
+    BackHandler(enabled = enabled) {
+        onBack()
     }
 }
