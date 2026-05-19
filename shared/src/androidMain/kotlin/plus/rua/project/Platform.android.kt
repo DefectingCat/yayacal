@@ -4,7 +4,6 @@ import android.os.Build
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.launch
 
 class AndroidPlatform : Platform {
     override val name: String = "Android ${Build.VERSION.SDK_INT}"
@@ -24,7 +23,7 @@ actual fun PredictiveBackHandler(
     onCancel: () -> Unit
 ) {
     if (Build.VERSION.SDK_INT >= 34) {
-        val scope = rememberCoroutineScope()
+        rememberCoroutineScope()
         androidx.activity.compose.PredictiveBackHandler(enabled) { progress ->
             try {
                 progress.collect { backEvent ->

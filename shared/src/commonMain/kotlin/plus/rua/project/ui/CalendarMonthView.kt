@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -88,14 +89,10 @@ fun CalendarMonthView(
 
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val currentMonth by remember { derivedStateOf { viewModel.selectedDate.month.number } }
-    val density = LocalDensity.current
+    LocalDensity.current
 
-    var monthHeaderHeightPx by remember { mutableIntStateOf(0) }
-    var weekdayHeaderHeightPx by remember { mutableIntStateOf(0) }
     var rowHeightPx by remember { mutableIntStateOf(0) }
     var screenWidthPx by remember { mutableIntStateOf(0) }
-    var screenHeightPx by remember { mutableIntStateOf(0) }
-    var calendarContentHeightPx by remember { mutableIntStateOf(0) }
     var isMenuExpanded by remember { mutableStateOf(false) }
     // 视图切换时自动关闭菜单
     LaunchedEffect(viewModel.isYearView) {
@@ -142,64 +139,6 @@ fun CalendarMonthView(
         }
     }
 
-    val collapseProgress = viewModel.collapseProgress
-    val headerHeightPx = monthHeaderHeightPx + weekdayHeaderHeightPx
-
-    // 预计算固定 dp→px，避免每帧重复 density 转换
-    val cardGapExpandedPx = remember { with(density) { CARD_GAP_EXPANDED_DP.dp.toPx() } }
-    val cardGapCollapsedPx = remember { with(density) { CARD_GAP_COLLAPSED_DP.dp.toPx() } }
-    val rowPaddingPx = remember { with(density) { ROW_PADDING_DP.dp.toPx() } }.toInt()
-    val cardGapPx = lerp(cardGapExpandedPx, cardGapCollapsedPx, collapseProgress).toInt()
-
-    val interpolatedWeeks by remember {
-        derivedStateOf {
-            val fraction = pagerState.currentPageOffsetFraction
-            if (abs(fraction) > OFFSET_FRACTION_THRESHOLD) {
-                val cp = pagerState.currentPage
-                val baseWeeks = calculateWeeksCountForPage(cp, today)
-                val targetPage = cp + if (fraction > 0) 1 else -1
-                val targetWeeks = calculateWeeksCountForPage(targetPage, today)
-                lerp(baseWeeks.toFloat(), targetWeeks.toFloat(), abs(fraction))
-            } else {
-                calculateWeeksCountForPage(pagerState.currentPage, today).toFloat()
-            }
-        }
-    }
-
-    // 预计算固定 dp→px，避免每帧重复 density 转换
-    val horizontalPaddingPx = remember { with(density) { (HORIZONTAL_PADDING_DP * 2).dp.toPx() } }
-    val rowPadding2Px = remember { with(density) { (ROW_PADDING_DP * 2).dp.toPx() } }
-
-    val estimatedRowHeightPx = if (screenWidthPx > 0) {
-        val cellWidth = (screenWidthPx - horizontalPaddingPx) / 7
-        (cellWidth + rowPadding2Px).toInt()
-    } else 0
-
-    val effectiveRowHeightPx = if (rowHeightPx > 0) rowHeightPx else estimatedRowHeightPx
-    val effectiveWeeks = interpolatedWeeks
-
-    val gridHeightPx = if (effectiveRowHeightPx > 0) {
-        val rowH = effectiveRowHeightPx.toFloat()
-        if (collapseProgress > OFFSET_FRACTION_THRESHOLD) {
-            (rowH * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))).toInt()
-        } else {
-            (rowH * effectiveWeeks).toInt()
-        }
-    } else 0
-
-    val calendarAreaHeightPx = headerHeightPx + gridHeightPx + rowPaddingPx + cardGapPx
-
-    val cardHeightPx =
-        if (screenHeightPx > 0 && calendarAreaHeightPx > 0) screenHeightPx - calendarAreaHeightPx else 0
-
-    val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
-        Modifier
-            .height(with(density) { gridHeightPx.toDp() })
-            .clipToBounds()
-    } else {
-        Modifier
-    }
-
     // 年视图锚点缩放：当前月在 4×3 网格中的归一化位置
     val anchorPivotX = ((currentMonth - 1) % 3 + 0.5f) / 3f
     val anchorPivotY = ((currentMonth - 1) / 3 + 0.5f) / 4f
@@ -211,27 +150,17 @@ fun CalendarMonthView(
             .statusBarsPadding()
             .onSizeChanged { size ->
                 screenWidthPx = size.width
-                screenHeightPx = size.height
             }
     ) {
         // 月视图层：仅在非年视图时渲染，年视图激活时立即移除。
         if (!viewModel.isYearView) {
             composeTraceBeginSection("MonthView:Compose")
-            val dragRangeMinPx = with(density) { DRAG_RANGE_MIN_DP.dp.toPx() }
-            val dragRangePx = if (effectiveRowHeightPx > 0) {
-                maxOf((effectiveWeeks - 1) * effectiveRowHeightPx.toFloat(), dragRangeMinPx)
-            } else {
-                dragRangeMinPx
-            }
-
-            val monthProgress = 1f - viewModel.yearViewProgress
-            // 组合阶段计算：lambda 捕获快照值，避免 draw 阶段读到已更新的 rowHeightPx
-            // 但 layout 仍用旧值导致行堆叠
             val layoutReady = rowHeightPx > 0
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .graphicsLayer {
+                        val monthProgress = 1f - viewModel.yearViewProgress
                         val scale = lerp(0.3f, 1f, monthProgress)
                         scaleX = scale
                         scaleY = scale
@@ -251,79 +180,27 @@ fun CalendarMonthView(
                         showToday = viewModel.selectedDate != today,
                         onToday = {
                             viewModel.selectDate(today)
-                        },
-                        modifier = Modifier.onSizeChanged { size ->
-                            monthHeaderHeightPx = size.height
                         }
                     )
                     WeekdayHeader(
                         modifier = Modifier.fillMaxWidth().padding(bottom = ROW_PADDING_DP.dp)
-                            .onSizeChanged { size ->
-                                weekdayHeaderHeightPx = size.height
-                            }
                     )
-                    if (viewModel.isCollapsed && viewModel.collapseProgress >= 1f) {
-                        WeekPager(
-                            selectedDate = viewModel.selectedDate,
-                            today = today,
-                            onDateClick = { date -> viewModel.selectDate(date) },
-                            onWeekChanged = { weekMonday ->
-                                val weekSunday = weekMonday.plus(DatePeriod(days = 6))
-                                val date = when {
-                                    today in weekMonday..weekSunday -> today
-                                    weekMonday.month != weekSunday.month -> {
-                                        if (weekMonday < viewModel.selectedDate) {
-                                            @Suppress("DEPRECATION") // monthNumber 无替代 API
-                                            LocalDate(weekSunday.year, weekSunday.month.number, 1)
-                                        } else {
-                                            weekMonday
-                                        }
-                                    }
-
-                                    else -> weekMonday
-                                }
-                                viewModel.selectDate(date)
-                            },
-                            shiftKindAt = { date -> viewModel.shiftKindAt(date) },
-                            showLegalHoliday = viewModel.showLegalHoliday,
-                            modifier = pagerModifier
-                        )
-                    } else {
-                        CalendarPager(
-                            selectedDate = viewModel.selectedDate,
-                            today = today,
-                            onDateClick = { date -> viewModel.selectDate(date) },
-                            onMonthChanged = { year, month ->
-                                @Suppress("DEPRECATION") // monthNumber 无替代 API
-                                val date =
-                                    if (year == today.year && today.month.number == month) today
-                                    else LocalDate(year, month, 1)
-                                viewModel.selectDate(date)
-                            },
-                            collapseProgress = viewModel.collapseProgress,
-                            rowHeightPx = rowHeightPx,
-                            effectiveWeeks = effectiveWeeks,
-                            shiftKindAt = { date -> viewModel.shiftKindAt(date) },
-                            showLegalHoliday = viewModel.showLegalHoliday,
-                            onRowHeightMeasured = { h ->
-                                if (h > 0) rowHeightPx = h
-                            },
-                            pagerState = pagerState,
-                            modifier = pagerModifier
-                        )
-                    }
-                }
-
-                if (cardHeightPx > 0) {
-                    BottomCard(
+                    CalendarPagerArea(
                         viewModel = viewModel,
-                        selectedDate = viewModel.selectedDate,
                         today = today,
-                        dragRangePx = dragRangePx,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(with(density) { cardHeightPx.toDp() })
-                            .align(Alignment.BottomCenter)
+                        rowHeightPx = rowHeightPx,
+                        screenWidthPx = screenWidthPx,
+                        onRowHeightMeasured = { h ->
+                            if (h > 0) rowHeightPx = h
+                        },
+                        pagerState = pagerState,
+                        modifier = Modifier.clipToBounds()
+                    )
+                    BottomCardArea(
+                        viewModel = viewModel,
+                        today = today,
+                        rowHeightPx = rowHeightPx,
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }
@@ -496,6 +373,136 @@ private fun MenuIcon(modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+@Composable
+private fun CalendarPagerArea(
+    viewModel: CalendarViewModel,
+    today: LocalDate,
+    rowHeightPx: Int,
+    screenWidthPx: Int,
+    onRowHeightMeasured: ((Int) -> Unit)?,
+    pagerState: PagerState,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val collapseProgress = viewModel.collapseProgress
+
+    val interpolatedWeeks by remember {
+        derivedStateOf {
+            val fraction = pagerState.currentPageOffsetFraction
+            if (abs(fraction) > OFFSET_FRACTION_THRESHOLD) {
+                val cp = pagerState.currentPage
+                val baseWeeks = calculateWeeksCountForPage(cp, today)
+                val targetPage = cp + if (fraction > 0) 1 else -1
+                val targetWeeks = calculateWeeksCountForPage(targetPage, today)
+                lerp(baseWeeks.toFloat(), targetWeeks.toFloat(), abs(fraction))
+            } else {
+                calculateWeeksCountForPage(pagerState.currentPage, today).toFloat()
+            }
+        }
+    }
+
+    val horizontalPaddingPx = remember { with(density) { (HORIZONTAL_PADDING_DP * 2).dp.toPx() } }
+    val rowPadding2Px = remember { with(density) { (ROW_PADDING_DP * 2).dp.toPx() } }
+
+    val estimatedRowHeightPx = if (screenWidthPx > 0) {
+        val cellWidth = (screenWidthPx - horizontalPaddingPx) / 7
+        (cellWidth + rowPadding2Px).toInt()
+    } else 0
+
+    val effectiveRowHeightPx = if (rowHeightPx > 0) rowHeightPx else estimatedRowHeightPx
+    val effectiveWeeks = interpolatedWeeks
+
+    val gridHeightPx = if (effectiveRowHeightPx > 0) {
+        val rowH = effectiveRowHeightPx.toFloat()
+        if (collapseProgress > OFFSET_FRACTION_THRESHOLD) {
+            (rowH * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))).toInt()
+        } else {
+            (rowH * effectiveWeeks).toInt()
+        }
+    } else 0
+
+    val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
+        Modifier
+            .height(with(density) { gridHeightPx.toDp() })
+            .then(modifier)
+    } else {
+        modifier
+    }
+
+    if (viewModel.isCollapsed && collapseProgress >= 1f) {
+        WeekPager(
+            selectedDate = viewModel.selectedDate,
+            today = today,
+            onDateClick = { date -> viewModel.selectDate(date) },
+            onWeekChanged = { weekMonday ->
+                val weekSunday = weekMonday.plus(DatePeriod(days = 6))
+                val date = when {
+                    today in weekMonday..weekSunday -> today
+                    weekMonday.month != weekSunday.month -> {
+                        if (weekMonday < viewModel.selectedDate) {
+                            @Suppress("DEPRECATION") // monthNumber 无替代 API
+                            LocalDate(weekSunday.year, weekSunday.month.number, 1)
+                        } else {
+                            weekMonday
+                        }
+                    }
+
+                    else -> weekMonday
+                }
+                viewModel.selectDate(date)
+            },
+            shiftKindAt = { date -> viewModel.shiftKindAt(date) },
+            showLegalHoliday = viewModel.showLegalHoliday,
+            modifier = pagerModifier
+        )
+    } else {
+        CalendarPager(
+            selectedDate = viewModel.selectedDate,
+            today = today,
+            onDateClick = { date -> viewModel.selectDate(date) },
+            onMonthChanged = { year, month ->
+                @Suppress("DEPRECATION") // monthNumber 无替代 API
+                val date =
+                    if (year == today.year && today.month.number == month) today
+                    else LocalDate(year, month, 1)
+                viewModel.selectDate(date)
+            },
+            collapseProgress = collapseProgress,
+            rowHeightPx = rowHeightPx,
+            effectiveWeeks = effectiveWeeks,
+            shiftKindAt = { date -> viewModel.shiftKindAt(date) },
+            showLegalHoliday = viewModel.showLegalHoliday,
+            onRowHeightMeasured = onRowHeightMeasured,
+            pagerState = pagerState,
+            modifier = pagerModifier
+        )
+    }
+}
+
+@Composable
+private fun BottomCardArea(
+    viewModel: CalendarViewModel,
+    today: LocalDate,
+    rowHeightPx: Int,
+    modifier: Modifier = Modifier
+) {
+    val density = LocalDensity.current
+    val dragRangeMinPx = remember { with(density) { DRAG_RANGE_MIN_DP.dp.toPx() } }
+    val dragRangePx = if (rowHeightPx > 0) {
+        maxOf(4f * rowHeightPx, dragRangeMinPx)
+    } else {
+        dragRangeMinPx
+    }
+
+    BottomCard(
+        viewModel = viewModel,
+        selectedDate = viewModel.selectedDate,
+        today = today,
+        dragRangePx = dragRangePx,
+        modifier = modifier
+    )
 }
 
 @Composable

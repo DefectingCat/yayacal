@@ -57,11 +57,17 @@ fun App() {
                 if (targetState.ordinal > initialState.ordinal) {
                     // 正向导航：新页面从右侧滑入覆盖，旧页面略微左移+淡出
                     (slideInHorizontally { it } + fadeIn()) togetherWith
-                        (slideOutHorizontally { -it / 4 } + fadeOut())
+                            (slideOutHorizontally { -it / 4 } + fadeOut())
                 } else {
                     // 返回导航：新页面从左侧滑入，旧页面向右侧滑出
-                    (slideInHorizontally(animationSpec = tween(250)) { -it } + fadeIn(animationSpec = tween(250))) togetherWith
-                        (slideOutHorizontally(animationSpec = tween(250)) { it } + fadeOut(animationSpec = tween(250)))
+                    (slideInHorizontally(animationSpec = tween(250)) { -it } + fadeIn(
+                        animationSpec = tween(
+                            250
+                        )
+                    )) togetherWith
+                            (slideOutHorizontally(animationSpec = tween(250)) { it } + fadeOut(
+                                animationSpec = tween(250)
+                            ))
                 }
             },
             modifier = Modifier.fillMaxSize()
@@ -71,6 +77,7 @@ fun App() {
                     modifier = Modifier,
                     onNavigateToAbout = { currentScreen = Screen.About }
                 )
+
                 Screen.About -> {
                     PredictiveBackHandler(
                         enabled = backProgress == 0f,
@@ -88,6 +95,7 @@ fun App() {
                         }
                     )
                 }
+
                 Screen.Licenses -> {
                     PredictiveBackHandler(
                         enabled = backProgress == 0f,
