@@ -65,6 +65,7 @@ fun MonthHeader(
         ) { (y, m) ->
             Text(
                 text = "${y}年${m}月",
+                color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.titleLarge
             )
         }
@@ -84,6 +85,7 @@ fun MonthHeader(
         ) { week ->
             Text(
                 text = "第${week}周",
+                color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.bodySmall
             )
         }

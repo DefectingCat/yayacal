@@ -347,6 +347,7 @@ fun YearHeader(
             ) { y ->
                 Text(
                     text = "${y}年",
+                    color = MaterialTheme.colorScheme.onBackground,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
