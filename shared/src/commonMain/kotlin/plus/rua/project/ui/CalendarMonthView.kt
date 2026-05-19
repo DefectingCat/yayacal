@@ -1,6 +1,8 @@
 package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -403,11 +405,11 @@ fun CalendarMonthView(
             MenuIcon()
         }
 
-        // Scrim：菜单展开时覆盖全屏，点击关闭
+        // Scrim：全透明，仅拦截点击关闭菜单，无动画
         AnimatedVisibility(
             visible = isMenuExpanded,
-            enter = fadeIn(tween(300)),
-            exit = fadeOut(tween(200))
+            enter = EnterTransition.None,
+            exit = ExitTransition.None
         ) {
             Box(
                 modifier = Modifier
@@ -415,7 +417,6 @@ fun CalendarMonthView(
                     .pointerInput(Unit) {
                         detectTapGestures { isMenuExpanded = false }
                     }
-                    .background(Color.Black.copy(alpha = 0.32f))
             )
         }
 
