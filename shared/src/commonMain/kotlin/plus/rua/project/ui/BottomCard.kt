@@ -72,7 +72,6 @@ fun BottomCard(
                     detectVerticalDragGestures(
                         onDragEnd = {
                             val velocity = velocityTracker.calculateVelocity()
-                            // 上滑为正（折叠方向），下拉为负（展开方向）
                             val velocityDpPerSec = with(density) { -velocity.y.toDp().value }
                             viewModel.onExpandDragEnd(velocityDpPerSec)
                         },
@@ -89,7 +88,6 @@ fun BottomCard(
                     detectVerticalDragGestures(
                         onDragEnd = {
                             val velocity = velocityTracker.calculateVelocity()
-                            // 上滑为正（折叠方向），下拉为负（展开方向）
                             val velocityDpPerSec = with(density) { -velocity.y.toDp().value }
                             viewModel.onDragEnd(velocityDpPerSec)
                         },

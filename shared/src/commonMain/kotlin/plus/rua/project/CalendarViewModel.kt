@@ -180,8 +180,8 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onDrag(delta: Float) {
-        val old = _collapseAnimatable.value
         coroutineScope.launch {
+            val old = _collapseAnimatable.value
             val new = (old + delta).coerceIn(0f, 1f)
             _collapseAnimatable.snapTo(new)
         }
@@ -197,11 +197,7 @@ class CalendarViewModel(
     fun onDragEnd(velocityDpPerSec: Float = 0f) {
         coroutineScope.launch {
             val progress = _collapseAnimatable.value
-            val shouldCollapse = when {
-                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> true
-                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> false
-                else -> progress > COLLAPSE_THRESHOLD
-            }
+            val shouldCollapse = progress > 0.3f
             if (shouldCollapse) {
                 _collapseAnimatable.animateTo(
                     targetValue = 1f,
@@ -223,8 +219,8 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onExpandDrag(delta: Float) {
-        val old = _collapseAnimatable.value
         coroutineScope.launch {
+            val old = _collapseAnimatable.value
             val new = (old + delta).coerceIn(0f, 1f)
             _collapseAnimatable.snapTo(new)
         }
@@ -240,11 +236,7 @@ class CalendarViewModel(
     fun onExpandDragEnd(velocityDpPerSec: Float = 0f) {
         coroutineScope.launch {
             val progress = _collapseAnimatable.value
-            val shouldExpand = when {
-                velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> true
-                velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> false
-                else -> progress < 1f - COLLAPSE_THRESHOLD
-            }
+            val shouldExpand = progress < 0.7f
             if (shouldExpand) {
                 _collapseAnimatable.animateTo(
                     targetValue = 0f,
