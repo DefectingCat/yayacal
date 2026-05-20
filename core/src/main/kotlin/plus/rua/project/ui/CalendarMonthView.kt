@@ -159,25 +159,16 @@ fun CalendarMonthView(
                 targetState = viewModel.isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
-                    fadeIn(tween(300, easing = FastOutSlowInEasing)) togetherWith
-                        fadeOut(tween(300, easing = FastOutSlowInEasing))
+                    fadeIn(tween(0)) togetherWith fadeOut(tween(0))
                 },
                 modifier = Modifier.fillMaxSize()
             ) { isYearView ->
-                with(sharedScope) {
                 if (!isYearView) {
                     composeTraceBeginSection("MonthView:Compose")
                     val layoutReady = rowHeightPx > 0
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
-                            .sharedBounds(
-                                sharedContentState = rememberSharedContentState(key = "month_content"),
-                                animatedVisibilityScope = this@AnimatedContent,
-                                boundsTransform = { _, _ ->
-                                    tween(400, easing = FastOutSlowInEasing)
-                                }
-                            )
                             .alpha(if (layoutReady) 1f else 0f)
                     ) {
                         Column(
@@ -197,17 +188,29 @@ fun CalendarMonthView(
                             WeekdayHeader(
                                 modifier = Modifier.fillMaxWidth().padding(bottom = ROW_PADDING_DP.dp)
                             )
-                            CalendarPagerArea(
-                                viewModel = viewModel,
-                                today = today,
-                                rowHeightPx = rowHeightPx,
-                                screenWidthPx = screenWidthPx,
-                                onRowHeightMeasured = { h ->
-                                    if (h > 0) rowHeightPx = h
-                                },
-                                pagerState = pagerState,
-                                modifier = Modifier.clipToBounds()
-                            )
+                            with(sharedScope) {
+                                CalendarPagerArea(
+                                    viewModel = viewModel,
+                                    today = today,
+                                    rowHeightPx = rowHeightPx,
+                                    screenWidthPx = screenWidthPx,
+                                    onRowHeightMeasured = { h ->
+                                        if (h > 0) rowHeightPx = h
+                                    },
+                                    pagerState = pagerState,
+                                    modifier = Modifier
+                                        .sharedElement(
+                                            sharedContentState = rememberSharedContentState(
+                                                key = "month_grid_${currentYear}_${currentMonth}"
+                                            ),
+                                            animatedVisibilityScope = this@AnimatedContent,
+                                            boundsTransform = { _, _ ->
+                                                tween(400, easing = FastOutSlowInEasing)
+                                            }
+                                        )
+                                        .clipToBounds()
+                                )
+                            }
                             BottomCardArea(
                                 viewModel = viewModel,
                                 today = today,
@@ -222,13 +225,6 @@ fun CalendarMonthView(
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .sharedBounds(
-                                sharedContentState = rememberSharedContentState(key = "month_content"),
-                                animatedVisibilityScope = this@AnimatedContent,
-                                boundsTransform = { _, _ ->
-                                    tween(400, easing = FastOutSlowInEasing)
-                                }
-                            )
                             .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
                     ) {
                         YearHeader(
@@ -273,12 +269,13 @@ fun CalendarMonthView(
                                         coroutineScope.launch { pagerState.scrollToPage(targetPage) }
                                     }
                                 },
+                                sharedTransitionScope = sharedScope,
+                                animatedVisibilityScope = this@AnimatedContent,
                                 modifier = Modifier.alpha(crossFadeAlpha)
                             )
                         }
                     }
                     composeTraceEndSection()
-                }
                 }
             }
 

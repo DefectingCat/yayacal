@@ -1,6 +1,10 @@
 package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
@@ -63,14 +67,19 @@ private data class MiniMonthColors(
  * @param selectedMonth 当前选中月份（1-12）
  * @param today 今天的日期
  * @param onMonthClick 月份点击回调
+ * @param sharedTransitionScope 共享元素转场作用域
+ * @param animatedVisibilityScope 动画可见性作用域
  * @param modifier 外部布局修饰符
  */
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun YearGridView(
     year: Int,
     selectedMonth: Int,
     today: LocalDate,
     onMonthClick: (Int) -> Unit,
+    sharedTransitionScope: SharedTransitionScope,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier
 ) {
     composeTraceBeginSection("YearGridView:$year")
@@ -156,18 +165,30 @@ fun YearGridView(
                 ) {
                     (0 until 3).forEach { col ->
                         val month = row * 3 + col + 1
-                        MiniMonth(
-                            month = month,
-                            isSelected = month == selectedMonth,
-                            today = today,
-                            days = monthDays[month - 1],
-                            colors = colors,
-                            dayLayouts = dayLayouts,
-                            titleLayouts = titleLayouts,
-                            weekdayLayouts = weekdayLayouts,
-                            onClick = { onMonthClick(month) },
-                            modifier = Modifier.weight(1f)
-                        )
+                        with(sharedTransitionScope) {
+                            MiniMonth(
+                                month = month,
+                                isSelected = month == selectedMonth,
+                                today = today,
+                                days = monthDays[month - 1],
+                                colors = colors,
+                                dayLayouts = dayLayouts,
+                                titleLayouts = titleLayouts,
+                                weekdayLayouts = weekdayLayouts,
+                                onClick = { onMonthClick(month) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .sharedElement(
+                                        sharedContentState = rememberSharedContentState(
+                                            key = "month_grid_${year}_$month"
+                                        ),
+                                        animatedVisibilityScope = animatedVisibilityScope,
+                                        boundsTransform = { _, _ ->
+                                            tween(400, easing = FastOutSlowInEasing)
+                                        }
+                                    )
+                            )
+                        }
                     }
                 }
             }
