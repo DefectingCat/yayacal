@@ -8,7 +8,10 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -20,6 +23,12 @@ import kotlinx.datetime.daysUntil
 import kotlinx.datetime.plus
 import plus.rua.project.ShiftKind
 import kotlin.math.abs
+
+// region 性能监控工具
+private fun weekPerfLog(tag: String, msg: String) {
+    println("[WEEK-PERF:${Thread.currentThread().name}] $tag | $msg")
+}
+// endregion
 
 /**
  * 周视图分页器，折叠状态下显示选中日期所在周，支持左右滑动切换周。
@@ -42,6 +51,9 @@ fun WeekPager(
     showLegalHoliday: Boolean,
     modifier: Modifier = Modifier
 ) {
+    var recomposeCount by remember { mutableIntStateOf(0) }
+    recomposeCount++
+    weekPerfLog("WeekPager", "composition #$recomposeCount selectedDate=$selectedDate")
     val initialWeekMonday = remember { selectedDate.toWeekMonday() }
     val pagerState = rememberPagerState(
         initialPage = START_PAGE,
@@ -70,6 +82,7 @@ fun WeekPager(
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
         modifier = modifier
     ) { page ->
+        val pageStart = System.nanoTime()
         val pageOffset = abs(pagerState.currentPageOffsetFraction)
         val isCurrentPage = page == pagerState.currentPage
         val alpha = if (isCurrentPage) {
@@ -99,5 +112,7 @@ fun WeekPager(
                 )
             }
         }
+        val pageMs = (System.nanoTime() - pageStart) / 1_000_000.0
+        weekPerfLog("WeekPager", "page=$page weekMonday=$weekMonday elapsed=${"%.3f".format(pageMs)}ms")
     }
 }

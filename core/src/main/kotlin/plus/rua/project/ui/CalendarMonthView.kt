@@ -77,6 +77,12 @@ import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
 import kotlin.time.Clock
 
+// region 性能监控工具
+private fun uiPerfLog(tag: String, msg: String) {
+    println("[UI-PERF:${Thread.currentThread().name}] $tag | $msg")
+}
+// endregion
+
 /**
  * 日历主界面，包含月/周视图切换、折叠动画和年视图共享元素转场。
  *
@@ -100,15 +106,6 @@ fun CalendarMonthView(
     val currentMonth by remember { derivedStateOf { viewModel.selectedDate.month.number } }
     val density = LocalDensity.current
 
-    // BottomCard 滑入动画：1f=完全隐藏（在下方），0f=完全显示
-    val bottomCardSlideProgress by animateFloatAsState(
-        targetValue = if (viewModel.isYearView) 1f else 0f,
-        animationSpec = tween(350, delayMillis = 100, easing = FastOutSlowInEasing),
-        label = "bottomCardSlide"
-    )
-
-    LocalDensity.current
-
     var rowHeightPx by remember { mutableIntStateOf(0) }
     var screenWidthPx by remember { mutableIntStateOf(0) }
     var isMenuExpanded by remember { mutableStateOf(false) }
@@ -116,6 +113,10 @@ fun CalendarMonthView(
     LaunchedEffect(viewModel.isYearView) {
         isMenuExpanded = false
     }
+
+    // 重组计数器
+    var recomposeCount by remember { mutableIntStateOf(0) }
+    recomposeCount++
 
     val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
 
@@ -157,21 +158,23 @@ fun CalendarMonthView(
         }
     }
 
-    SharedTransitionLayout {
-        val sharedScope = this
-        Box(
-            modifier = modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.background)
-                .statusBarsPadding()
-                .onSizeChanged { size ->
-                    screenWidthPx = size.width
-                }
-        ) {
+    uiPerfLog("CalendarMonthView", "composition #$recomposeCount isYearView=${viewModel.isYearView}")
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .statusBarsPadding()
+            .onSizeChanged { size ->
+                screenWidthPx = size.width
+            }
+    ) {
+        SharedTransitionLayout {
+            val sharedScope = this
             AnimatedContent(
                 targetState = viewModel.isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
+                    uiPerfLog("CalendarMonthView", "AnimatedContent transitionSpec target=$targetState initial=$initialState")
                     val enter = fadeIn(tween(300, easing = FastOutSlowInEasing)) +
                         slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 6 }
                     val exit = fadeOut(tween(200, easing = FastOutSlowInEasing)) +
@@ -180,6 +183,8 @@ fun CalendarMonthView(
                 },
                 modifier = Modifier.fillMaxSize()
             ) { isYearView ->
+                val contentStart = System.nanoTime()
+                uiPerfLog("CalendarMonthView", "AnimatedContent content lambda START isYearView=$isYearView")
                 if (!isYearView) {
                     composeTraceBeginSection("MonthView:Compose")
                     val layoutReady = rowHeightPx > 0
@@ -232,16 +237,18 @@ fun CalendarMonthView(
                                 viewModel = viewModel,
                                 today = today,
                                 rowHeightPx = rowHeightPx,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .offset(y = with(density) { (bottomCardSlideProgress * 200).dp })
-                                    .alpha(1f - bottomCardSlideProgress)
+                                isYearView = viewModel.isYearView,
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }
+                    val monthViewMs = (System.nanoTime() - contentStart) / 1_000_000.0
+                    uiPerfLog("CalendarMonthView", "MonthView content lambda END elapsed=${"%.3f".format(monthViewMs)}ms")
                     composeTraceEndSection()
                 } else {
                     composeTraceBeginSection("YearView:Compose")
+                    val yearViewStart = System.nanoTime()
+                    uiPerfLog("CalendarMonthView", "YearView:Compose START")
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -266,6 +273,7 @@ fun CalendarMonthView(
                                 .fillMaxWidth()
                                 .weight(1f)
                         ) { page ->
+                            val pageStart = System.nanoTime()
                             val pageOffset = abs(yearPagerState.currentPageOffsetFraction)
                             val isCurrentPage = page == yearPagerState.currentPage
                             val crossFadeAlpha = if (isCurrentPage) {
@@ -274,6 +282,7 @@ fun CalendarMonthView(
                                 pageOffset
                             }
                             val pageYear = viewModel.selectedDate.year + (page - START_PAGE)
+                            uiPerfLog("CalendarMonthView", "YearPager page=$page pageYear=$pageYear crossFadeAlpha=${"%.2f".format(crossFadeAlpha)} isCurrentPage=$isCurrentPage offset=${"%.3f".format(pageOffset)}")
                             YearGridView(
                                 year = pageYear,
                                 selectedMonth = if (pageYear == currentYear) currentMonth else 0,
@@ -295,12 +304,17 @@ fun CalendarMonthView(
                             )
                         }
                     }
+                    val yearViewMs = (System.nanoTime() - yearViewStart) / 1_000_000.0
+                    uiPerfLog("CalendarMonthView", "YearView:Compose END elapsed=${"%.3f".format(yearViewMs)}ms")
                     composeTraceEndSection()
                 }
+                val contentTotalMs = (System.nanoTime() - contentStart) / 1_000_000.0
+                uiPerfLog("CalendarMonthView", "AnimatedContent content lambda END total=${"%.3f".format(contentTotalMs)}ms")
             }
+        }
 
-            // FAB 浮动按钮
-        FloatingActionButton(
+        // FAB 浮动按钮
+    FloatingActionButton(
             onClick = { isMenuExpanded = !isMenuExpanded },
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -385,7 +399,6 @@ fun CalendarMonthView(
         }
     }
 }
-}
 
 @Composable
 private fun MenuIcon(color: Color, modifier: Modifier = Modifier) {
@@ -415,6 +428,10 @@ private fun CalendarPagerArea(
     pagerState: PagerState,
     modifier: Modifier = Modifier
 ) {
+    val areaStart = System.nanoTime()
+    var areaRecomposeCount by remember { mutableIntStateOf(0) }
+    areaRecomposeCount++
+    uiPerfLog("CalendarPagerArea", "composition #$areaRecomposeCount collapseProgress=${viewModel.collapseProgress} page=${pagerState.currentPage} rowHeightPx=$rowHeightPx")
     val density = LocalDensity.current
     val collapseProgress = viewModel.collapseProgress
 
@@ -509,6 +526,8 @@ private fun CalendarPagerArea(
             modifier = pagerModifier
         )
     }
+    val areaTotalMs = (System.nanoTime() - areaStart) / 1_000_000.0
+    uiPerfLog("CalendarPagerArea", "END elapsed=${"%.3f".format(areaTotalMs)}ms")
 }
 
 @Composable
@@ -516,6 +535,7 @@ private fun BottomCardArea(
     viewModel: CalendarViewModel,
     today: LocalDate,
     rowHeightPx: Int,
+    isYearView: Boolean,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
@@ -526,12 +546,21 @@ private fun BottomCardArea(
         dragRangeMinPx
     }
 
+    val slideProgress by animateFloatAsState(
+        targetValue = if (isYearView) 1f else 0f,
+        animationSpec = tween(350, delayMillis = 100, easing = FastOutSlowInEasing),
+        label = "bottomCardSlide"
+    )
+
     BottomCard(
         viewModel = viewModel,
         selectedDate = viewModel.selectedDate,
         today = today,
         dragRangePx = dragRangePx,
-        modifier = modifier
+        modifier = modifier.graphicsLayer {
+            translationY = slideProgress * 200.dp.toPx()
+            alpha = 1f - slideProgress
+        }
     )
 }
 

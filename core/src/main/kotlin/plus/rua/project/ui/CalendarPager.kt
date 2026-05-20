@@ -5,8 +5,11 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -16,6 +19,12 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 import plus.rua.project.ShiftKind
 import kotlin.math.abs
+
+// region 性能监控工具
+private fun pagerPerfLog(tag: String, msg: String) {
+    println("[PAGER-PERF:${Thread.currentThread().name}] $tag | $msg")
+}
+// endregion
 
 /**
  * 月度日历分页器，HorizontalPager 实现无限左右滑动切换月份。
@@ -51,6 +60,9 @@ fun CalendarPager(
     pagerState: PagerState,
     modifier: Modifier = Modifier
 ) {
+    var recomposeCount by remember { mutableIntStateOf(0) }
+    recomposeCount++
+    pagerPerfLog("CalendarPager", "composition #$recomposeCount selectedDate=$selectedDate collapseProgress=$collapseProgress")
     val initialYear = remember { today.year }
 
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
@@ -71,6 +83,7 @@ fun CalendarPager(
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
         modifier = modifier
     ) { page ->
+        val pageComposeStart = System.nanoTime()
         val pageOffset = abs(pagerState.currentPageOffsetFraction)
         val isCurrentPage = page == pagerState.currentPage
         val alpha = if (isCurrentPage) {
@@ -109,5 +122,7 @@ fun CalendarPager(
             onRowHeightMeasured = onRowHeightMeasured,
             modifier = Modifier.alpha(alpha)
         )
+        val pageComposeMs = (System.nanoTime() - pageComposeStart) / 1_000_000.0
+        pagerPerfLog("CalendarPager", "page=$page year=$year month=$month alpha=${"%.2f".format(alpha)} elapsed=${"%.3f".format(pageComposeMs)}ms")
     }
 }

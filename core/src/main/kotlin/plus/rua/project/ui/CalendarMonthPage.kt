@@ -8,7 +8,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
@@ -22,6 +25,12 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import plus.rua.project.ShiftKind
+
+// region 性能监控工具
+private fun monthPagePerfLog(tag: String, msg: String) {
+    println("[MONTH-PAGE-PERF:${Thread.currentThread().name}] $tag | $msg")
+}
+// endregion
 
 /**
  * 月度日历网格页面，支持两阶段折叠动画。
@@ -57,8 +66,15 @@ fun CalendarMonthPage(
     onRowHeightMeasured: ((Int) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
+    val pageStart = System.nanoTime()
+    var recomposeCount by remember { mutableIntStateOf(0) }
+    recomposeCount++
     val days = remember(year, month) {
-        generateMonthDays(year, month)
+        val genStart = System.nanoTime()
+        val result = generateMonthDays(year, month)
+        val genMs = (System.nanoTime() - genStart) / 1_000_000.0
+        monthPagePerfLog("CalendarMonthPage", "generateMonthDays year=$year month=$month elapsed=${"%.3f".format(genMs)}ms")
+        result
     }
     val density = LocalDensity.current
 
@@ -66,6 +82,8 @@ fun CalendarMonthPage(
     val anchorIndex = remember(weeks, selectedDate) {
         weeks.indexOfFirst { week -> week.any { it.date == selectedDate } }
     }
+    val weekCount = weeks.size
+    monthPagePerfLog("CalendarMonthPage", "composition #$recomposeCount year=$year month=$month weeks=$weekCount collapseProgress=$collapseProgress anchorRow=$anchorIndex")
     val hasAnchor = anchorIndex >= 0
     val h = rowHeightPx.toFloat()
 
@@ -164,6 +182,8 @@ fun CalendarMonthPage(
             }
         }
     }
+    val totalMs = (System.nanoTime() - pageStart) / 1_000_000.0
+    monthPagePerfLog("CalendarMonthPage", "END year=$year month=$month elapsed=${"%.3f".format(totalMs)}ms")
 }
 
 private data class DayData(
