@@ -129,15 +129,7 @@ class CalendarViewModel(
                 animJob.join()
                 composeTraceEndSection()
             } else {
-                // 月 → 年：如果折叠，先展开
-                if (isCollapsed) {
-                    _collapseAnimatable.animateTo(
-                        targetValue = 0f,
-                        animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
-                    )
-                    isCollapsed = false
-                }
-                // 先启动动画（月视图开始缩小），等一帧后翻转 isYearView（年视图开始组合）
+                // 月 → 年：直接切换，折叠态下周视图的 sharedElement 缩小到 MiniMonth 更自然
                 composeTraceBeginSection("MonthView→YearView")
                 yearViewYear = selectedDate.year
                 _yearViewAnimatable.snapTo(0f)
