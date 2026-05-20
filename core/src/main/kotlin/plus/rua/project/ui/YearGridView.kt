@@ -165,6 +165,7 @@ fun YearGridView(
                 ) {
                     (0 until 3).forEach { col ->
                         val month = row * 3 + col + 1
+                        val sharedKey = "month_grid_${year}_$month"
                         with(sharedTransitionScope) {
                             MiniMonth(
                                 month = month,
@@ -180,7 +181,7 @@ fun YearGridView(
                                     .weight(1f)
                                     .sharedElement(
                                         sharedContentState = rememberSharedContentState(
-                                            key = "month_grid_${year}_$month"
+                                            key = sharedKey
                                         ),
                                         animatedVisibilityScope = animatedVisibilityScope,
                                         boundsTransform = { _, _ ->

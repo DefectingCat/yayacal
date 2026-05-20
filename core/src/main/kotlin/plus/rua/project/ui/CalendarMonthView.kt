@@ -12,7 +12,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -23,6 +26,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -94,6 +98,15 @@ fun CalendarMonthView(
 
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val currentMonth by remember { derivedStateOf { viewModel.selectedDate.month.number } }
+    val density = LocalDensity.current
+
+    // BottomCard 滑入动画：1f=完全隐藏（在下方），0f=完全显示
+    val bottomCardSlideProgress by animateFloatAsState(
+        targetValue = if (viewModel.isYearView) 1f else 0f,
+        animationSpec = tween(350, delayMillis = 100, easing = FastOutSlowInEasing),
+        label = "bottomCardSlide"
+    )
+
     LocalDensity.current
 
     var rowHeightPx by remember { mutableIntStateOf(0) }
@@ -159,7 +172,11 @@ fun CalendarMonthView(
                 targetState = viewModel.isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
-                    fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                    val enter = fadeIn(tween(300, easing = FastOutSlowInEasing)) +
+                        slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 6 }
+                    val exit = fadeOut(tween(200, easing = FastOutSlowInEasing)) +
+                        slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { -it / 6 }
+                    enter togetherWith exit
                 },
                 modifier = Modifier.fillMaxSize()
             ) { isYearView ->
@@ -215,7 +232,10 @@ fun CalendarMonthView(
                                 viewModel = viewModel,
                                 today = today,
                                 rowHeightPx = rowHeightPx,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .offset(y = with(density) { (bottomCardSlideProgress * 200).dp })
+                                    .alpha(1f - bottomCardSlideProgress)
                             )
                         }
                     }
