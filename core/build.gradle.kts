@@ -56,6 +56,6 @@ dependencies {
     implementation(libs.sketch.compose)
     implementation(libs.sketch.animated.gif)
 
-    testImplementation(libs.kotlin.test)
+    testImplementation("org.jetbrains.kotlin:kotlin-test-junit:${libs.versions.kotlin.get()}")
     testImplementation(libs.kotlinx.coroutines.test)
 }

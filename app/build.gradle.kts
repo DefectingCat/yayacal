@@ -82,7 +82,7 @@ android {
 }
 
 dependencies {
-    implementation(project(":shared"))
+    implementation(project(":core"))
 
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.activity.compose)
