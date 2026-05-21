@@ -17,6 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -26,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.LocalDate
 import plus.rua.project.CalendarViewModel
+import plus.rua.project.LunarCache
 import plus.rua.project.ShiftKind
 
 /**
@@ -55,7 +57,7 @@ fun BottomCard(
 
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val solarDesc = "${selectedDate.monthNumber}月${selectedDate.day}日"
-    val lunarDesc = formatLunarDate(selectedDate)
+    val lunarDesc = remember(selectedDate) { LunarCache.formatLunarDate(selectedDate) }
     val shiftMessage = when (viewModel.shiftKindAt(selectedDate)) {
         ShiftKind.WORK -> "小小上班，轻松拿下！"
         ShiftKind.OFF -> "耶耶耶，美美休息！"

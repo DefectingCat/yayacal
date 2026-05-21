@@ -43,6 +43,19 @@ object LunarCache {
         trimIfNeeded()
     }
 
+    /**
+     * 获取完整农历日期字符串，如"农历四月初三"。
+     *
+     * 复用缓存中的 lunarMonthName 和 annotationText，避免重复创建 SolarDay。
+     */
+    @Synchronized
+    @Suppress("DEPRECATION") // monthNumber 无替代 API
+    fun formatLunarDate(date: LocalDate): String {
+        val info = getOrCompute(date)
+        val dayText = info.annotationText.removeSuffix("月")
+        return "农历${info.lunarMonthName}${dayText}"
+    }
+
     private fun trimIfNeeded() {
         if (cache.size > MAX_SIZE) {
             val toRemove = (cache.size * 0.2).toInt().coerceAtLeast(1)
@@ -61,34 +74,35 @@ object LunarCache {
         val solarDay = SolarDay.fromYmd(date.year, date.monthNumber, date.day)
         val holidayBadge = solarDay.getLegalHoliday()?.let { if (it.isWork()) "班" else "休" }
         val lunarDay = solarDay.getLunarDay()
+        val lunarMonth = lunarDay.getLunarMonth()
+        val lunarMonthName = lunarMonth.getName()
 
         // 农历传统节日（仅当天）
         val lunarFestival = lunarDay.getFestival()
         if (lunarFestival != null) {
-            return DayCellInfo(lunarFestival.getName(), true, holidayBadge)
+            return DayCellInfo(lunarFestival.getName(), true, holidayBadge, lunarMonthName)
         }
 
         // 节气（当天才显示）
         val termDay = solarDay.getTermDay()
         if (termDay.getDayIndex() == 0) {
-            return DayCellInfo(termDay.getSolarTerm().getName(), true, holidayBadge)
+            return DayCellInfo(termDay.getSolarTerm().getName(), true, holidayBadge, lunarMonthName)
         }
 
         // 公历节日（仅当天）
         val solarFestival = solarDay.getFestival()
         if (solarFestival != null) {
-            return DayCellInfo(solarFestival.getName(), true, holidayBadge)
+            return DayCellInfo(solarFestival.getName(), true, holidayBadge, lunarMonthName)
         }
 
         // 默认：农历日期
         val name = lunarDay.getName()
         val text = if (name == "初一") {
-            val lunarMonth = lunarDay.getLunarMonth()
-            "${lunarMonth.getName()}月"
+            "${lunarMonthName}月"
         } else {
             name
         }
-        return DayCellInfo(text, false, holidayBadge)
+        return DayCellInfo(text, false, holidayBadge, lunarMonthName)
     }
 }
 
@@ -102,5 +116,6 @@ object LunarCache {
 data class DayCellInfo(
     val annotationText: String,
     val isAnnotationHighlight: Boolean,
-    val holidayBadge: String?
+    val holidayBadge: String?,
+    val lunarMonthName: String? = null
 )

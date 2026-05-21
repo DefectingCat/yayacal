@@ -1,0 +1,142 @@
+# YaYa 日历应用 Baseline Profile
+# 覆盖冷启动热点路径，消除 JIT 编译导致的启动掉帧
+
+# ========== 业务层热点方法 ==========
+
+# DayCell — 启动时最热的 composable（35 次调用）
+HSPLplus/rua/project/ui/DayCellKt;->DayCell(Lkotlinx/datetime/LocalDate;ZZZLplus/rua/project/ShiftKind;ZLkotlin/jvm/functions/Function0;Landroidx/compose/ui/Modifier;)V
+
+# LunarCache — 日期计算缓存
+HSPLplus/rua/project/LunarCache;->getOrCompute(Lkotlinx/datetime/LocalDate;)Lplus/rua/project/DayCellInfo;
+HSPLplus/rua/project/LunarCache;->compute(Lkotlinx/datetime/LocalDate;)Lplus/rua/project/DayCellInfo;
+
+# DayCellInfo 数据类
+HSPLplus/rua/project/DayCellInfo;-><init>(Ljava/lang/String;ZLjava/lang/String;Ljava/lang/String;)V
+HSPLplus/rua/project/DayCellInfo;->getAnnotationText()Ljava/lang/String;
+HSPLplus/rua/project/DayCellInfo;->getIsAnnotationHighlight()Z
+HSPLplus/rua/project/DayCellInfo;->getHolidayBadge()Ljava/lang/String;
+
+# CalendarMonthPage — 月度网格页面
+HSPLplus/rua/project/ui/CalendarMonthPageKt;->CalendarMonthPage(ILkotlinx/datetime/LocalDate;Lkotlinx/datetime/LocalDate;Lkotlin/jvm/functions/Function1;FIFLkotlin/jvm/functions/Function1;ZLkotlin/jvm/functions/Function1;Landroidx/compose/ui/Modifier;)V
+HSPLplus/rua/project/ui/CalendarMonthPageKt;->generateMonthDays(II)Ljava/util/List;
+
+# CalendarMonthView — 根 composable
+HSPLplus/rua/project/ui/CalendarMonthViewKt;->CalendarMonthView(Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;)V
+HSPLplus/rua/project/ui/CalendarMonthViewKt;->access$uiPerfLog(Ljava/lang/String;Ljava/lang/String;)V
+
+# CalendarPager — 分页器
+HSPLplus/rua/project/ui/CalendarPagerKt;->CalendarPager(Lkotlinx/datetime/LocalDate;Lkotlinx/datetime/LocalDate;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function2;FIFLkotlin/jvm/functions/Function1;ZLkotlin/jvm/functions/Function1;Landroidx/compose/foundation/pager/PagerState;Landroidx/compose/ui/Modifier;)V
+
+# WeekPager — 周视图分页器
+HSPLplus/rua/project/ui/WeekPagerKt;->WeekPager(Lkotlinx/datetime/LocalDate;Lkotlinx/datetime/LocalDate;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;Lkotlin/jvm/functions/Function1;ZLandroidx/compose/ui/Modifier;)V
+
+# BottomCard — 底部卡片
+HSPLplus/rua/project/ui/BottomCardKt;->BottomCard(Lplus/rua/project/CalendarViewModel;Lkotlinx/datetime/LocalDate;Lkotlinx/datetime/LocalDate;FLandroidx/compose/ui/Modifier;)V
+HSPLplus/rua/project/ui/BottomCardKt;->access$formatLunarDate(Lkotlinx/datetime/LocalDate;)Ljava/lang/String;
+
+# CalendarViewModel — 状态管理
+HSPLplus/rua/project/CalendarViewModel;-><init>(Lkotlinx/coroutines/CoroutineScope;Lkotlin/time/Clock;)V
+HSPLplus/rua/project/CalendarViewModel;->getSelectedDate()Lkotlinx/datetime/LocalDate;
+HSPLplus/rua/project/CalendarViewModel;->getMonthDays(II)Ljava/util/List;
+
+# CalendarUtils — 工具函数
+HSPLplus/rua/project/ui/CalendarUtilsKt;->calculateWeeksCount(II)I
+HSPLplus/rua/project/ui/CalendarUtilsKt;->calculateWeeksCountForPage(ILkotlinx/datetime/LocalDate;)I
+HSPLplus/rua/project/ui/CalendarUtilsKt;->pageToYearMonth(IILkotlinx/datetime/LocalDate;)Lkotlin/Pair;
+HSPLplus/rua/project/ui/CalendarUtilsKt;->yearMonthToPage(IIII)I
+
+# ========== Compose 框架关键路径 ==========
+
+# Composer — Compose 运行时核心
+HSPLandroidx/compose/runtime/ComposerImpl;->startRestartGroup(I)Landroidx/compose/runtime/Composer;
+HSPLandroidx/compose/runtime/ComposerImpl;->endRestartGroup()Landroidx/compose/runtime/ScopeUpdateScope;
+HSPLandroidx/compose/runtime/ComposerImpl;->startReplaceableGroup(I)V
+HSPLandroidx/compose/runtime/ComposerImpl;->endReplaceableGroup()V
+HSPLandroidx/compose/runtime/ComposerImpl;->changed(Ljava/lang/Object;)Z
+HSPLandroidx/compose/runtime/ComposerImpl;->rememberedValue()Ljava/lang/Object;
+HSPLandroidx/compose/runtime/ComposerImpl;->updateRememberedValue(Ljava/lang/Object;)V
+
+# Recomposer
+HSPLandroidx/compose/runtime/Recomposer;->composeInitial$runtime_release(Landroidx/compose/runtime/ControlledComposition;Lkotlin/jvm/functions/Function2;)V
+HSPLandroidx/compose/runtime/Recomposer;->runRecomposeAndApplyChanges(Lkotlin/coroutines/Continuation;)Ljava/lang/Object;
+
+# AndroidComposeView — 渲染
+HSPLandroidx/compose/ui/platform/AndroidComposeView;->draw(Landroid/graphics/Canvas;)V
+HSPLandroidx/compose/ui/platform/AndroidComposeView;->onMeasure(II)V
+HSPLandroidx/compose/ui/platform/AndroidComposeView;->onLayout(ZIIII)V
+HSPLandroidx/compose/ui/platform/AndroidComposeView;->dispatchDraw(Landroid/graphics/Canvas;)V
+
+# remember / derivedStateOf
+HSPLandroidx/compose/runtime/EffectsKt;->remember(Ljava/lang/Object;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Ljava/lang/Object;
+HSPLandroidx/compose/runtime/EffectsKt;->remember([Ljava/lang/Object;Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)Ljava/lang/Object;
+HSPLandroidx/compose/runtime/SnapshotStateKt;->derivedStateOf(Lkotlin/jvm/functions/Function0;)Landroidx/compose/runtime/State;
+
+# SideEffect / LaunchedEffect
+HSPLandroidx/compose/runtime/EffectsKt;->SideEffect(Lkotlin/jvm/functions/Function0;Landroidx/compose/runtime/Composer;I)V
+HSPLandroidx/compose/runtime/EffectsKt;->LaunchedEffect(Ljava/lang/Object;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;I)V
+
+# ========== Compose UI 基础组件 ==========
+
+# Box / Column / Row
+HSPLandroidx/compose/foundation/layout/BoxKt;->Box(Landroidx/compose/ui/Modifier;Landroidx/compose/ui/Alignment;ZLkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+HSPLandroidx/compose/foundation/layout/ColumnKt;->Column(Landroidx/compose/ui/Modifier;Landroidx/compose/foundation/layout/Arrangement$Vertical;Landroidx/compose/ui/Alignment$Horizontal;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+HSPLandroidx/compose/foundation/layout/RowKt;->Row(Landroidx/compose/ui/Modifier;Landroidx/compose/foundation/layout/Arrangement$Horizontal;Landroidx/compose/ui/Alignment$Vertical;Lkotlin/jvm/functions/Function3;Landroidx/compose/runtime/Composer;II)V
+
+# Text
+HSPLandroidx/compose/material3/TextKt;->Text(Ljava/lang/String;Landroidx/compose/ui/Modifier;JJLandroidx/compose/ui/text/font/FontWeight;Landroidx/compose/ui/text/font/FontStyle;Landroidx/compose/ui/text/font/FontSynthesis;Landroidx/compose/ui/text/style/TextAlign;Landroidx/compose/ui/text/style/TextDirection;JLandroidx/compose/ui/text/style/TextDecoration;Landroidx/compose/ui/text/style/TextGeometricTransform;Landroidx/compose/ui/text/style/TextIndent;Landroidx/compose/ui/text/PlatformTextStyle;Landroidx/compose/ui/text/style/LineHeightStyle;Landroidx/compose/ui/text/style/LineBreak;Landroidx/compose/ui/text/style/Hyphens;Landroidx/compose/ui/text/IntLocale;Lkotlin/jvm/functions/Function1;Landroidx/compose/ui/text/SpanStyle;Landroidx/compose/runtime/Composer;IIII)V
+
+# Surface / MaterialTheme
+HSPLandroidx/compose/material3/SurfaceKt;->Surface(Landroidx/compose/ui/Modifier;Landroidx/compose/ui/graphics/Shape;JJFFLandroidx/compose/foundation/BorderStroke;Lkotlin/jvm/functions/Function2;Landroidx/compose/runtime/Composer;II)V
+HSPLandroidx/compose/material3/MaterialTheme;-><clinit>()V
+
+# Modifier
+HSPLandroidx/compose/ui/Modifier$Companion;-><clinit>()V
+HSPLandroidx/compose/ui/Modifier$Companion;->getInstance$annotations()V
+HSPLandroidx/compose/ui/Modifier;->then(Landroidx/compose/ui/Modifier;)Landroidx/compose/ui/Modifier;
+
+# ========== 动画相关 ==========
+
+# updateTransition / animateFloat / animateColor
+HSPLandroidx/compose/animation/core/TransitionKt;->updateTransition(Ljava/lang/Object;Ljava/lang/String;Landroidx/compose/runtime/Composer;II)Landroidx/compose/animation/core/Transition;
+HSPLandroidx/compose/animation/core/Transition$TransitionAnimationState;-><init>(Landroidx/compose/animation/core/Transition;Ljava/lang/Object;Landroidx/compose/animation/core/TwoWayConverter;Landroidx/compose/animation/core/AnimationVector;)V
+HSPLandroidx/compose/animation/core/Transition$TransitionAnimationState;->updateTargetValues$animation_core_release(Ljava/lang/Object;Landroidx/compose/animation/core/AnimationSpec;)V
+
+# animateFloatAsState
+HSPLandroidx/compose/animation/core/AnimateAsStateKt;->animateFloatAsState(FLandroidx/compose/animation/core/AnimationSpec;FLkotlin/jvm/functions/Function1;Landroidx/compose/runtime/Composer;II)Landroidx/compose/runtime/State;
+
+# ========== Pager 相关 ==========
+
+# HorizontalPager
+HSPLandroidx/compose/foundation/pager/PagerKt;->HorizontalPager(Landroidx/compose/foundation/pager/PagerState;Landroidx/compose/ui/Modifier;Landroidx/compose/foundation/pager/PagerFlingBehavior;ZIILandroidx/compose/foundation/gestures/snapping/SnapPosition;Landroidx/compose/ui/input/nestedscroll/NestedScrollConnection;ZLkotlin/jvm/functions/Function4;Landroidx/compose/runtime/Composer;II)V
+HSPLandroidx/compose/foundation/pager/PagerState;-><init>(IFLandroidx/compose/foundation/lazy/LazyListState;)V
+HSPLandroidx/compose/foundation/pager/PagerState;->getCurrentPage()I
+HSPLandroidx/compose/foundation/pager/PagerState;->getCurrentPageOffsetFraction()F
+
+# ========== Sketch 图片加载 ==========
+
+# AsyncImage
+HSPLio/github/panpf/sketch4/compose/AsyncImageKt;->AsyncImage(Ljava/lang/String;Landroidx/compose/ui/Modifier;Landroidx/compose/ui/Alignment;Landroidx/compose/ui/layout/ContentScale;FLandroidx/compose/ui/graphics/ColorFilter;Landroidx/compose/ui/graphics/FilterQuality;ZLkotlin/jvm/functions/Function4;Landroidx/compose/runtime/Composer;II)V
+
+# ========== tyme4kt 农历计算 ==========
+
+# SolarDay — 创建和查询
+HSPLcom/tyme/solar/SolarDay;->fromYmd(III)Lcom/tyme/solar/SolarDay;
+HSPLcom/tyme/solar/SolarDay;->getLunarDay()Lcom/tyme/lunar/LunarDay;
+HSPLcom/tyme/solar/SolarDay;->getTermDay()Lcom/tyme/solar/SolarTermDay;
+HSPLcom/tyme/solar/SolarDay;->getFestival()Lcom/tyme/solar/SolarFestival;
+HSPLcom/tyme/solar/SolarDay;->getLegalHoliday()Lcom/tyme/solar/LegalHoliday;
+
+# LunarDay
+HSPLcom/tyme/lunar/LunarDay;->getFestival()Lcom/tyme/lunar/LunarFestival;
+HSPLcom/tyme/lunar/LunarDay;->getName()Ljava/lang/String;
+HSPLcom/tyme/lunar/LunarDay;->getLunarMonth()Lcom/tyme/lunar/LunarMonth;
+
+# LunarMonth
+HSPLcom/tyme/lunar/LunarMonth;->getName()Ljava/lang/String;
+
+# SolarTermDay
+HSPLcom/tyme/solar/SolarTermDay;->getDayIndex()I
+HSPLcom/tyme/solar/SolarTermDay;->getSolarTerm()Lcom/tyme/solar/SolarTerm;
+
+# SolarTerm
+HSPLcom/tyme/solar/SolarTerm;->getName()Ljava/lang/String;

@@ -11,6 +11,7 @@ android {
 
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
+        consumerProguardFiles("proguard-rules.pro")
     }
 
     buildFeatures {
@@ -55,6 +56,7 @@ dependencies {
     implementation(libs.tyme4kt)
     implementation(libs.sketch.compose)
     implementation(libs.sketch.animated.gif)
+    implementation(libs.androidx.profileinstaller)
 
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:${libs.versions.kotlin.get()}")
     testImplementation(libs.kotlinx.coroutines.test)

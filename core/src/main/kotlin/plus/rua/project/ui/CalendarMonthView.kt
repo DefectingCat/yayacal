@@ -552,16 +552,23 @@ private fun BottomCardArea(
         label = "bottomCardSlide"
     )
 
-    BottomCard(
-        viewModel = viewModel,
-        selectedDate = viewModel.selectedDate,
-        today = today,
-        dragRangePx = dragRangePx,
-        modifier = modifier.graphicsLayer {
-            translationY = slideProgress * 200.dp.toPx()
-            alpha = 1f - slideProgress
-        }
-    )
+    // P0-J: 延迟一帧显示 BottomCard，避免 AnimatedGif 和 lunar 计算阻塞首帧
+    var frameCount by remember { mutableIntStateOf(0) }
+    androidx.compose.runtime.SideEffect { frameCount++ }
+    val shouldShow = frameCount >= 2
+
+    if (shouldShow) {
+        BottomCard(
+            viewModel = viewModel,
+            selectedDate = viewModel.selectedDate,
+            today = today,
+            dragRangePx = dragRangePx,
+            modifier = modifier.graphicsLayer {
+                translationY = slideProgress * 200.dp.toPx()
+                alpha = 1f - slideProgress
+            }
+        )
+    }
 }
 
 @Composable
