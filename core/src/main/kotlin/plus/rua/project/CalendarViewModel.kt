@@ -23,6 +23,7 @@ import kotlinx.datetime.todayIn
 import plus.rua.project.LunarCache
 import plus.rua.project.ui.COLLAPSE_THRESHOLD
 import plus.rua.project.ui.FLING_VELOCITY_THRESHOLD_DP
+import plus.rua.project.ui.getMonthGridInfo
 import kotlin.time.Clock
 
 /**
@@ -64,26 +65,19 @@ class CalendarViewModel(
                 currentMonth to currentYear,
                 currentMonth + 1 to currentYear
             ).map { (month, year) ->
-                when {
+                val (normalizedMonth, normalizedYear) = when {
                     month < 1 -> 12 to year - 1
                     month > 12 -> 1 to year + 1
                     else -> month to year
                 }
+                getMonthGridInfo(normalizedYear, normalizedMonth)
             }
 
-            monthsToPrecompute.forEach { (month, year) ->
-                val firstOfMonth = LocalDate(year, month, 1)
-                val offset = firstOfMonth.dayOfWeek.ordinal
-                val startDate = firstOfMonth.minus(DatePeriod(days = offset))
-                val nextMonth = if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
-                val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).day
-                val rows = ((offset + daysInMonth - 1) / 7) + 1
-                val totalDays = rows * 7
-
-                val dates = (0 until totalDays).map { i ->
-                    startDate.plus(DatePeriod(days = i))
+            monthsToPrecompute.forEach { info ->
+                val dates = (0 until info.totalDays).map { i ->
+                    info.startDate.plus(DatePeriod(days = i))
                 }
-                LunarCache.precompute(dates)
+                LunarCache.default.precompute(dates)
             }
         }
     }
@@ -327,17 +321,9 @@ class CalendarViewModel(
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     fun getMonthDays(year: Int, month: Int): List<CalendarDay> {
         composeTraceBeginSection("getMonthDays:$year-$month")
-        val firstOfMonth = LocalDate(year, month, 1)
-        val dayOfWeekOffset = firstOfMonth.dayOfWeek.ordinal
-        val startDate = firstOfMonth.minus(DatePeriod(days = dayOfWeekOffset))
-        val nextMonth =
-            if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
-        val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).day
-        val rows = ((dayOfWeekOffset + daysInMonth - 1) / 7) + 1
-        val totalDays = rows * 7
-
-        val result = (0 until totalDays).map { i ->
-            val date = startDate.plus(DatePeriod(days = i))
+        val info = getMonthGridInfo(year, month)
+        val result = (0 until info.totalDays).map { i ->
+            val date = info.startDate.plus(DatePeriod(days = i))
             CalendarDay(
                 date = date,
                 isCurrentMonth = date.month.number == month && date.year == year,

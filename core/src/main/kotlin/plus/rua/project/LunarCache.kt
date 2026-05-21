@@ -1,31 +1,36 @@
 package plus.rua.project
 
 import com.tyme.solar.SolarDay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.LocalDate
 
 /**
  * 农历/节气/节假日信息缓存。
  *
- * 使用 LinkedHashMap（accessOrder=true）实现 LRU 语义，读写速度优于 ConcurrentHashMap。
- * 通过 @Synchronized 保护并发访问；冷启动时主线程单线程访问，偏向锁使其几乎零开销。
+ * 使用 LinkedHashMap（accessOrder=true）实现 LRU 语义。
+ * 通过 [Mutex] 保护并发访问，协程友好，不阻塞线程。
+ *
+ * @param maxSize 缓存最大容量，默认 800
  */
-object LunarCache {
-    private const val MAX_SIZE = 800
+class LunarCache(
+    private val maxSize: Int = MAX_SIZE
+) {
+    private val mutex = Mutex()
 
     @Suppress("DEPRECATION")
     private val cache = LinkedHashMap<LocalDate, DayCellInfo>(256, 0.75f, true)
 
     /**
-     * 获取指定日期的信息，缓存 miss 时同步计算。
+     * 获取指定日期的信息，缓存 miss 时计算。
      */
-    @Synchronized
     @Suppress("DEPRECATION") // monthNumber 无替代 API
-    fun getOrCompute(date: LocalDate): DayCellInfo {
-        cache[date]?.let { return it }
+    suspend fun getOrCompute(date: LocalDate): DayCellInfo = mutex.withLock {
+        cache[date]?.let { return@withLock it }
         val computed = compute(date)
         cache[date] = computed
         trimIfNeeded()
-        return computed
+        computed
     }
 
     /**
@@ -33,8 +38,7 @@ object LunarCache {
      *
      * @param dates 日期列表
      */
-    @Synchronized
-    fun precompute(dates: List<LocalDate>) {
+    suspend fun precompute(dates: List<LocalDate>) = mutex.withLock {
         dates.forEach { date ->
             if (!cache.containsKey(date)) {
                 cache[date] = compute(date)
@@ -48,23 +52,21 @@ object LunarCache {
      *
      * 复用缓存中的 lunarMonthName 和 annotationText，避免重复创建 SolarDay。
      */
-    @Synchronized
     @Suppress("DEPRECATION") // monthNumber 无替代 API
-    fun formatLunarDate(date: LocalDate): String {
+    suspend fun formatLunarDate(date: LocalDate): String {
         val info = getOrCompute(date)
         val dayText = info.annotationText.removeSuffix("月")
         return "农历${info.lunarMonthName}${dayText}"
     }
 
     private fun trimIfNeeded() {
-        if (cache.size > MAX_SIZE) {
-            val toRemove = (cache.size * 0.2).toInt().coerceAtLeast(1)
+        while (cache.size > maxSize) {
             val iterator = cache.keys.iterator()
-            var removed = 0
-            while (iterator.hasNext() && removed < toRemove) {
+            if (iterator.hasNext()) {
                 iterator.next()
                 iterator.remove()
-                removed++
+            } else {
+                break
             }
         }
     }
@@ -103,6 +105,11 @@ object LunarCache {
             name
         }
         return DayCellInfo(text, false, holidayBadge, lunarMonthName)
+    }
+
+    companion object {
+        private const val MAX_SIZE = 800
+        val default = LunarCache()
     }
 }
 

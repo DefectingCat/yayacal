@@ -18,6 +18,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
 import kotlinx.datetime.LocalDate
+import plus.rua.project.DayCellInfo
 import plus.rua.project.LunarCache
 import plus.rua.project.ShiftKind
 
@@ -66,11 +68,19 @@ fun DayCell(
     shiftKind: ShiftKind?,
     showLegalHoliday: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    lunarCache: LunarCache = LunarCache.default
 ) {
-    val (annotationText, isAnnotationHighlight, holidayBadge) = remember(date) {
-        LunarCache.getOrCompute(date)
+    val lunarData by produceState(
+        initialValue = DayCellInfo("", false, null),
+        key1 = date,
+        key2 = lunarCache
+    ) {
+        value = lunarCache.getOrCompute(date)
     }
+    val annotationText = lunarData.annotationText
+    val isAnnotationHighlight = lunarData.isAnnotationHighlight
+    val holidayBadge = lunarData.holidayBadge
     val currentState = when {
         isSelected && isToday -> DayCellState.SELECTED_TODAY
         isSelected -> DayCellState.SELECTED

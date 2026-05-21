@@ -39,6 +39,38 @@ const val CARD_GAP_COLLAPSED_DP = 12
 fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - start) * fraction
 
 /**
+ * 月份网格信息，包含计算日历网格所需的所有数据。
+ */
+data class MonthGridInfo(
+    val year: Int,
+    val month: Int,
+    val firstOfMonth: LocalDate,
+    val offset: Int,
+    val startDate: LocalDate,
+    val daysInMonth: Int,
+    val rows: Int,
+    val totalDays: Int
+)
+
+/**
+ * 计算指定年月的日历网格信息。
+ *
+ * @param year 年份
+ * @param month 月份（1-12）
+ * @return 月份网格信息
+ */
+fun getMonthGridInfo(year: Int, month: Int): MonthGridInfo {
+    val firstOfMonth = LocalDate(year, month, 1)
+    val offset = firstOfMonth.dayOfWeek.ordinal
+    val startDate = firstOfMonth.minus(DatePeriod(days = offset))
+    val nextMonth = if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
+    val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).day
+    val rows = ((offset + daysInMonth - 1) / 7) + 1
+    val totalDays = rows * 7
+    return MonthGridInfo(year, month, firstOfMonth, offset, startDate, daysInMonth, rows, totalDays)
+}
+
+/**
  * 计算月份在日历网格中需要的行数（4/5/6）。
  *
  * @param year 年份
@@ -46,11 +78,7 @@ fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - star
  * @return 网格行数
  */
 fun calculateWeeksCount(year: Int, month: Int): Int {
-    val firstOfMonth = LocalDate(year, month, 1)
-    val offset = firstOfMonth.dayOfWeek.ordinal
-    val nextMonth = if (month == 12) LocalDate(year + 1, 1, 1) else LocalDate(year, month + 1, 1)
-    val daysInMonth = nextMonth.minus(DatePeriod(days = 1)).day
-    return ((offset + daysInMonth - 1) / 7) + 1
+    return getMonthGridInfo(year, month).rows
 }
 
 /**
