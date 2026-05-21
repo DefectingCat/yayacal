@@ -31,7 +31,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.LocalDate
-import plus.rua.project.CalendarViewModel
 import plus.rua.project.LunarCache
 import plus.rua.project.ShiftKind
 
@@ -42,18 +41,28 @@ import plus.rua.project.ShiftKind
  * 左侧为相对今天的天数描述（A）和公历日期（B），
  * 右侧为农历日期（C）。
  *
- * @param viewModel 日历 ViewModel，用于读取折叠状态和驱动拖拽
+ * @param isCollapsed 当前是否处于折叠状态
  * @param selectedDate 当前选中的日期
  * @param today 今天的日期
+ * @param shiftKind 当前选中日期的个人轮班类型
+ * @param onDrag 展开状态下拖拽回调，delta 正值推动折叠
+ * @param onDragEnd 展开状态拖拽结束回调
+ * @param onExpandDrag 折叠状态下拖拽回调，delta 负值推动展开
+ * @param onExpandDragEnd 折叠状态拖拽结束回调
  * @param dragRangePx 拖拽手势映射范围（像素），progress 从 0→1 对应手指移动此距离。
  *   应设为折叠时日历实际高度变化量 (weeks-1)×rowHeight，使拖拽跟手。
  * @param modifier 外部布局修饰符
  */
 @Composable
 fun BottomCard(
-    viewModel: CalendarViewModel,
+    isCollapsed: Boolean,
     selectedDate: LocalDate,
     today: LocalDate,
+    shiftKind: ShiftKind?,
+    onDrag: (Float) -> Unit,
+    onDragEnd: (Float) -> Unit,
+    onExpandDrag: (Float) -> Unit,
+    onExpandDragEnd: (Float) -> Unit,
     dragRangePx: Float,
     modifier: Modifier = Modifier
 ) {
@@ -68,7 +77,7 @@ fun BottomCard(
     ) {
         value = LunarCache.default.formatLunarDate(selectedDate)
     }
-    val shiftMessage = when (viewModel.shiftKindAt(selectedDate)) {
+    val shiftMessage = when (shiftKind) {
         ShiftKind.WORK -> "小小上班，轻松拿下！"
         ShiftKind.OFF -> "耶耶耶，美美休息！"
         null -> null
@@ -77,23 +86,23 @@ fun BottomCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .pointerInput(viewModel.isCollapsed) {
+            .pointerInput(isCollapsed) {
                 val velocityTracker = androidx.compose.ui.input.pointer.util.VelocityTracker()
-                if (viewModel.isCollapsed) {
+                if (isCollapsed) {
                     // 折叠状态：下拉恢复到月视图
                     detectVerticalDragGestures(
                         onDragEnd = {
                             val velocity = velocityTracker.calculateVelocity()
                             val velocityDpPerSec = with(density) { -velocity.y.toDp().value }
-                            viewModel.onExpandDragEnd(velocityDpPerSec)
+                            onExpandDragEnd(velocityDpPerSec)
                         },
                         onDragCancel = {
-                            viewModel.onExpandDragEnd()
+                            onExpandDragEnd(0f)
                         }
                     ) { change, dragAmount ->
                         velocityTracker.addPosition(change.uptimeMillis, change.position)
                         val delta = -dragAmount / dragRangePx
-                        viewModel.onExpandDrag(delta)
+                        onExpandDrag(delta)
                     }
                 } else {
                     // 展开状态：上拉折叠到周视图
@@ -101,15 +110,15 @@ fun BottomCard(
                         onDragEnd = {
                             val velocity = velocityTracker.calculateVelocity()
                             val velocityDpPerSec = with(density) { -velocity.y.toDp().value }
-                            viewModel.onDragEnd(velocityDpPerSec)
+                            onDragEnd(velocityDpPerSec)
                         },
                         onDragCancel = {
-                            viewModel.onDragEnd()
+                            onDragEnd(0f)
                         }
                     ) { change, dragAmount ->
                         velocityTracker.addPosition(change.uptimeMillis, change.position)
                         val delta = -dragAmount / dragRangePx
-                        viewModel.onDrag(delta)
+                        onDrag(delta)
                     }
                 }
             },
@@ -193,12 +202,15 @@ fun BottomCard(
 @Preview
 @Composable
 private fun BottomCardPreview() {
-    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
-    val viewModel = CalendarViewModel(scope)
     BottomCard(
-        viewModel = viewModel,
+        isCollapsed = false,
         selectedDate = kotlinx.datetime.LocalDate(2026, 5, 21),
         today = kotlinx.datetime.LocalDate(2026, 5, 21),
+        shiftKind = plus.rua.project.ShiftKind.WORK,
+        onDrag = {},
+        onDragEnd = {},
+        onExpandDrag = {},
+        onExpandDragEnd = {},
         dragRangePx = 300f
     )
 }

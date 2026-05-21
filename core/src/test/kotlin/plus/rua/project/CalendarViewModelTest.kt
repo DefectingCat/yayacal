@@ -1,8 +1,5 @@
 package plus.rua.project
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -15,15 +12,12 @@ private class FixedClock(private val instant: Instant) : Clock {
     override fun now(): Instant = instant
 }
 
-@OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModelTest {
 
     private val fixedInstant = Instant.parse("2026-05-15T00:00:00Z")
     private val testClock = FixedClock(fixedInstant)
     private fun createViewModel(): CalendarViewModel {
-        val dispatcher = StandardTestDispatcher()
-        val scope = CoroutineScope(dispatcher)
-        return CalendarViewModel(coroutineScope = scope, clock = testClock)
+        return CalendarViewModel(clock = testClock)
     }
 
     // ---- getIsoWeekNumber ----

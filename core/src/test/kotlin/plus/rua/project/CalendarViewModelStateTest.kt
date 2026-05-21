@@ -1,11 +1,6 @@
 package plus.rua.project
 
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.test.TestDispatcher
-import kotlinx.coroutines.test.StandardTestDispatcher
-import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -23,20 +18,15 @@ private class StateTestFixedClock(private val instant: Instant) : Clock {
 /**
  * 覆盖 [CalendarViewModel] 中与日期选择、年视图、班次、拖拽 progress 等
  * 同步可观察状态相关的逻辑。
- *
- * 动画完成的最终状态（例如 [CalendarViewModel.isCollapsed] 在 spring
- * 动画结束后的取值）需要 MonotonicFrameClock 驱动，不在本测试集合范围内。
  */
-@OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModelStateTest {
 
     // 固定 today = 2026/5/15
     private val fixedInstant = Instant.parse("2026-05-15T00:00:00Z")
     private val testClock = StateTestFixedClock(fixedInstant)
 
-    private fun createViewModel(dispatcher: TestDispatcher = StandardTestDispatcher()): CalendarViewModel {
-        val scope = CoroutineScope(dispatcher)
-        return CalendarViewModel(coroutineScope = scope, clock = testClock)
+    private fun createViewModel(): CalendarViewModel {
+        return CalendarViewModel(clock = testClock)
     }
 
     // ---- 初始状态 ----
@@ -44,42 +34,42 @@ class CalendarViewModelStateTest {
     @Test
     fun init_selectedDateIsToday() {
         val vm = createViewModel()
-        assertEquals(LocalDate(2026, 5, 15), vm.selectedDate)
+        assertEquals(LocalDate(2026, 5, 15), vm.selectedDate.value)
     }
 
     @Test
     fun init_isCollapsedDefaultsFalse() {
-        assertFalse(createViewModel().isCollapsed)
+        assertFalse(createViewModel().isCollapsed.value)
     }
 
     @Test
     fun init_collapseProgressDefaultsZero() {
-        assertEquals(0f, createViewModel().collapseProgress, 0.001f)
+        assertEquals(0f, createViewModel().collapseProgress.value, 0.001f)
     }
 
     @Test
     fun init_isYearViewDefaultsFalse() {
-        assertFalse(createViewModel().isYearView)
+        assertFalse(createViewModel().isYearView.value)
     }
 
     @Test
     fun init_yearViewProgressDefaultsZero() {
-        assertEquals(0f, createViewModel().yearViewProgress, 0.001f)
+        assertEquals(0f, createViewModel().yearViewProgress.value, 0.001f)
     }
 
     @Test
     fun init_yearViewYearDefaultsToTodayYear() {
-        assertEquals(2026, createViewModel().yearViewYear)
+        assertEquals(2026, createViewModel().yearViewYear.value)
     }
 
     @Test
     fun init_showLegalHolidayDefaultsFalse() {
-        assertFalse(createViewModel().showLegalHoliday)
+        assertFalse(createViewModel().showLegalHoliday.value)
     }
 
     @Test
     fun init_shiftPatternHasDefault() {
-        val pattern = createViewModel().shiftPattern
+        val pattern = createViewModel().shiftPattern.value
         assertNotNull(pattern)
         assertEquals(LocalDate(2026, 5, 15), pattern.anchorDate)
         assertEquals(4, pattern.cycle.size)
@@ -101,7 +91,7 @@ class CalendarViewModelStateTest {
     fun selectDate_updatesSelectedDate() {
         val vm = createViewModel()
         vm.selectDate(LocalDate(2026, 6, 1))
-        assertEquals(LocalDate(2026, 6, 1), vm.selectedDate)
+        assertEquals(LocalDate(2026, 6, 1), vm.selectedDate.value)
     }
 
     @Test
@@ -124,7 +114,7 @@ class CalendarViewModelStateTest {
     fun selectDate_pastDate_updatesCorrectly() {
         val vm = createViewModel()
         vm.selectDate(LocalDate(2020, 12, 31))
-        assertEquals(LocalDate(2020, 12, 31), vm.selectedDate)
+        assertEquals(LocalDate(2020, 12, 31), vm.selectedDate.value)
         assertEquals(12, vm.currentMonth)
         assertEquals(2020, vm.currentYear)
     }
@@ -135,31 +125,31 @@ class CalendarViewModelStateTest {
     fun incrementYear_increasesYearViewYear() {
         val vm = createViewModel()
         vm.incrementYear()
-        assertEquals(2027, vm.yearViewYear)
+        assertEquals(2027, vm.yearViewYear.value)
     }
 
     @Test
     fun decrementYear_decreasesYearViewYear() {
         val vm = createViewModel()
         vm.decrementYear()
-        assertEquals(2025, vm.yearViewYear)
+        assertEquals(2025, vm.yearViewYear.value)
     }
 
     @Test
     fun incrementDecrementYear_consecutiveCalls() {
         val vm = createViewModel()
         repeat(5) { vm.incrementYear() }
-        assertEquals(2031, vm.yearViewYear)
+        assertEquals(2031, vm.yearViewYear.value)
         repeat(3) { vm.decrementYear() }
-        assertEquals(2028, vm.yearViewYear)
+        assertEquals(2028, vm.yearViewYear.value)
     }
 
     @Test
     fun incrementYear_doesNotAffectSelectedDate() {
         val vm = createViewModel()
-        val before = vm.selectedDate
+        val before = vm.selectedDate.value
         vm.incrementYear()
-        assertEquals(before, vm.selectedDate)
+        assertEquals(before, vm.selectedDate.value)
     }
 
     // ---- selectMonthFromYearView ----
@@ -168,7 +158,7 @@ class CalendarViewModelStateTest {
     fun selectMonthFromYearView_sameYearOtherMonth_setsFirstDayOfMonth() {
         val vm = createViewModel()
         vm.selectMonthFromYearView(8)
-        assertEquals(LocalDate(2026, 8, 1), vm.selectedDate)
+        assertEquals(LocalDate(2026, 8, 1), vm.selectedDate.value)
     }
 
     @Test
@@ -176,7 +166,7 @@ class CalendarViewModelStateTest {
         val vm = createViewModel()
         // yearViewYear = 2026, today.month = 5
         vm.selectMonthFromYearView(5)
-        assertEquals(LocalDate(2026, 5, 15), vm.selectedDate)
+        assertEquals(LocalDate(2026, 5, 15), vm.selectedDate.value)
     }
 
     @Test
@@ -184,28 +174,28 @@ class CalendarViewModelStateTest {
         val vm = createViewModel()
         vm.incrementYear() // yearViewYear = 2027
         vm.selectMonthFromYearView(5)
-        assertEquals(LocalDate(2027, 5, 1), vm.selectedDate)
+        assertEquals(LocalDate(2027, 5, 1), vm.selectedDate.value)
     }
 
     @Test
     fun selectMonthFromYearView_setsIsYearViewFalse() {
         val vm = createViewModel()
         vm.selectMonthFromYearView(3)
-        assertFalse(vm.isYearView)
+        assertFalse(vm.isYearView.value)
     }
 
     @Test
     fun selectMonthFromYearView_january() {
         val vm = createViewModel()
         vm.selectMonthFromYearView(1)
-        assertEquals(LocalDate(2026, 1, 1), vm.selectedDate)
+        assertEquals(LocalDate(2026, 1, 1), vm.selectedDate.value)
     }
 
     @Test
     fun selectMonthFromYearView_december() {
         val vm = createViewModel()
         vm.selectMonthFromYearView(12)
-        assertEquals(LocalDate(2026, 12, 1), vm.selectedDate)
+        assertEquals(LocalDate(2026, 12, 1), vm.selectedDate.value)
     }
 
     // ---- shiftKindAt ----
@@ -229,124 +219,112 @@ class CalendarViewModelStateTest {
         assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 5, 17)))
     }
 
+    // ---- onDrag: 折叠拖拽（同步路径，直接修改 StateFlow）----
+
     @Test
-    fun shiftKindAt_nullPattern_returnsNull() {
+    fun onDrag_positiveDelta_increasesProgress() {
         val vm = createViewModel()
-        vm.shiftPattern = null
-        assertNull(vm.shiftKindAt(LocalDate(2026, 5, 15)))
-    }
-
-    @Test
-    fun shiftKindAt_customPattern_usesNewPattern() {
-        val vm = createViewModel()
-        vm.shiftPattern = ShiftPattern(
-            anchorDate = LocalDate(2026, 5, 15),
-            cycle = listOf(ShiftKind.OFF, ShiftKind.WORK)
-        )
-        assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 5, 15)))
-        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 16)))
-        assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 5, 17)))
-    }
-
-    // ---- showLegalHoliday ----
-
-    @Test
-    fun showLegalHoliday_canBeToggled() {
-        val vm = createViewModel()
-        assertFalse(vm.showLegalHoliday)
-        vm.showLegalHoliday = true
-        assertTrue(vm.showLegalHoliday)
-        vm.showLegalHoliday = false
-        assertFalse(vm.showLegalHoliday)
-    }
-
-    // ---- onDrag: 折叠拖拽（异步路径：launch + snapTo）----
-
-    @Test
-    fun onDrag_positiveDelta_increasesProgress() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val vm = createViewModel(dispatcher = dispatcher)
         vm.onDrag(0.3f)
-        advanceUntilIdle()
-        assertEquals(0.3f, vm.collapseProgress, 0.001f)
+        assertEquals(0.3f, vm.collapseProgress.value, 0.001f)
     }
 
     @Test
-    fun onDrag_accumulatesAcrossCalls() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val vm = createViewModel(dispatcher = dispatcher)
+    fun onDrag_accumulatesAcrossCalls() {
+        val vm = createViewModel()
         vm.onDrag(0.2f)
-        advanceUntilIdle()
         vm.onDrag(0.3f)
-        advanceUntilIdle()
-        assertEquals(0.5f, vm.collapseProgress, 0.001f)
+        assertEquals(0.5f, vm.collapseProgress.value, 0.001f)
     }
 
     @Test
-    fun onDrag_clampsAtOne() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val vm = createViewModel(dispatcher = dispatcher)
+    fun onDrag_clampsAtOne() {
+        val vm = createViewModel()
         vm.onDrag(0.8f)
-        advanceUntilIdle()
         vm.onDrag(0.8f)
-        advanceUntilIdle()
-        assertEquals(1f, vm.collapseProgress, 0.001f)
+        assertEquals(1f, vm.collapseProgress.value, 0.001f)
     }
 
     @Test
-    fun onDrag_clampsAtZeroWhenNegativeFromZero() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val vm = createViewModel(dispatcher = dispatcher)
+    fun onDrag_clampsAtZeroWhenNegativeFromZero() {
+        val vm = createViewModel()
         vm.onDrag(-0.3f)
-        advanceUntilIdle()
-        assertEquals(0f, vm.collapseProgress, 0.001f)
+        assertEquals(0f, vm.collapseProgress.value, 0.001f)
     }
 
     @Test
-    fun onDrag_negativeAfterPositive_canDecrease() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val vm = createViewModel(dispatcher = dispatcher)
+    fun onDrag_negativeAfterPositive_canDecrease() {
+        val vm = createViewModel()
         vm.onDrag(0.5f)
-        advanceUntilIdle()
         vm.onDrag(-0.2f)
-        advanceUntilIdle()
-        assertEquals(0.3f, vm.collapseProgress, 0.001f)
+        assertEquals(0.3f, vm.collapseProgress.value, 0.001f)
     }
 
     // ---- onExpandDrag: 展开拖拽 ----
 
     @Test
-    fun onExpandDrag_updatesProgress() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val vm = createViewModel(dispatcher = dispatcher)
+    fun onExpandDrag_updatesProgress() {
+        val vm = createViewModel()
         // 先把 progress 推到 1
         vm.onDrag(1f)
-        advanceUntilIdle()
-        assertEquals(1f, vm.collapseProgress, 0.001f)
+        assertEquals(1f, vm.collapseProgress.value, 0.001f)
         // 展开方向：delta 为负
         vm.onExpandDrag(-0.4f)
-        advanceUntilIdle()
-        assertEquals(0.6f, vm.collapseProgress, 0.001f)
+        assertEquals(0.6f, vm.collapseProgress.value, 0.001f)
     }
 
     @Test
-    fun onExpandDrag_clampsAtZero() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val vm = createViewModel(dispatcher = dispatcher)
+    fun onExpandDrag_clampsAtZero() {
+        val vm = createViewModel()
         vm.onDrag(0.5f)
-        advanceUntilIdle()
         vm.onExpandDrag(-1f)
-        advanceUntilIdle()
-        assertEquals(0f, vm.collapseProgress, 0.001f)
+        assertEquals(0f, vm.collapseProgress.value, 0.001f)
     }
 
     @Test
-    fun onExpandDrag_clampsAtOne() = runTest {
-        val dispatcher = StandardTestDispatcher(testScheduler)
-        val vm = createViewModel(dispatcher = dispatcher)
+    fun onExpandDrag_clampsAtOne() {
+        val vm = createViewModel()
         vm.onExpandDrag(2f)
-        advanceUntilIdle()
-        assertEquals(1f, vm.collapseProgress, 0.001f)
+        assertEquals(1f, vm.collapseProgress.value, 0.001f)
+    }
+
+    // ---- onDragEnd / onExpandDragEnd ----
+
+    @Test
+    fun onDragEnd_progressAboveThreshold_collapses() {
+        val vm = createViewModel()
+        vm.onDrag(0.6f)
+        vm.onDragEnd()
+        assertTrue(vm.isCollapsed.value)
+        assertEquals(1f, vm.collapseProgress.value, 0.001f)
+    }
+
+    @Test
+    fun onDragEnd_progressBelowThreshold_expands() {
+        val vm = createViewModel()
+        vm.onDrag(0.05f)
+        vm.onDragEnd()
+        assertFalse(vm.isCollapsed.value)
+        assertEquals(0f, vm.collapseProgress.value, 0.001f)
+    }
+
+    @Test
+    fun onExpandDragEnd_progressBelowThreshold_expands() {
+        val vm = createViewModel()
+        vm.onDrag(1f)
+        vm.onExpandDrag(-0.95f)
+        vm.onExpandDragEnd()
+        assertFalse(vm.isCollapsed.value)
+        assertEquals(0f, vm.collapseProgress.value, 0.001f)
+    }
+
+    @Test
+    fun onExpandDragEnd_progressAboveThreshold_staysCollapsed() {
+        val vm = createViewModel()
+        vm.onDrag(1f)
+        vm.onExpandDrag(-0.05f)
+        vm.onExpandDragEnd()
+        assertTrue(vm.isCollapsed.value)
+        assertEquals(1f, vm.collapseProgress.value, 0.001f)
     }
 
     // ---- getMonthDays 与 selectedDate 配合 ----
@@ -387,5 +365,34 @@ class CalendarViewModelStateTest {
             assertEquals(0, size % 7, "Month 2026/$month size=$size not multiple of 7")
             assertTrue(size in 28..42, "Month 2026/$month size=$size out of [28, 42]")
         }
+    }
+
+    // ---- toggleYearView ----
+
+    @Test
+    fun toggleYearView_fromMonthToYear_setsIsYearViewTrue() {
+        val vm = createViewModel()
+        assertFalse(vm.isYearView.value)
+        vm.toggleYearView()
+        assertTrue(vm.isYearView.value)
+        assertEquals(1f, vm.yearViewProgress.value, 0.001f)
+    }
+
+    @Test
+    fun toggleYearView_fromYearToMonth_setsIsYearViewFalse() {
+        val vm = createViewModel()
+        vm.toggleYearView()
+        assertTrue(vm.isYearView.value)
+        vm.toggleYearView()
+        assertFalse(vm.isYearView.value)
+        assertEquals(0f, vm.yearViewProgress.value, 0.001f)
+    }
+
+    @Test
+    fun toggleYearView_setsYearViewYearToSelectedDateYear() {
+        val vm = createViewModel()
+        vm.selectDate(LocalDate(2027, 3, 15))
+        vm.toggleYearView()
+        assertEquals(2027, vm.yearViewYear.value)
     }
 }

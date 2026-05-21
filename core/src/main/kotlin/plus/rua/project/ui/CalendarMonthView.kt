@@ -45,10 +45,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -76,6 +77,7 @@ import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
 import kotlin.time.Clock
+import androidx.lifecycle.viewmodel.compose.viewModel
 
 /**
  * 日历主界面，包含月/周视图切换、折叠动画和年视图共享元素转场。
@@ -91,20 +93,27 @@ fun CalendarMonthView(
     modifier: Modifier = Modifier,
     onNavigateToAbout: () -> Unit = {}
 ) {
-    val coroutineScope = rememberCoroutineScope()
-    val viewModel = remember { CalendarViewModel(coroutineScope) }
+    val viewModel = viewModel<CalendarViewModel>()
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
-    val currentYear by remember { derivedStateOf { viewModel.selectedDate.year } }
 
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val currentYear = selectedDate.year
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
-    val currentMonth by remember { derivedStateOf { viewModel.selectedDate.month.number } }
+    val currentMonth = selectedDate.month.number
+    val isCollapsed by viewModel.isCollapsed.collectAsState()
+    val isYearView by viewModel.isYearView.collectAsState()
+    val yearViewYear by viewModel.yearViewYear.collectAsState()
+    val collapseProgress by viewModel.collapseProgress.collectAsState()
+    val showLegalHoliday by viewModel.showLegalHoliday.collectAsState()
+
     val density = LocalDensity.current
+    val coroutineScope = rememberCoroutineScope()
 
     var rowHeightPx by remember { mutableIntStateOf(0) }
     var screenWidthPx by remember { mutableIntStateOf(0) }
     var isMenuExpanded by remember { mutableStateOf(false) }
     // 视图切换时自动关闭菜单
-    LaunchedEffect(viewModel.isYearView) {
+    LaunchedEffect(isYearView) {
         isMenuExpanded = false
     }
 
@@ -117,8 +126,8 @@ fun CalendarMonthView(
     )
 
     // 进入年视图时同步 yearPagerState 到当前年
-    LaunchedEffect(viewModel.isYearView) {
-        if (viewModel.isYearView) {
+    LaunchedEffect(isYearView) {
+        if (isYearView) {
             if (yearPagerState.currentPage != START_PAGE) {
                 yearPagerState.scrollToPage(START_PAGE)
             }
@@ -129,18 +138,22 @@ fun CalendarMonthView(
     LaunchedEffect(yearPagerState) {
         snapshotFlow { yearPagerState.settledPage }.collect { page ->
             val offset = page - START_PAGE
-            val targetYear = viewModel.selectedDate.year + offset
-            if (targetYear != viewModel.yearViewYear) {
-                viewModel.yearViewYear = targetYear
+            val targetYear = selectedDate.year + offset
+            if (targetYear != yearViewYear) {
+                if (targetYear > yearViewYear) {
+                    viewModel.incrementYear()
+                } else {
+                    viewModel.decrementYear()
+                }
             }
         }
     }
 
     // 折叠态 WeekPager 切月时，持续同步 CalendarPager 的 pagerState
-    LaunchedEffect(viewModel.selectedDate) {
+    LaunchedEffect(selectedDate) {
         @Suppress("DEPRECATION") // monthNumber 无替代 API
         val targetPage = yearMonthToPage(
-            viewModel.selectedDate.year, viewModel.selectedDate.month.number,
+            selectedDate.year, selectedDate.month.number,
             today.year, today.month.number
         )
         if (targetPage != pagerState.currentPage) {
@@ -160,7 +173,7 @@ fun CalendarMonthView(
         SharedTransitionLayout {
             val sharedScope = this
             AnimatedContent(
-                targetState = viewModel.isYearView,
+                targetState = isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
                     val enter = fadeIn(tween(300, easing = FastOutSlowInEasing)) +
@@ -170,8 +183,8 @@ fun CalendarMonthView(
                     enter togetherWith exit
                 },
                 modifier = Modifier.fillMaxSize()
-            ) { isYearView ->
-                if (!isYearView) {
+            ) { yearViewActive ->
+                if (!yearViewActive) {
                     composeTraceBeginSection("MonthView:Compose")
                     val layoutReady = rowHeightPx > 0
                     Box(
@@ -187,8 +200,8 @@ fun CalendarMonthView(
                             MonthHeader(
                                 year = currentYear,
                                 month = currentMonth,
-                                weekNumber = viewModel.getIsoWeekNumber(viewModel.selectedDate),
-                                showToday = viewModel.selectedDate != today,
+                                weekNumber = viewModel.getIsoWeekNumber(selectedDate),
+                                showToday = selectedDate != today,
                                 onToday = {
                                     viewModel.selectDate(today)
                                 }
@@ -223,7 +236,7 @@ fun CalendarMonthView(
                                 viewModel = viewModel,
                                 today = today,
                                 rowHeightPx = rowHeightPx,
-                                isYearView = viewModel.isYearView,
+                                isYearView = isYearView,
                                 modifier = Modifier.fillMaxWidth()
                             )
                         }
@@ -237,10 +250,10 @@ fun CalendarMonthView(
                             .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
                     ) {
                         YearHeader(
-                            year = viewModel.yearViewYear,
+                            year = yearViewYear,
                             currentYear = today.year,
                             onYearChange = { newYear ->
-                                val offset = newYear - viewModel.yearViewYear
+                                val offset = newYear - yearViewYear
                                 val targetPage = yearPagerState.currentPage + offset
                                 if (targetPage != yearPagerState.currentPage) {
                                     coroutineScope.launch { yearPagerState.animateScrollToPage(targetPage) }
@@ -262,7 +275,7 @@ fun CalendarMonthView(
                             } else {
                                 pageOffset
                             }
-                            val pageYear = viewModel.selectedDate.year + (page - START_PAGE)
+                            val pageYear = selectedDate.year + (page - START_PAGE)
                             YearGridView(
                                 year = pageYear,
                                 selectedMonth = if (pageYear == currentYear) currentMonth else 0,
@@ -271,7 +284,7 @@ fun CalendarMonthView(
                                     viewModel.selectMonthFromYearView(month)
                                     @Suppress("DEPRECATION") // monthNumber 无替代 API
                                     val targetPage = yearMonthToPage(
-                                        viewModel.yearViewYear, month,
+                                        yearViewYear, month,
                                         today.year, today.month.number
                                     )
                                     if (targetPage != pagerState.currentPage) {
@@ -343,18 +356,18 @@ fun CalendarMonthView(
                 Column(modifier = Modifier.width(140.dp)) {
                     MenuItem(
                         text = "月视图",
-                        selected = !viewModel.isYearView,
+                        selected = !isYearView,
                         onClick = {
                             isMenuExpanded = false
-                            if (viewModel.isYearView) viewModel.toggleYearView()
+                            if (isYearView) viewModel.toggleYearView()
                         }
                     )
                     MenuItem(
                         text = "年视图",
-                        selected = viewModel.isYearView,
+                        selected = isYearView,
                         onClick = {
                             isMenuExpanded = false
-                            if (!viewModel.isYearView) viewModel.toggleYearView()
+                            if (!isYearView) viewModel.toggleYearView()
                         }
                     )
                     HorizontalDivider(
@@ -405,7 +418,10 @@ private fun CalendarPagerArea(
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    val collapseProgress = viewModel.collapseProgress
+    val collapseProgress by viewModel.collapseProgress.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val isCollapsed by viewModel.isCollapsed.collectAsState()
+    val showLegalHoliday by viewModel.showLegalHoliday.collectAsState()
 
     val interpolatedWeeks by remember {
         derivedStateOf {
@@ -450,9 +466,9 @@ private fun CalendarPagerArea(
         modifier
     }
 
-    if (viewModel.isCollapsed && collapseProgress >= 1f) {
+    if (isCollapsed && collapseProgress >= 1f) {
         WeekPager(
-            selectedDate = viewModel.selectedDate,
+            selectedDate = selectedDate,
             today = today,
             onDateClick = { date -> viewModel.selectDate(date) },
             onWeekChanged = { weekMonday ->
@@ -460,7 +476,7 @@ private fun CalendarPagerArea(
                 val date = when {
                     today in weekMonday..weekSunday -> today
                     weekMonday.month != weekSunday.month -> {
-                        if (weekMonday < viewModel.selectedDate) {
+                        if (weekMonday < selectedDate) {
                             @Suppress("DEPRECATION") // monthNumber 无替代 API
                             LocalDate(weekSunday.year, weekSunday.month.number, 1)
                         } else {
@@ -473,12 +489,12 @@ private fun CalendarPagerArea(
                 viewModel.selectDate(date)
             },
             shiftKindAt = { date -> viewModel.shiftKindAt(date) },
-            showLegalHoliday = viewModel.showLegalHoliday,
+            showLegalHoliday = showLegalHoliday,
             modifier = pagerModifier
         )
     } else {
         CalendarPager(
-            selectedDate = viewModel.selectedDate,
+            selectedDate = selectedDate,
             today = today,
             onDateClick = { date -> viewModel.selectDate(date) },
             onMonthChanged = { year, month ->
@@ -492,7 +508,7 @@ private fun CalendarPagerArea(
             rowHeightPx = rowHeightPx,
             effectiveWeeks = effectiveWeeks,
             shiftKindAt = { date -> viewModel.shiftKindAt(date) },
-            showLegalHoliday = viewModel.showLegalHoliday,
+            showLegalHoliday = showLegalHoliday,
             onRowHeightMeasured = onRowHeightMeasured,
             pagerState = pagerState,
             modifier = pagerModifier
@@ -527,11 +543,20 @@ private fun BottomCardArea(
     androidx.compose.runtime.SideEffect { frameCount++ }
     val shouldShow = frameCount >= 2
 
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val isCollapsed by viewModel.isCollapsed.collectAsState()
+    val shiftKind = viewModel.shiftKindAt(selectedDate)
+
     if (shouldShow) {
         BottomCard(
-            viewModel = viewModel,
-            selectedDate = viewModel.selectedDate,
+            isCollapsed = isCollapsed,
+            selectedDate = selectedDate,
             today = today,
+            shiftKind = shiftKind,
+            onDrag = { delta -> viewModel.onDrag(delta) },
+            onDragEnd = { velocity -> viewModel.onDragEnd(velocity) },
+            onExpandDrag = { delta -> viewModel.onExpandDrag(delta) },
+            onExpandDragEnd = { velocity -> viewModel.onExpandDragEnd(velocity) },
             dragRangePx = dragRangePx,
             modifier = modifier.graphicsLayer {
                 translationY = slideProgress * 200.dp.toPx()

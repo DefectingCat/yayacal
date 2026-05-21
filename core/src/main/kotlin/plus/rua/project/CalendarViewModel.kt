@@ -1,17 +1,11 @@
 package plus.rua.project
 
-import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.spring
-import androidx.compose.animation.core.tween
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -20,7 +14,6 @@ import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
-import plus.rua.project.LunarCache
 import plus.rua.project.ui.COLLAPSE_THRESHOLD
 import plus.rua.project.ui.FLING_VELOCITY_THRESHOLD_DP
 import plus.rua.project.ui.getMonthGridInfo
@@ -44,35 +37,33 @@ data class CalendarDay(
 /**
  * 日历状态管理，持有选中日期、折叠状态和 ISO 周号计算逻辑。
  *
- * @param coroutineScope 协程作用域，用于驱动折叠动画
  * @param clock 时钟源，默认系统时钟；测试时可注入固定时钟
  */
 class CalendarViewModel(
-    private val coroutineScope: CoroutineScope,
     private val clock: Clock = Clock.System
-) {
+) : ViewModel() {
     private val today: LocalDate = clock.todayIn(TimeZone.currentSystemDefault())
 
     init {
-        coroutineScope.launch(Dispatchers.Default) {
-            // 预计算当前月前后各 1 个月
-            val currentYear = today.year
-            val currentMonth = today.month.number
+        // 预计算当前月前后各 1 个月（在协程中异步执行）
+        val currentYear = today.year
+        val currentMonth = today.month.number
 
-            @Suppress("DEPRECATION") // monthNumber 无替代 API
-            val monthsToPrecompute = listOf(
-                currentMonth - 1 to currentYear,
-                currentMonth to currentYear,
-                currentMonth + 1 to currentYear
-            ).map { (month, year) ->
-                val (normalizedMonth, normalizedYear) = when {
-                    month < 1 -> 12 to year - 1
-                    month > 12 -> 1 to year + 1
-                    else -> month to year
-                }
-                getMonthGridInfo(normalizedYear, normalizedMonth)
+        @Suppress("DEPRECATION") // monthNumber 无替代 API
+        val monthsToPrecompute = listOf(
+            currentMonth - 1 to currentYear,
+            currentMonth to currentYear,
+            currentMonth + 1 to currentYear
+        ).map { (month, year) ->
+            val (normalizedMonth, normalizedYear) = when {
+                month < 1 -> 12 to year - 1
+                month > 12 -> 1 to year + 1
+                else -> month to year
             }
+            getMonthGridInfo(normalizedYear, normalizedMonth)
+        }
 
+        viewModelScope.launch {
             monthsToPrecompute.forEach { info ->
                 val dates = (0 until info.totalDays).map { i ->
                     info.startDate.plus(DatePeriod(days = i))
@@ -82,51 +73,50 @@ class CalendarViewModel(
         }
     }
 
-    var selectedDate by mutableStateOf(today)
-        private set
+    private val _selectedDate = MutableStateFlow(today)
+    val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
 
-    var isCollapsed by mutableStateOf(false)
-        private set
+    private val _isCollapsed = MutableStateFlow(false)
+    val isCollapsed: StateFlow<Boolean> = _isCollapsed.asStateFlow()
 
     // collapseProgress: 0f=展开(月视图), 1f=折叠(周视图)
-    private val _collapseAnimatable = Animatable(0f)
-    val collapseProgress: Float get() = _collapseAnimatable.value
-
-    private var yearViewJob: Job? = null
+    private val _collapseProgress = MutableStateFlow(0f)
+    val collapseProgress: StateFlow<Float> = _collapseProgress.asStateFlow()
 
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
-    val currentMonth: Int get() = selectedDate.month.number
+    val currentMonth: Int get() = selectedDate.value.month.number
 
-    val currentYear: Int get() = selectedDate.year
+    val currentYear: Int get() = selectedDate.value.year
 
-    var isYearView by mutableStateOf(false)
-        private set
+    private val _isYearView = MutableStateFlow(false)
+    val isYearView: StateFlow<Boolean> = _isYearView.asStateFlow()
 
-    private val _yearViewAnimatable = Animatable(0f)
-    val yearViewProgress: Float get() = _yearViewAnimatable.value
+    private val _yearViewProgress = MutableStateFlow(0f)
+    val yearViewProgress: StateFlow<Float> = _yearViewProgress.asStateFlow()
 
-    @Suppress("DEPRECATION") // monthNumber 无替代 API
-    var yearViewYear by mutableStateOf(today.year)
-        internal set
+    private val _yearViewYear = MutableStateFlow(today.year)
+    val yearViewYear: StateFlow<Int> = _yearViewYear.asStateFlow()
 
     /**
      * 个人轮班。与法定节假日完全独立,不受调休影响。
      * MVP 默认:2026-05-15 起,2 班 2 休循环。后续接入设置页与持久化。
      */
-    var shiftPattern: ShiftPattern? by mutableStateOf(
+    private val _shiftPattern = MutableStateFlow<ShiftPattern?>(
         ShiftPattern(
             anchorDate = LocalDate(2026, 5, 15),
             cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF)
         )
     )
+    val shiftPattern: StateFlow<ShiftPattern?> = _shiftPattern.asStateFlow()
 
-    fun shiftKindAt(date: LocalDate): ShiftKind? = shiftPattern?.kindAt(date)
+    fun shiftKindAt(date: LocalDate): ShiftKind? = shiftPattern.value?.kindAt(date)
 
     /**
      * 是否在右上角显示法定调休角标。默认禁用,此时右上角让位给个人排班。
      * 开启后回到旧版布局:左上角=排班,右上角=法定调休。后续接入设置页持久化。
      */
-    var showLegalHoliday by mutableStateOf(false)
+    private val _showLegalHoliday = MutableStateFlow(false)
+    val showLegalHoliday: StateFlow<Boolean> = _showLegalHoliday.asStateFlow()
 
     /**
      * 选中指定日期。
@@ -134,7 +124,7 @@ class CalendarViewModel(
      * @param date 目标日期
      */
     fun selectDate(date: LocalDate) {
-        selectedDate = date
+        _selectedDate.value = date
     }
 
     /**
@@ -145,32 +135,17 @@ class CalendarViewModel(
      * 当前视图被直接移除；动画只作用在目标视图的 scale/alpha 上。
      */
     fun toggleYearView() {
-        yearViewJob?.cancel()
-        yearViewJob = coroutineScope.launch {
-            if (isYearView) {
-                composeTraceBeginSection("YearView→MonthView")
-                _yearViewAnimatable.snapTo(1f)
-                launch {
-                    _yearViewAnimatable.animateTo(
-                        0f, tween(400, easing = FastOutSlowInEasing)
-                    )
-                }
-                withFrameNanos { }
-                isYearView = false
-                composeTraceEndSection()
-            } else {
-                composeTraceBeginSection("MonthView→YearView")
-                yearViewYear = selectedDate.year
-                _yearViewAnimatable.snapTo(0f)
-                launch {
-                    _yearViewAnimatable.animateTo(
-                        1f, tween(400, easing = FastOutSlowInEasing)
-                    )
-                }
-                withFrameNanos { }
-                isYearView = true
-                composeTraceEndSection()
-            }
+        if (_isYearView.value) {
+            composeTraceBeginSection("YearView→MonthView")
+            _yearViewProgress.value = 0f
+            _isYearView.value = false
+            composeTraceEndSection()
+        } else {
+            composeTraceBeginSection("MonthView→YearView")
+            _yearViewYear.value = _selectedDate.value.year
+            _yearViewProgress.value = 1f
+            _isYearView.value = true
+            composeTraceEndSection()
         }
     }
 
@@ -180,25 +155,20 @@ class CalendarViewModel(
     @Suppress("DEPRECATION") // monthNumber 无替代 API
     fun selectMonthFromYearView(month: Int) {
         composeTraceBeginSection("YearView:SelectMonth")
-        val date = if (yearViewYear == today.year && today.month.number == month) today
-        else LocalDate(yearViewYear, month, 1)
-        selectedDate = date
-        isYearView = false
-        yearViewJob?.cancel()
-        yearViewJob = coroutineScope.launch {
-            _yearViewAnimatable.animateTo(
-                0f, tween(400, easing = FastOutSlowInEasing)
-            )
-            composeTraceEndSection()
-        }
+        val date = if (_yearViewYear.value == today.year && today.month.number == month) today
+        else LocalDate(_yearViewYear.value, month, 1)
+        _selectedDate.value = date
+        _isYearView.value = false
+        _yearViewProgress.value = 0f
+        composeTraceEndSection()
     }
 
     fun incrementYear() {
-        yearViewYear++
+        _yearViewYear.value = _yearViewYear.value + 1
     }
 
     fun decrementYear() {
-        yearViewYear--
+        _yearViewYear.value = _yearViewYear.value - 1
     }
 
     /**
@@ -207,11 +177,8 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onDrag(delta: Float) {
-        coroutineScope.launch {
-            val old = _collapseAnimatable.value
-            val new = (old + delta).coerceIn(0f, 1f)
-            _collapseAnimatable.snapTo(new)
-        }
+        val new = (_collapseProgress.value + delta).coerceIn(0f, 1f)
+        _collapseProgress.value = new
     }
 
     /**
@@ -222,21 +189,18 @@ class CalendarViewModel(
      * @param velocityDpPerSec 松手时的 fling 速度 (dp/s)，正值=上滑（折叠方向），负值=下滑（展开方向）
      */
     fun onDragEnd(velocityDpPerSec: Float = 0f) {
-        coroutineScope.launch {
-            val progress = _collapseAnimatable.value
-            val shouldCollapse = progress > 0.3f
-            if (shouldCollapse) {
-                _collapseAnimatable.animateTo(
-                    targetValue = 1f,
-                    animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
-                )
-                isCollapsed = true
-            } else {
-                _collapseAnimatable.animateTo(
-                    targetValue = 0f,
-                    animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
-                )
-            }
+        val progress = _collapseProgress.value
+        val shouldCollapse = when {
+            velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> true
+            velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> false
+            else -> progress > COLLAPSE_THRESHOLD
+        }
+        if (shouldCollapse) {
+            _isCollapsed.value = true
+            _collapseProgress.value = 1f
+        } else {
+            _isCollapsed.value = false
+            _collapseProgress.value = 0f
         }
     }
 
@@ -246,11 +210,8 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onExpandDrag(delta: Float) {
-        coroutineScope.launch {
-            val old = _collapseAnimatable.value
-            val new = (old + delta).coerceIn(0f, 1f)
-            _collapseAnimatable.snapTo(new)
-        }
+        val new = (_collapseProgress.value + delta).coerceIn(0f, 1f)
+        _collapseProgress.value = new
     }
 
     /**
@@ -261,21 +222,18 @@ class CalendarViewModel(
      * @param velocityDpPerSec 松手时的 fling 速度 (dp/s)，正值=上滑，负值=下滑
      */
     fun onExpandDragEnd(velocityDpPerSec: Float = 0f) {
-        coroutineScope.launch {
-            val progress = _collapseAnimatable.value
-            val shouldExpand = progress < 0.7f
-            if (shouldExpand) {
-                _collapseAnimatable.animateTo(
-                    targetValue = 0f,
-                    animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
-                )
-                isCollapsed = false
-            } else {
-                _collapseAnimatable.animateTo(
-                    targetValue = 1f,
-                    animationSpec = spring(dampingRatio = 0.8f, stiffness = 400f)
-                )
-            }
+        val progress = _collapseProgress.value
+        val shouldExpand = when {
+            velocityDpPerSec < -FLING_VELOCITY_THRESHOLD_DP -> true
+            velocityDpPerSec > FLING_VELOCITY_THRESHOLD_DP -> false
+            else -> progress < COLLAPSE_THRESHOLD
+        }
+        if (shouldExpand) {
+            _isCollapsed.value = false
+            _collapseProgress.value = 0f
+        } else {
+            _isCollapsed.value = true
+            _collapseProgress.value = 1f
         }
     }
 
@@ -328,7 +286,7 @@ class CalendarViewModel(
                 date = date,
                 isCurrentMonth = date.month.number == month && date.year == year,
                 isToday = date == today,
-                isSelected = date == selectedDate
+                isSelected = date == selectedDate.value
             )
         }
         composeTraceEndSection()
