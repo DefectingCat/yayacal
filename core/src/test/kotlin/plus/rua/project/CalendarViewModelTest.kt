@@ -1,7 +1,8 @@
 package plus.rua.project
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -14,49 +15,51 @@ private class FixedClock(private val instant: Instant) : Clock {
     override fun now(): Instant = instant
 }
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModelTest {
 
     private val fixedInstant = Instant.parse("2026-05-15T00:00:00Z")
     private val testClock = FixedClock(fixedInstant)
     private fun createViewModel(): CalendarViewModel {
-        val scope = CoroutineScope(Dispatchers.Unconfined)
+        val dispatcher = StandardTestDispatcher()
+        val scope = CoroutineScope(dispatcher)
         return CalendarViewModel(coroutineScope = scope, clock = testClock)
     }
 
     // ---- getIsoWeekNumber ----
 
     @Test
-    fun getIsoWeekNumber_regularDate() {
+    fun getIsoWeekNumber_regular_date() {
         val vm = createViewModel()
         assertEquals(20, vm.getIsoWeekNumber(LocalDate(2026, 5, 15)))
     }
 
     @Test
-    fun getIsoWeekNumber_jan1() {
+    fun getIsoWeekNumber_jan_1() {
         val vm = createViewModel()
         assertEquals(1, vm.getIsoWeekNumber(LocalDate(2026, 1, 1)))
     }
 
     @Test
-    fun getIsoWeekNumber_dec31() {
+    fun getIsoWeekNumber_dec_31() {
         val vm = createViewModel()
         assertEquals(53, vm.getIsoWeekNumber(LocalDate(2026, 12, 31)))
     }
 
     @Test
-    fun getIsoWeekNumber_week52_boundary() {
+    fun getIsoWeekNumber_week_52_boundary() {
         val vm = createViewModel()
         assertEquals(52, vm.getIsoWeekNumber(LocalDate(2025, 12, 28)))
     }
 
     @Test
-    fun getIsoWeekNumber_mondayStartsWeek() {
+    fun getIsoWeekNumber_monday_starts_week() {
         val vm = createViewModel()
         assertEquals(20, vm.getIsoWeekNumber(LocalDate(2026, 5, 11)))
     }
 
     @Test
-    fun getIsoWeekNumber_week53_year() {
+    fun getIsoWeekNumber_week_53_year() {
         val vm = createViewModel()
         assertEquals(53, vm.getIsoWeekNumber(LocalDate(2020, 12, 31)))
     }
@@ -64,7 +67,7 @@ class CalendarViewModelTest {
     // ---- getMonthDays ----
 
     @Test
-    fun getMonthDays_returnsCorrectSize() {
+    fun getMonthDays_returns_correct_size() {
         val vm = createViewModel()
         // May 2026: 5 rows × 7 = 35 cells
         val days = vm.getMonthDays(2026, 5)
@@ -72,7 +75,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun getMonthDays_may2026_startsOnThursday() {
+    fun getMonthDays_may_2026_starts_on_thursday() {
         val vm = createViewModel()
         val days = vm.getMonthDays(2026, 5)
         assertFalse(days[0].isCurrentMonth)
@@ -82,7 +85,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun getMonthDays_may2026_firstDayIsMay1() {
+    fun getMonthDays_may_2026_first_day_is_may_1() {
         val vm = createViewModel()
         val days = vm.getMonthDays(2026, 5)
         assertTrue(days[4].isCurrentMonth)
@@ -92,7 +95,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun getMonthDays_may2026_lastDayIsMay31() {
+    fun getMonthDays_may_2026_last_day_is_may_31() {
         val vm = createViewModel()
         val days = vm.getMonthDays(2026, 5)
         val may31 = days.first { it.isCurrentMonth && it.date.day == 31 }
@@ -100,7 +103,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun getMonthDays_february2026_28days() {
+    fun getMonthDays_february_2026_28_days() {
         val vm = createViewModel()
         val days = vm.getMonthDays(2026, 2)
         val febDays = days.filter { it.isCurrentMonth }
@@ -108,7 +111,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun getMonthDays_february2024_29days_leapYear() {
+    fun getMonthDays_february_2024_29_days_leap_year() {
         val vm = createViewModel()
         val days = vm.getMonthDays(2024, 2)
         val febDays = days.filter { it.isCurrentMonth }
@@ -116,7 +119,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun getMonthDays_todayIsMarked() {
+    fun getMonthDays_today_is_marked() {
         val vm = createViewModel()
         val days = vm.getMonthDays(2026, 5)
         val todayCell = days.first { it.isToday }
@@ -125,7 +128,7 @@ class CalendarViewModelTest {
     }
 
     @Test
-    fun getMonthDays_selectedDateIsMarked() {
+    fun getMonthDays_selected_date_is_marked() {
         val vm = createViewModel()
         val days = vm.getMonthDays(2026, 5)
         val selectedCell = days.first { it.isSelected }

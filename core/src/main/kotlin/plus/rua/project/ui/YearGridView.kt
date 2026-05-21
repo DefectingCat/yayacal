@@ -39,6 +39,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import com.tyme.lunar.LunarYear
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
@@ -168,6 +170,7 @@ fun YearGridView(
                         val sharedKey = "month_grid_${year}_$month"
                         with(sharedTransitionScope) {
                             MiniMonth(
+                                year = year,
                                 month = month,
                                 isSelected = month == selectedMonth,
                                 today = today,
@@ -205,6 +208,7 @@ fun YearGridView(
  */
 @Composable
 private fun MiniMonth(
+    year: Int,
     month: Int,
     isSelected: Boolean,
     today: LocalDate,
@@ -230,7 +234,10 @@ private fun MiniMonth(
         modifier = modifier
             .padding(2.dp)
             .clickable(onClick = onClick)
-            .padding(vertical = 2.dp),
+            .padding(vertical = 2.dp)
+            .semantics {
+                contentDescription = "$year 年 $month 月"
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Canvas(modifier = Modifier.fillMaxWidth().height(totalHeight)) {

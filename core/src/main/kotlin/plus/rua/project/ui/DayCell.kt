@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.zIndex
@@ -273,4 +274,18 @@ fun DayCell(
             )
         }
     }
+}
+
+@Preview
+@Composable
+private fun DayCellPreview() {
+    DayCell(
+        date = LocalDate(2026, 5, 21),
+        isCurrentMonth = true,
+        isSelected = true,
+        isToday = true,
+        shiftKind = ShiftKind.WORK,
+        showLegalHoliday = false,
+        onClick = {}
+    )
 }

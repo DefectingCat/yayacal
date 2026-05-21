@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
@@ -107,4 +108,16 @@ fun MonthHeader(
             )
         }
     }
+}
+
+@Preview
+@Composable
+private fun MonthHeaderPreview() {
+    MonthHeader(
+        year = 2026,
+        month = 5,
+        weekNumber = 21,
+        showToday = true,
+        onToday = {}
+    )
 }

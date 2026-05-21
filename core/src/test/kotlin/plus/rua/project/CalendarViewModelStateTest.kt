@@ -1,7 +1,11 @@
 package plus.rua.project
 
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
@@ -23,14 +27,15 @@ private class StateTestFixedClock(private val instant: Instant) : Clock {
  * 动画完成的最终状态（例如 [CalendarViewModel.isCollapsed] 在 spring
  * 动画结束后的取值）需要 MonotonicFrameClock 驱动，不在本测试集合范围内。
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class CalendarViewModelStateTest {
 
     // 固定 today = 2026/5/15
     private val fixedInstant = Instant.parse("2026-05-15T00:00:00Z")
     private val testClock = StateTestFixedClock(fixedInstant)
 
-    private fun createViewModel(): CalendarViewModel {
-        val scope = CoroutineScope(Dispatchers.Unconfined)
+    private fun createViewModel(dispatcher: TestDispatcher = StandardTestDispatcher()): CalendarViewModel {
+        val scope = CoroutineScope(dispatcher)
         return CalendarViewModel(coroutineScope = scope, clock = testClock)
     }
 
@@ -255,71 +260,92 @@ class CalendarViewModelStateTest {
         assertFalse(vm.showLegalHoliday)
     }
 
-    // ---- onDrag: 折叠拖拽（同步路径：snapTo）----
+    // ---- onDrag: 折叠拖拽（异步路径：launch + snapTo）----
 
     @Test
-    fun onDrag_positiveDelta_increasesProgress() {
-        val vm = createViewModel()
+    fun onDrag_positiveDelta_increasesProgress() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = createViewModel(dispatcher = dispatcher)
         vm.onDrag(0.3f)
+        advanceUntilIdle()
         assertEquals(0.3f, vm.collapseProgress, 0.001f)
     }
 
     @Test
-    fun onDrag_accumulatesAcrossCalls() {
-        val vm = createViewModel()
+    fun onDrag_accumulatesAcrossCalls() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = createViewModel(dispatcher = dispatcher)
         vm.onDrag(0.2f)
+        advanceUntilIdle()
         vm.onDrag(0.3f)
+        advanceUntilIdle()
         assertEquals(0.5f, vm.collapseProgress, 0.001f)
     }
 
     @Test
-    fun onDrag_clampsAtOne() {
-        val vm = createViewModel()
+    fun onDrag_clampsAtOne() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = createViewModel(dispatcher = dispatcher)
         vm.onDrag(0.8f)
+        advanceUntilIdle()
         vm.onDrag(0.8f)
+        advanceUntilIdle()
         assertEquals(1f, vm.collapseProgress, 0.001f)
     }
 
     @Test
-    fun onDrag_clampsAtZeroWhenNegativeFromZero() {
-        val vm = createViewModel()
+    fun onDrag_clampsAtZeroWhenNegativeFromZero() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = createViewModel(dispatcher = dispatcher)
         vm.onDrag(-0.3f)
+        advanceUntilIdle()
         assertEquals(0f, vm.collapseProgress, 0.001f)
     }
 
     @Test
-    fun onDrag_negativeAfterPositive_canDecrease() {
-        val vm = createViewModel()
+    fun onDrag_negativeAfterPositive_canDecrease() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = createViewModel(dispatcher = dispatcher)
         vm.onDrag(0.5f)
+        advanceUntilIdle()
         vm.onDrag(-0.2f)
+        advanceUntilIdle()
         assertEquals(0.3f, vm.collapseProgress, 0.001f)
     }
 
     // ---- onExpandDrag: 展开拖拽 ----
 
     @Test
-    fun onExpandDrag_updatesProgress() {
-        val vm = createViewModel()
+    fun onExpandDrag_updatesProgress() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = createViewModel(dispatcher = dispatcher)
         // 先把 progress 推到 1
         vm.onDrag(1f)
+        advanceUntilIdle()
         assertEquals(1f, vm.collapseProgress, 0.001f)
         // 展开方向：delta 为负
         vm.onExpandDrag(-0.4f)
+        advanceUntilIdle()
         assertEquals(0.6f, vm.collapseProgress, 0.001f)
     }
 
     @Test
-    fun onExpandDrag_clampsAtZero() {
-        val vm = createViewModel()
+    fun onExpandDrag_clampsAtZero() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = createViewModel(dispatcher = dispatcher)
         vm.onDrag(0.5f)
+        advanceUntilIdle()
         vm.onExpandDrag(-1f)
+        advanceUntilIdle()
         assertEquals(0f, vm.collapseProgress, 0.001f)
     }
 
     @Test
-    fun onExpandDrag_clampsAtOne() {
-        val vm = createViewModel()
+    fun onExpandDrag_clampsAtOne() = runTest {
+        val dispatcher = StandardTestDispatcher(testScheduler)
+        val vm = createViewModel(dispatcher = dispatcher)
         vm.onExpandDrag(2f)
+        advanceUntilIdle()
         assertEquals(1f, vm.collapseProgress, 0.001f)
     }
 

@@ -47,7 +47,7 @@ fun getAppVersion(): String {
  * @param onCancel 手势取消回调（滑动距离不足，回弹）
  */
 @Composable
-fun PredictiveBackHandler(
+fun AppPredictiveBackHandler(
     enabled: Boolean = true,
     onProgress: (Float) -> Unit = {},
     onBack: () -> Unit,

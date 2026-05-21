@@ -23,6 +23,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.LocalDate
@@ -117,6 +120,9 @@ fun BottomCard(
                     .fillMaxWidth(0.15f)
                     .height(4.dp)
                     .align(Alignment.CenterHorizontally)
+                    .semantics {
+                        contentDescription = "拖拽以展开或折叠日历"
+                    }
             )
             Spacer(modifier = Modifier.height(8.dp))
             // A / B / C 信息行
@@ -175,4 +181,17 @@ fun BottomCard(
             )
         }
     }
+}
+
+@Preview
+@Composable
+private fun BottomCardPreview() {
+    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Unconfined)
+    val viewModel = CalendarViewModel(scope)
+    BottomCard(
+        viewModel = viewModel,
+        selectedDate = kotlinx.datetime.LocalDate(2026, 5, 21),
+        today = kotlinx.datetime.LocalDate(2026, 5, 21),
+        dragRangePx = 300f
+    )
 }

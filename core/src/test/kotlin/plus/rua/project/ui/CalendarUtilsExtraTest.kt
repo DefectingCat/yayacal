@@ -133,18 +133,10 @@ class CalendarUtilsExtraTest {
     // ---- formatLunarDate ----
 
     @Test
-    fun formatLunarDate_startsWithLunarPrefix() {
-        val result = formatLunarDate(LocalDate(2026, 5, 19))
-        assertTrue(result.startsWith("农历"), "Expected to start with '农历', got: $result")
-    }
-
-    @Test
     fun formatLunarDate_january1_2026_returnsCorrectLunar() {
-        // 2026/1/1 公历 -> 2025年农历十一月十二
+        // 2026/1/1 公历 -> 农历十一月十三
         val result = formatLunarDate(LocalDate(2026, 1, 1))
-        assertTrue(result.startsWith("农历"), "Expected '农历' prefix, got: $result")
-        // 验证不是空字符串
-        assertTrue(result.length > 2, "Lunar date description should contain month and day")
+        assertEquals("农历十一月十三", result)
     }
 
     @Test
@@ -155,16 +147,16 @@ class CalendarUtilsExtraTest {
     }
 
     @Test
-    fun formatLunarDate_anyDate_containsMonthAndDayNames() {
-        // 仅验证格式：农历 + 月 + 日
-        for (day in listOf(
-            LocalDate(2026, 3, 1),
-            LocalDate(2026, 6, 30),
-            LocalDate(2026, 12, 25)
-        )) {
-            val result = formatLunarDate(day)
-            assertTrue(result.startsWith("农历"), "Expected '农历' prefix for $day, got: $result")
-            assertTrue(result.length >= 5, "Result for $day too short: $result")
-        }
+    fun formatLunarDate_specificDates_returnsExactLunar() {
+        assertEquals("农历正月十三", formatLunarDate(LocalDate(2026, 3, 1)))
+        assertEquals("农历五月十六", formatLunarDate(LocalDate(2026, 6, 30)))
+        assertEquals("农历十一月十七", formatLunarDate(LocalDate(2026, 12, 25)))
+    }
+
+    @Test
+    fun formatLunarDate_leapMonth_returnsLeapPrefix() {
+        // 2023年闰二月：2023/3/23 对应农历闰二月初二
+        val result = formatLunarDate(LocalDate(2023, 3, 23))
+        assertEquals("农历闰二月初二", result)
     }
 }

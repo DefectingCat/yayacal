@@ -7,7 +7,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 private val WEEKDAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
@@ -19,7 +22,12 @@ private val WEEKDAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "�
  */
 @Composable
 fun WeekdayHeader(modifier: Modifier = Modifier) {
-    Row(modifier = modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+            .semantics { heading() }
+    ) {
         WEEKDAY_LABELS.forEach { label ->
             Text(
                 text = label,
@@ -30,4 +38,10 @@ fun WeekdayHeader(modifier: Modifier = Modifier) {
             )
         }
     }
+}
+
+@Preview
+@Composable
+private fun WeekdayHeaderPreview() {
+    WeekdayHeader()
 }
