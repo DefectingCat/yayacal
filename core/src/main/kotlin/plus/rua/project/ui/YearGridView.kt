@@ -25,9 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -51,12 +49,6 @@ import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 
 private val WEEKDAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
-
-// region 性能监控工具
-private fun yearPerfLog(tag: String, msg: String) {
-    println("[YEAR-PERF:${Thread.currentThread().name}] $tag | $msg")
-}
-// endregion
 
 private data class MiniMonthColors(
     val titleSelected: Color,
@@ -90,10 +82,6 @@ fun YearGridView(
     animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier
 ) {
-    val yearGridStart = System.nanoTime()
-    var yearGridRecomposeCount by remember { mutableIntStateOf(0) }
-    yearGridRecomposeCount++
-    yearPerfLog("YearGridView", "composition #$yearGridRecomposeCount year=$year selectedMonth=$selectedMonth")
     composeTraceBeginSection("YearGridView:$year")
 
     // P0-F: 主题色在 YearGridView 级别一次性读取并缓存
@@ -208,8 +196,6 @@ fun YearGridView(
         }
     }
     composeTraceEndSection()
-    val yearGridTotalMs = (System.nanoTime() - yearGridStart) / 1_000_000.0
-    yearPerfLog("YearGridView", "END year=$year elapsed=${"%.3f".format(yearGridTotalMs)}ms")
 }
 
 /**
@@ -322,7 +308,6 @@ private data class MiniDayData(
 
 @Suppress("DEPRECATION") // monthNumber 无替代 API
 private fun generateMiniMonthDays(year: Int, month: Int): List<MiniDayData> {
-    val start = System.nanoTime()
     composeTraceBeginSection("generateMiniMonthDays:$year-$month")
     val firstOfMonth = LocalDate(year, month, 1)
     val offset = firstOfMonth.dayOfWeek.ordinal
@@ -340,8 +325,6 @@ private fun generateMiniMonthDays(year: Int, month: Int): List<MiniDayData> {
         )
     }
     composeTraceEndSection()
-    val elapsedMs = (System.nanoTime() - start) / 1_000_000.0
-    yearPerfLog("generateMiniMonthDays", "$year-$month rows=$rows totalDays=$totalDays elapsed=${"%.3f".format(elapsedMs)}ms")
     return result
 }
 

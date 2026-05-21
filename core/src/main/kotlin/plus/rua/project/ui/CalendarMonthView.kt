@@ -77,12 +77,6 @@ import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
 import kotlin.time.Clock
 
-// region 性能监控工具
-private fun uiPerfLog(tag: String, msg: String) {
-    println("[UI-PERF:${Thread.currentThread().name}] $tag | $msg")
-}
-// endregion
-
 /**
  * 日历主界面，包含月/周视图切换、折叠动画和年视图共享元素转场。
  *
@@ -113,10 +107,6 @@ fun CalendarMonthView(
     LaunchedEffect(viewModel.isYearView) {
         isMenuExpanded = false
     }
-
-    // 重组计数器
-    var recomposeCount by remember { mutableIntStateOf(0) }
-    recomposeCount++
 
     val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
 
@@ -158,7 +148,6 @@ fun CalendarMonthView(
         }
     }
 
-    uiPerfLog("CalendarMonthView", "composition #$recomposeCount isYearView=${viewModel.isYearView}")
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -174,7 +163,6 @@ fun CalendarMonthView(
                 targetState = viewModel.isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
-                    uiPerfLog("CalendarMonthView", "AnimatedContent transitionSpec target=$targetState initial=$initialState")
                     val enter = fadeIn(tween(300, easing = FastOutSlowInEasing)) +
                         slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 6 }
                     val exit = fadeOut(tween(200, easing = FastOutSlowInEasing)) +
@@ -183,8 +171,6 @@ fun CalendarMonthView(
                 },
                 modifier = Modifier.fillMaxSize()
             ) { isYearView ->
-                val contentStart = System.nanoTime()
-                uiPerfLog("CalendarMonthView", "AnimatedContent content lambda START isYearView=$isYearView")
                 if (!isYearView) {
                     composeTraceBeginSection("MonthView:Compose")
                     val layoutReady = rowHeightPx > 0
@@ -242,13 +228,9 @@ fun CalendarMonthView(
                             )
                         }
                     }
-                    val monthViewMs = (System.nanoTime() - contentStart) / 1_000_000.0
-                    uiPerfLog("CalendarMonthView", "MonthView content lambda END elapsed=${"%.3f".format(monthViewMs)}ms")
                     composeTraceEndSection()
                 } else {
                     composeTraceBeginSection("YearView:Compose")
-                    val yearViewStart = System.nanoTime()
-                    uiPerfLog("CalendarMonthView", "YearView:Compose START")
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -273,7 +255,6 @@ fun CalendarMonthView(
                                 .fillMaxWidth()
                                 .weight(1f)
                         ) { page ->
-                            val pageStart = System.nanoTime()
                             val pageOffset = abs(yearPagerState.currentPageOffsetFraction)
                             val isCurrentPage = page == yearPagerState.currentPage
                             val crossFadeAlpha = if (isCurrentPage) {
@@ -282,7 +263,6 @@ fun CalendarMonthView(
                                 pageOffset
                             }
                             val pageYear = viewModel.selectedDate.year + (page - START_PAGE)
-                            uiPerfLog("CalendarMonthView", "YearPager page=$page pageYear=$pageYear crossFadeAlpha=${"%.2f".format(crossFadeAlpha)} isCurrentPage=$isCurrentPage offset=${"%.3f".format(pageOffset)}")
                             YearGridView(
                                 year = pageYear,
                                 selectedMonth = if (pageYear == currentYear) currentMonth else 0,
@@ -304,12 +284,8 @@ fun CalendarMonthView(
                             )
                         }
                     }
-                    val yearViewMs = (System.nanoTime() - yearViewStart) / 1_000_000.0
-                    uiPerfLog("CalendarMonthView", "YearView:Compose END elapsed=${"%.3f".format(yearViewMs)}ms")
                     composeTraceEndSection()
                 }
-                val contentTotalMs = (System.nanoTime() - contentStart) / 1_000_000.0
-                uiPerfLog("CalendarMonthView", "AnimatedContent content lambda END total=${"%.3f".format(contentTotalMs)}ms")
             }
         }
 
@@ -428,10 +404,6 @@ private fun CalendarPagerArea(
     pagerState: PagerState,
     modifier: Modifier = Modifier
 ) {
-    val areaStart = System.nanoTime()
-    var areaRecomposeCount by remember { mutableIntStateOf(0) }
-    areaRecomposeCount++
-    uiPerfLog("CalendarPagerArea", "composition #$areaRecomposeCount collapseProgress=${viewModel.collapseProgress} page=${pagerState.currentPage} rowHeightPx=$rowHeightPx")
     val density = LocalDensity.current
     val collapseProgress = viewModel.collapseProgress
 
@@ -526,8 +498,6 @@ private fun CalendarPagerArea(
             modifier = pagerModifier
         )
     }
-    val areaTotalMs = (System.nanoTime() - areaStart) / 1_000_000.0
-    uiPerfLog("CalendarPagerArea", "END elapsed=${"%.3f".format(areaTotalMs)}ms")
 }
 
 @Composable

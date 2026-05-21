@@ -25,28 +25,6 @@ import plus.rua.project.ui.COLLAPSE_THRESHOLD
 import plus.rua.project.ui.FLING_VELOCITY_THRESHOLD_DP
 import kotlin.time.Clock
 
-// region 性能监控工具
-private fun perfLog(tag: String, msg: String) {
-    println("[PERF:${Thread.currentThread().name}] $tag | $msg")
-}
-
-private inline fun <T> perfMeasure(tag: String, block: () -> T): T {
-    val start = System.nanoTime()
-    val result = block()
-    val elapsedMs = (System.nanoTime() - start) / 1_000_000.0
-    perfLog(tag, "elapsed=${"%.3f".format(elapsedMs)}ms")
-    return result
-}
-
-private inline fun <T> perfMeasureResult(tag: String, block: () -> T): T {
-    val start = System.nanoTime()
-    val result = block()
-    val elapsedMs = (System.nanoTime() - start) / 1_000_000.0
-    perfLog(tag, "result=$result elapsed=${"%.3f".format(elapsedMs)}ms")
-    return result
-}
-// endregion
-
 /**
  * 日历日期数据，用于网格单元格渲染。
  *
@@ -173,53 +151,32 @@ class CalendarViewModel(
      * 当前视图被直接移除；动画只作用在目标视图的 scale/alpha 上。
      */
     fun toggleYearView() {
-        val direction = if (isYearView) "Year→Month" else "Month→Year"
-        perfLog("VM.toggleYearView", "START direction=$direction isCollapsed=$isCollapsed yearViewYear=$yearViewYear selectedDate=$selectedDate")
-        val toggleStart = System.nanoTime()
         yearViewJob?.cancel()
         yearViewJob = coroutineScope.launch {
             if (isYearView) {
                 composeTraceBeginSection("YearView→MonthView")
-                val snapStart = System.nanoTime()
                 _yearViewAnimatable.snapTo(1f)
-                perfLog("VM.toggleYearView", "snapTo(1f) elapsed=${(System.nanoTime() - snapStart) / 1_000_000.0}ms")
-                val animJob = launch {
-                    val animStart = System.nanoTime()
+                launch {
                     _yearViewAnimatable.animateTo(
                         0f, tween(400, easing = FastOutSlowInEasing)
                     )
-                    perfLog("VM.toggleYearView", "animateTo(0f) elapsed=${(System.nanoTime() - animStart) / 1_000_000.0}ms")
                 }
-                val frameStart = System.nanoTime()
                 withFrameNanos { }
-                perfLog("VM.toggleYearView", "withFrameNanos elapsed=${(System.nanoTime() - frameStart) / 1_000_000.0}ms")
-                val flipStart = System.nanoTime()
                 isYearView = false
-                perfLog("VM.toggleYearView", "isYearView=false flip elapsed=${(System.nanoTime() - flipStart) / 1_000_000.0}ms")
                 composeTraceEndSection()
             } else {
                 composeTraceBeginSection("MonthView→YearView")
-                val snapStart = System.nanoTime()
                 yearViewYear = selectedDate.year
                 _yearViewAnimatable.snapTo(0f)
-                perfLog("VM.toggleYearView", "snapTo(0f) + set yearViewYear=$yearViewYear elapsed=${(System.nanoTime() - snapStart) / 1_000_000.0}ms")
-                val animJob = launch {
-                    val animStart = System.nanoTime()
+                launch {
                     _yearViewAnimatable.animateTo(
                         1f, tween(400, easing = FastOutSlowInEasing)
                     )
-                    perfLog("VM.toggleYearView", "animateTo(1f) elapsed=${(System.nanoTime() - animStart) / 1_000_000.0}ms")
                 }
-                val frameStart = System.nanoTime()
                 withFrameNanos { }
-                perfLog("VM.toggleYearView", "withFrameNanos elapsed=${(System.nanoTime() - frameStart) / 1_000_000.0}ms")
-                val flipStart = System.nanoTime()
                 isYearView = true
-                perfLog("VM.toggleYearView", "isYearView=true flip elapsed=${(System.nanoTime() - flipStart) / 1_000_000.0}ms")
                 composeTraceEndSection()
             }
-            val totalMs = (System.nanoTime() - toggleStart) / 1_000_000.0
-            perfLog("VM.toggleYearView", "END direction=$direction total=${"%.3f".format(totalMs)}ms")
         }
     }
 
@@ -228,27 +185,17 @@ class CalendarViewModel(
      */
     @Suppress("DEPRECATION") // monthNumber 无替代 API
     fun selectMonthFromYearView(month: Int) {
-        val totalStart = System.nanoTime()
-        perfLog("VM.selectMonthFromYearView", "START month=$month yearViewYear=$yearViewYear")
         composeTraceBeginSection("YearView:SelectMonth")
         val date = if (yearViewYear == today.year && today.month.number == month) today
         else LocalDate(yearViewYear, month, 1)
-        val dateSetStart = System.nanoTime()
         selectedDate = date
-        perfLog("VM.selectMonthFromYearView", "selectedDate=$selectedDate elapsed=${(System.nanoTime() - dateSetStart) / 1_000_000.0}ms")
-        val flipStart = System.nanoTime()
         isYearView = false
-        perfLog("VM.selectMonthFromYearView", "isYearView=false elapsed=${(System.nanoTime() - flipStart) / 1_000_000.0}ms")
         yearViewJob?.cancel()
         yearViewJob = coroutineScope.launch {
-            val animStart = System.nanoTime()
             _yearViewAnimatable.animateTo(
                 0f, tween(400, easing = FastOutSlowInEasing)
             )
-            perfLog("VM.selectMonthFromYearView", "animateTo(0f) elapsed=${(System.nanoTime() - animStart) / 1_000_000.0}ms")
             composeTraceEndSection()
-            val totalMs = (System.nanoTime() - totalStart) / 1_000_000.0
-            perfLog("VM.selectMonthFromYearView", "END total=${"%.3f".format(totalMs)}ms")
         }
     }
 
@@ -379,7 +326,6 @@ class CalendarViewModel(
      */
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     fun getMonthDays(year: Int, month: Int): List<CalendarDay> {
-        val start = System.nanoTime()
         composeTraceBeginSection("getMonthDays:$year-$month")
         val firstOfMonth = LocalDate(year, month, 1)
         val dayOfWeekOffset = firstOfMonth.dayOfWeek.ordinal
@@ -400,8 +346,6 @@ class CalendarViewModel(
             )
         }
         composeTraceEndSection()
-        val elapsedMs = (System.nanoTime() - start) / 1_000_000.0
-        perfLog("VM.getMonthDays", "$year-$month rows=$rows totalDays=$totalDays elapsed=${"%.3f".format(elapsedMs)}ms")
         return result
     }
 }
