@@ -27,7 +27,6 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.datetime.LocalDate
@@ -181,20 +180,4 @@ fun BottomCard(
             )
         }
     }
-}
-
-@Preview
-@Composable
-private fun BottomCardPreview() {
-    BottomCard(
-        isCollapsed = false,
-        selectedDate = kotlinx.datetime.LocalDate(2026, 5, 21),
-        today = kotlinx.datetime.LocalDate(2026, 5, 21),
-        shiftKind = plus.rua.project.ShiftKind.WORK,
-        onDrag = {},
-        onDragEnd = {},
-        onExpandDrag = {},
-        onExpandDragEnd = {},
-        dragRangePx = 300f
-    )
 }

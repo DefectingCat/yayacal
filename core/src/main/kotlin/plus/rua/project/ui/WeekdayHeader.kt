@@ -10,7 +10,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 
 private val WEEKDAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
@@ -38,10 +37,4 @@ fun WeekdayHeader(modifier: Modifier = Modifier) {
             )
         }
     }
-}
-
-@Preview
-@Composable
-private fun WeekdayHeaderPreview() {
-    WeekdayHeader()
 }

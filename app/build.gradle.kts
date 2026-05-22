@@ -94,6 +94,6 @@ dependencies {
 
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.activity.compose)
-    implementation(libs.compose.uiToolingPreview)
-    implementation(libs.compose.uiTooling)
+    debugImplementation(libs.compose.uiToolingPreview)
+    debugImplementation(libs.compose.uiTooling)
 }
