@@ -189,17 +189,19 @@ private fun WeekRow(
                 .padding(vertical = ROW_PADDING_DP.dp)
         ) {
             week.forEach { dayData ->
-                DayCell(
-                    date = dayData.date,
-                    isCurrentMonth = dayData.isCurrentMonth,
-                    isSelected = dayData.date == selectedDate,
-                    isToday = dayData.date == today,
-                    shiftKind = shiftKindAt(dayData.date),
-                    showLegalHoliday = showLegalHoliday,
-                    onClick = { onDateClick(dayData.date) },
-                    modifier = Modifier.weight(1f),
-                    interactionSource = interactionSource
-                )
+                key(dayData.date) {
+                    DayCell(
+                        date = dayData.date,
+                        isCurrentMonth = dayData.isCurrentMonth,
+                        isSelected = dayData.date == selectedDate,
+                        isToday = dayData.date == today,
+                        shiftKind = shiftKindAt(dayData.date),
+                        showLegalHoliday = showLegalHoliday,
+                        onClick = { onDateClick(dayData.date) },
+                        modifier = Modifier.weight(1f),
+                        interactionSource = interactionSource
+                    )
+                }
             }
         }
     }

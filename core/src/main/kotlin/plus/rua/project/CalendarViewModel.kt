@@ -4,8 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
@@ -32,6 +35,21 @@ data class CalendarDay(
     val isCurrentMonth: Boolean,
     val isToday: Boolean,
     val isSelected: Boolean
+)
+
+/**
+ * 日历 UI 状态聚合，用于减少 Compose 重组次数。
+ *
+ * 将多个独立的 StateFlow 合并为单一状态流，
+ * 避免 `collectAsState()` 分散订阅导致的重复重组。
+ */
+data class CalendarUiState(
+    val selectedDate: LocalDate,
+    val isCollapsed: Boolean,
+    val isYearView: Boolean,
+    val yearViewYear: Int,
+    val collapseProgress: Float,
+    val showLegalHoliday: Boolean
 )
 
 /**
@@ -117,6 +135,26 @@ class CalendarViewModel(
      */
     private val _showLegalHoliday = MutableStateFlow(false)
     val showLegalHoliday: StateFlow<Boolean> = _showLegalHoliday.asStateFlow()
+
+    /** 聚合 UI 状态，减少 Compose 层分散订阅导致的重组。 */
+    val uiState: StateFlow<CalendarUiState> = combine(
+        combine(_selectedDate, _isCollapsed, ::Pair),
+        combine(_isYearView, _yearViewYear, ::Pair),
+        combine(_collapseProgress, _showLegalHoliday, ::Pair)
+    ) { dateCollapsed, yearViewYearPair, progressHoliday ->
+        CalendarUiState(
+            selectedDate = dateCollapsed.first,
+            isCollapsed = dateCollapsed.second,
+            isYearView = yearViewYearPair.first,
+            yearViewYear = yearViewYearPair.second,
+            collapseProgress = progressHoliday.first,
+            showLegalHoliday = progressHoliday.second
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        CalendarUiState(today, false, false, today.year, 0f, false)
+    )
 
     /**
      * 选中指定日期。

@@ -72,6 +72,7 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import plus.rua.project.CalendarViewModel
+import plus.rua.project.ShiftKind
 import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
@@ -95,15 +96,16 @@ fun CalendarMonthView(
     val viewModel = viewModel<CalendarViewModel>()
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
 
-    val selectedDate by viewModel.selectedDate.collectAsState()
+    val uiState by viewModel.uiState.collectAsState()
+    val selectedDate = uiState.selectedDate
     val currentYear = selectedDate.year
     @Suppress("DEPRECATION") // monthNumber 无替代 API，kotlinx-datetime 尚未提供新接口
     val currentMonth = selectedDate.month.number
-    val isCollapsed by viewModel.isCollapsed.collectAsState()
-    val isYearView by viewModel.isYearView.collectAsState()
-    val yearViewYear by viewModel.yearViewYear.collectAsState()
-    val collapseProgress by viewModel.collapseProgress.collectAsState()
-    val showLegalHoliday by viewModel.showLegalHoliday.collectAsState()
+    val isCollapsed = uiState.isCollapsed
+    val isYearView = uiState.isYearView
+    val yearViewYear = uiState.yearViewYear
+    val collapseProgress = uiState.collapseProgress
+    val showLegalHoliday = uiState.showLegalHoliday
 
     val density = LocalDensity.current
     val coroutineScope = rememberCoroutineScope()
@@ -210,10 +212,21 @@ fun CalendarMonthView(
                             )
                             with(sharedScope) {
                                 CalendarPagerArea(
-                                    viewModel = viewModel,
+                                    selectedDate = selectedDate,
                                     today = today,
+                                    isCollapsed = isCollapsed,
+                                    collapseProgress = collapseProgress,
+                                    showLegalHoliday = showLegalHoliday,
                                     rowHeightPx = rowHeightPx,
                                     screenWidthPx = screenWidthPx,
+                                    onDateClick = { date -> viewModel.selectDate(date) },
+                                    onMonthChanged = { year, month ->
+                                        @Suppress("DEPRECATION")
+                                        val date = if (year == today.year && today.month.number == month) today
+                                            else LocalDate(year, month, 1)
+                                        viewModel.selectDate(date)
+                                    },
+                                    shiftKindAt = { date -> viewModel.shiftKindAt(date) },
                                     onRowHeightMeasured = { h ->
                                         if (h > 0) rowHeightPx = h
                                     },
@@ -408,19 +421,21 @@ private fun MenuIcon(color: Color, modifier: Modifier = Modifier) {
 
 @Composable
 private fun CalendarPagerArea(
-    viewModel: CalendarViewModel,
+    selectedDate: LocalDate,
     today: LocalDate,
+    isCollapsed: Boolean,
+    collapseProgress: Float,
+    showLegalHoliday: Boolean,
     rowHeightPx: Int,
     screenWidthPx: Int,
+    onDateClick: (LocalDate) -> Unit,
+    onMonthChanged: (year: Int, month: Int) -> Unit,
+    shiftKindAt: (LocalDate) -> ShiftKind?,
     onRowHeightMeasured: ((Int) -> Unit)?,
     pagerState: PagerState,
     modifier: Modifier = Modifier
 ) {
     val density = LocalDensity.current
-    val collapseProgress by viewModel.collapseProgress.collectAsState()
-    val selectedDate by viewModel.selectedDate.collectAsState()
-    val isCollapsed by viewModel.isCollapsed.collectAsState()
-    val showLegalHoliday by viewModel.showLegalHoliday.collectAsState()
 
     val interpolatedWeeks by remember {
         derivedStateOf {
@@ -469,7 +484,7 @@ private fun CalendarPagerArea(
         WeekPager(
             selectedDate = selectedDate,
             today = today,
-            onDateClick = { date -> viewModel.selectDate(date) },
+            onDateClick = onDateClick,
             onWeekChanged = { weekMonday ->
                 val weekSunday = weekMonday.plus(DatePeriod(days = 6))
                 val date = when {
@@ -485,9 +500,9 @@ private fun CalendarPagerArea(
 
                     else -> weekMonday
                 }
-                viewModel.selectDate(date)
+                onDateClick(date)
             },
-            shiftKindAt = { date -> viewModel.shiftKindAt(date) },
+            shiftKindAt = shiftKindAt,
             showLegalHoliday = showLegalHoliday,
             modifier = pagerModifier
         )
@@ -495,18 +510,12 @@ private fun CalendarPagerArea(
         CalendarPager(
             selectedDate = selectedDate,
             today = today,
-            onDateClick = { date -> viewModel.selectDate(date) },
-            onMonthChanged = { year, month ->
-                @Suppress("DEPRECATION") // monthNumber 无替代 API
-                val date =
-                    if (year == today.year && today.month.number == month) today
-                    else LocalDate(year, month, 1)
-                viewModel.selectDate(date)
-            },
+            onDateClick = onDateClick,
+            onMonthChanged = onMonthChanged,
             collapseProgress = collapseProgress,
             rowHeightPx = rowHeightPx,
             effectiveWeeks = effectiveWeeks,
-            shiftKindAt = { date -> viewModel.shiftKindAt(date) },
+            shiftKindAt = shiftKindAt,
             showLegalHoliday = showLegalHoliday,
             onRowHeightMeasured = onRowHeightMeasured,
             pagerState = pagerState,
