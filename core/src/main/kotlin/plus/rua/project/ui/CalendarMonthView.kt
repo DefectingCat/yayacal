@@ -143,8 +143,7 @@ fun CalendarMonthView(
         snapshotFlow { yearPagerState.settledPage }.collect { page ->
             if (page != lastSettledPage) {
                 val diff = page - lastSettledPage
-                val newYear = viewModel.yearViewYear.value + diff
-                viewModel.setYearViewYear(newYear)
+                viewModel.setYearViewYear(viewModel.yearViewYear.value + diff)
                 lastSettledPage = page
             }
         }
@@ -289,7 +288,7 @@ fun CalendarMonthView(
                             } else {
                                 pageOffset
                             }
-                            val pageYear = yearViewYear + (page - yearPagerState.currentPage)
+                            val pageYear = yearViewYear + (page - yearPagerState.settledPage)
                             YearGridView(
                                 year = pageYear,
                                 selectedMonth = if (pageYear == currentYear) currentMonth else 0,

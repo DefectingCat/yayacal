@@ -24,7 +24,10 @@ YaYa 是一款基于纯 Android + Jetpack Compose 构建的日历应用。应用
 |-----------|---------|
 | `app/` | Android 应用壳层模块（见 `app/AGENTS.md`） |
 | `core/` | Android Library 核心模块：所有 Compose UI、ViewModel 和业务逻辑（见 `core/AGENTS.md`） |
-| `gradle/` | Gradle Wrapper 文件 |
+| `macrobenchmark/` | 宏基准测试模块，Baseline Profile 生成（见 `macrobenchmark/AGENTS.md`） |
+| `gradle/` | Gradle Wrapper 文件（见 `gradle/wrapper/AGENTS.md`） |
+| `scripts/` | 性能追踪脚本（见 `scripts/AGENTS.md`） |
+| `logs/` | 性能追踪日志输出目录（见 `logs/AGENTS.md`） |
 
 ## For AI Agents
 
