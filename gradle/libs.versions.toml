@@ -1,6 +1,5 @@
 [versions]
 agp = "9.2.1"
-spotless = "8.5.1"
 android-compileSdk = "37"
 android-minSdk = "24"
 android-targetSdk = "37"
@@ -8,44 +7,48 @@ androidx-activity = "1.13.0"
 androidx-espresso = "3.7.0"
 androidx-lifecycle = "2.10.0"
 androidx-testExt = "1.3.0"
-composeBom = "2025.05.01"
-junit = "4.13.2"
+androidx-uiautomator = "2.3.0"
+benchmarkMacro = "1.4.1"
+catalogUpdate = "1.1.0"
+composeBom = "2026.05.01"
 kotlin = "2.3.21"
 kotlinx-datetime = "0.8.0"
-tyme4kt = "1.4.5"
+profileinstaller = "1.4.1"
 sketch = "4.4.0"
-profileinstaller = "1.4.0"
-benchmarkMacro = "1.4.1"
-androidx-uiautomator = "2.3.0"
+spotless = "8.5.1"
+tyme4kt = "1.4.5"
+versions = "0.54.0"
 
 [libraries]
-kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
-androidx-lifecycle-viewmodelCompose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
+androidx-benchmark-macro = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmarkMacro" }
 androidx-lifecycle-runtimeCompose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidx-lifecycle" }
-compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
-compose-runtime = { module = "androidx.compose.runtime:runtime" }
+androidx-lifecycle-viewmodelCompose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "androidx-lifecycle" }
+androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
+androidx-test-espresso = { module = "androidx.test.espresso:espresso-core", version.ref = "androidx-espresso" }
+androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-testExt" }
+androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-uiautomator" }
 compose-animation = { module = "androidx.compose.animation:animation" }
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-foundation = { module = "androidx.compose.foundation:foundation" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
+compose-runtime = { module = "androidx.compose.runtime:runtime" }
 compose-ui = { module = "androidx.compose.ui:ui" }
 compose-uiTooling = { module = "androidx.compose.ui:ui-tooling" }
 compose-uiToolingPreview = { module = "androidx.compose.ui:ui-tooling-preview" }
+kotlin-test = { module = "org.jetbrains.kotlin:kotlin-test", version.ref = "kotlin" }
+kotlinx-coroutines-test = "org.jetbrains.kotlinx:kotlinx-coroutines-test:1.11.0"
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "kotlinx-datetime" }
-kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version = "1.11.0" }
-tyme4kt = { module = "cn.6tail:tyme4kt", version.ref = "tyme4kt" }
-sketch-compose = { module = "io.github.panpf.sketch4:sketch-compose", version.ref = "sketch" }
 sketch-animated-gif = { module = "io.github.panpf.sketch4:sketch-animated-gif", version.ref = "sketch" }
-androidx-profileinstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "profileinstaller" }
-androidx-benchmark-macro = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmarkMacro" }
-androidx-test-ext-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-testExt" }
-androidx-test-espresso = { module = "androidx.test.espresso:espresso-core", version.ref = "androidx-espresso" }
-androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-uiautomator" }
+sketch-compose = { module = "io.github.panpf.sketch4:sketch-compose", version.ref = "sketch" }
+tyme4kt = { module = "cn.6tail:tyme4kt", version.ref = "tyme4kt" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
 androidLibrary = { id = "com.android.library", version.ref = "agp" }
-composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 androidTest = { id = "com.android.test", version.ref = "agp" }
+catalogUpdate = { id = "nl.littlerobots.version-catalog-update", version.ref = "catalogUpdate" }
+composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlinAndroid = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+versions = { id = "com.github.ben-manes.versions", version.ref = "versions" }

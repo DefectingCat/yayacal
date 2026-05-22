@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.androidLibrary) apply false
     alias(libs.plugins.composeCompiler) apply false
     alias(libs.plugins.spotless)
+    alias(libs.plugins.versions)
+    alias(libs.plugins.catalogUpdate)
 }
 
 spotless {
@@ -22,3 +24,6 @@ spotless {
         endWithNewline()
     }
 }
+
+// versionCatalogUpdate 配置见 https://github.com/littlerobots/version-catalog-update-plugin
+// 注意：运行该任务会重写 gradle/libs.versions.toml，非依赖版本键需手动保留
