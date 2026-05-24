@@ -12,8 +12,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -229,41 +229,39 @@ fun DayCell(
             } else {
                 MaterialTheme.colorScheme.error
             }
-            val shiftOnAccentColor = if (shiftKind == ShiftKind.WORK) {
-                MaterialTheme.colorScheme.onPrimary
-            } else {
-                MaterialTheme.colorScheme.onError
-            }
             val shiftLabel = if (shiftKind == ShiftKind.WORK) "班" else "休"
             val shiftAlpha = if (isCurrentMonth) 1f else 0.38f
-            // 右上角(默认)无背景,文字直接浮在单元格上;
-            // 左上角(showLegalHoliday=true 时)用实心胶囊,与右上角法定调休区分。
-            val shiftFgColor = if (showLegalHoliday) shiftOnAccentColor else shiftAccentColor
-            val shiftAlignment = if (showLegalHoliday) Alignment.TopStart else Alignment.TopEnd
-            val shiftPadding = if (showLegalHoliday) {
-                Modifier.padding(top = 1.dp, start = 2.dp)
+            if (showLegalHoliday) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopStart)
+                        .zIndex(1f)
+                        .padding(top = 1.dp, start = 2.dp)
+                        .background(shiftAccentColor.copy(alpha = 0.12f), CircleShape)
+                        .size(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = shiftLabel,
+                        color = shiftAccentColor.copy(alpha = shiftAlpha),
+                        fontSize = 9.sp,
+                        fontWeight = FontWeight.Bold,
+                        lineHeight = 9.sp
+                    )
+                }
             } else {
-                Modifier.padding(top = 1.dp, end = 2.dp)
-            }
-            val shiftBackground = if (showLegalHoliday) {
-                Modifier.background(
-                    shiftAccentColor.copy(alpha = shiftAlpha),
-                    RoundedCornerShape(4.dp)
+                Text(
+                    text = shiftLabel,
+                    color = shiftAccentColor.copy(alpha = shiftAlpha),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 9.sp,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .zIndex(1f)
+                        .padding(top = 1.dp, end = 2.dp)
                 )
-            } else Modifier
-            Text(
-                text = shiftLabel,
-                color = shiftFgColor.copy(alpha = shiftAlpha),
-                fontSize = 9.sp,
-                fontWeight = FontWeight.Bold,
-                lineHeight = 9.sp,
-                modifier = Modifier
-                    .align(shiftAlignment)
-                    .zIndex(1f)
-                    .then(shiftBackground)
-                    .then(shiftPadding)
-                    .padding(horizontal = 3.dp, vertical = 1.dp)
-            )
+            }
         }
         if (showLegalHoliday && holidayBadge != null) {
             Text(
