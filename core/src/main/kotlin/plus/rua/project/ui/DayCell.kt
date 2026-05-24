@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -244,6 +245,12 @@ fun DayCell(
             } else {
                 Modifier.padding(top = 1.dp, end = 2.dp)
             }
+            val shiftBackground = if (showLegalHoliday) {
+                Modifier.background(
+                    shiftAccentColor.copy(alpha = shiftAlpha),
+                    RoundedCornerShape(4.dp)
+                )
+            } else Modifier
             Text(
                 text = shiftLabel,
                 color = shiftFgColor.copy(alpha = shiftAlpha),
@@ -253,9 +260,9 @@ fun DayCell(
                 modifier = Modifier
                     .align(shiftAlignment)
                     .zIndex(1f)
-                    .background(MaterialTheme.colorScheme.background)
+                    .then(shiftBackground)
                     .then(shiftPadding)
-                    .padding(horizontal = 2.dp)
+                    .padding(horizontal = 3.dp, vertical = 1.dp)
             )
         }
         if (showLegalHoliday && holidayBadge != null) {

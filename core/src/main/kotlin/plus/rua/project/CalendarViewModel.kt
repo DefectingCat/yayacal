@@ -187,6 +187,13 @@ class CalendarViewModel(
     }
 
     /**
+     * 切换法定调休角标显示。
+     */
+    fun toggleShowLegalHoliday() {
+        _showLegalHoliday.value = !_showLegalHoliday.value
+    }
+
+    /**
      * 从年视图选择月份后返回月视图。
      */
     @Suppress("DEPRECATION") // monthNumber 无替代 API

@@ -389,6 +389,19 @@ fun CalendarMonthView(
                         modifier = Modifier.padding(horizontal = 8.dp)
                     )
                     MenuItem(
+                        text = "显示调休",
+                        selected = showLegalHoliday,
+                        onClick = {
+                            isMenuExpanded = false
+                            viewModel.toggleShowLegalHoliday()
+                        }
+                    )
+                    HorizontalDivider(
+                        thickness = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    MenuItem(
                         text = "关于",
                         selected = false,
                         onClick = {
