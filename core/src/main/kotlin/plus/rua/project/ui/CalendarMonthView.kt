@@ -18,7 +18,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background

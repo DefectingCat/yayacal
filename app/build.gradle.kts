@@ -30,9 +30,6 @@ android {
         versionCode = 1
         versionName = appVersionName
 
-        ndk {
-            abiFilters += listOf("arm64-v8a", "armeabi-v7a")
-        }
     }
 
     buildTypes {
@@ -68,22 +65,18 @@ android {
     packaging {
         resources {
             excludes += listOf(
-                "/META-INF/{AL2.0,LGPL2.1}",
+                "/META-INF/AL2.0",
+                "/META-INF/LGPL2.1",
                 "/META-INF/LICENSE*",
                 "/META-INF/NOTICE*",
                 "META-INF/DEPENDENCIES",
                 "**/*.kotlin_metadata",
                 "**/*.kotlin_module",
             )
-            pickFirsts += listOf(
-                "META-INF/INDEX.LIST",
-                "META-INF/io.netty.versions.properties",
-            )
         }
     }
 
     bundle {
-        language { enableSplit = true }
         density { enableSplit = true }
         abi { enableSplit = true }
     }

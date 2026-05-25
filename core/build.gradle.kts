@@ -49,8 +49,6 @@ dependencies {
     implementation(libs.compose.animation)
     implementation(libs.compose.material3)
     implementation(libs.compose.ui)
-    debugImplementation(libs.compose.uiToolingPreview)
-    debugImplementation(libs.compose.uiTooling)
 
     implementation(libs.kotlinx.datetime)
     implementation(libs.tyme4kt)
