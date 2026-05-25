@@ -72,7 +72,8 @@ fun CalendarMonthPage(
 
     val holidayBadges by produceState(
         initialValue = emptyMap<LocalDate, String?>(),
-        key1 = days
+        key1 = year,
+        key2 = month
     ) {
         val map = mutableMapOf<LocalDate, String?>()
         for (dayData in days) {
@@ -82,7 +83,7 @@ fun CalendarMonthPage(
         value = map
     }
 
-    val holidayEdges = remember(holidayBadges, days) {
+    val holidayEdges = remember(holidayBadges, year, month) {
         val map = mutableMapOf<LocalDate, HolidayEdgeInfo>()
         for (dayData in days) {
             val date = dayData.date
@@ -99,7 +100,7 @@ fun CalendarMonthPage(
     }
 
     val weeks = remember(days) { days.chunked(7) }
-    val anchorIndex = remember(weeks, selectedDate) {
+    val anchorIndex = remember(year, month, selectedDate) {
         weeks.indexOfFirst { week -> week.any { it.date == selectedDate } }
     }
     val totalHeightDp = if (rowHeightPx > 0) {

@@ -5,6 +5,8 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
@@ -66,14 +68,21 @@ fun CalendarPager(
         }
     }
 
+    val currentPageOffsetFraction by remember {
+        derivedStateOf { pagerState.currentPageOffsetFraction }
+    }
+    val currentPage by remember {
+        derivedStateOf { pagerState.currentPage }
+    }
+
     HorizontalPager(
         state = pagerState,
-        beyondViewportPageCount = 0,
+        beyondViewportPageCount = 1,
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
         modifier = modifier
     ) { page ->
-        val pageOffset = abs(pagerState.currentPageOffsetFraction)
-        val isCurrentPage = page == pagerState.currentPage
+        val pageOffset = abs(currentPageOffsetFraction)
+        val isCurrentPage = page == currentPage
         val alpha = if (isCurrentPage) {
             1f - pageOffset
         } else {

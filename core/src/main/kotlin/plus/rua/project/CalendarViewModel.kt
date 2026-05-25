@@ -3,6 +3,7 @@ package plus.rua.project
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -49,6 +50,37 @@ data class CalendarUiState(
     val yearViewYear: Int,
     val collapseProgress: Float,
     val showLegalHoliday: Boolean
+)
+
+/**
+ * 将六个 [Flow] 合并为一个 [Flow]，使用 [transform] 处理最新值。
+ *
+ * kotlinx-coroutines 1.11 仅内置到 5 参数的 [combine] 重载，
+ * 此扩展用于扁平化 6 个 StateFlow 的合并，避免多层嵌套产生的中间流。
+ */
+private inline fun <T1, T2, T3, T4, T5, T6, R> combine(
+    flow: Flow<T1>,
+    flow2: Flow<T2>,
+    flow3: Flow<T3>,
+    flow4: Flow<T4>,
+    flow5: Flow<T5>,
+    flow6: Flow<T6>,
+    crossinline transform: suspend (T1, T2, T3, T4, T5, T6) -> R
+): Flow<R> = combine(
+    combine(flow, flow2, flow3, flow4, flow5) { t1, t2, t3, t4, t5 ->
+        Quintuple(t1, t2, t3, t4, t5)
+    },
+    flow6
+) { quintuple, t6 ->
+    transform(quintuple.first, quintuple.second, quintuple.third, quintuple.fourth, quintuple.fifth, t6)
+}
+
+private data class Quintuple<T1, T2, T3, T4, T5>(
+    val first: T1,
+    val second: T2,
+    val third: T3,
+    val fourth: T4,
+    val fifth: T5
 )
 
 /**
@@ -137,17 +169,20 @@ class CalendarViewModel(
 
     /** 聚合 UI 状态，减少 Compose 层分散订阅导致的重组。 */
     val uiState: StateFlow<CalendarUiState> = combine(
-        combine(_selectedDate, _isCollapsed, ::Pair),
-        combine(_isYearView, _yearViewYear, ::Pair),
-        combine(_collapseProgress, _showLegalHoliday, ::Pair)
-    ) { dateCollapsed, yearViewYearPair, progressHoliday ->
+        _selectedDate,
+        _isCollapsed,
+        _isYearView,
+        _yearViewYear,
+        _collapseProgress,
+        _showLegalHoliday
+    ) { selectedDate, isCollapsed, isYearView, yearViewYear, collapseProgress, showLegalHoliday ->
         CalendarUiState(
-            selectedDate = dateCollapsed.first,
-            isCollapsed = dateCollapsed.second,
-            isYearView = yearViewYearPair.first,
-            yearViewYear = yearViewYearPair.second,
-            collapseProgress = progressHoliday.first,
-            showLegalHoliday = progressHoliday.second
+            selectedDate = selectedDate,
+            isCollapsed = isCollapsed,
+            isYearView = isYearView,
+            yearViewYear = yearViewYear,
+            collapseProgress = collapseProgress,
+            showLegalHoliday = showLegalHoliday
         )
     }.stateIn(
         viewModelScope,
@@ -245,7 +280,7 @@ class CalendarViewModel(
     }
 
     /**
-     * 折叠状态下下拉恢复，delta 为负值（向下拖）推动 progress 向 0。
+     * 折叠状态下拉恢复，delta 为负值（向下拖）推动 progress 向 0。
      *
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
