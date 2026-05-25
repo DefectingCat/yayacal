@@ -167,12 +167,12 @@ fun YearGridView(
                 ) {
                     (0 until 3).forEach { col ->
                         val month = row * 3 + col + 1
-                        val sharedKey = "month_grid_${year}_$month"
+                        val isSelectedMonth = month == selectedMonth
                         with(sharedTransitionScope) {
                             MiniMonth(
                                 year = year,
                                 month = month,
-                                isSelected = month == selectedMonth,
+                                isSelected = isSelectedMonth,
                                 today = today,
                                 days = monthDays[month - 1],
                                 colors = colors,
@@ -182,13 +182,19 @@ fun YearGridView(
                                 onClick = { onMonthClick(month) },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .sharedElement(
-                                        sharedContentState = rememberSharedContentState(
-                                            key = sharedKey
-                                        ),
-                                        animatedVisibilityScope = animatedVisibilityScope,
-                                        boundsTransform = { _, _ ->
-                                            tween(400, easing = FastOutSlowInEasing)
+                                    .then(
+                                        if (isSelectedMonth) {
+                                            Modifier.sharedElement(
+                                                sharedContentState = rememberSharedContentState(
+                                                    key = "month_grid_${year}_$month"
+                                                ),
+                                                animatedVisibilityScope = animatedVisibilityScope,
+                                                boundsTransform = { _, _ ->
+                                                    tween(400, easing = FastOutSlowInEasing)
+                                                }
+                                            )
+                                        } else {
+                                            Modifier
                                         }
                                     )
                             )
