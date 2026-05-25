@@ -19,4 +19,30 @@
 - 双模块:`:shared`(UI + 逻辑) · `:androidApp`(薄壳)
 - iOS 入口为 `MainViewController.kt`,Xcode 工程位于 `iosApp/`
 
+## 构建
+
+```bash
+# Debug
+./gradlew :app:assembleDebug          # 构建 debug APK
+./gradlew :app:installDebug           # 安装 debug APK 到设备
+
+# Release
+./gradlew :app:assembleRelease        # 构建 release APK
+./gradlew :app:installBenchmark       # 安装 benchmark（release + 可调试）APK
+
+# 测试
+./gradlew :core:testDebugUnitTest                          # 运行全部测试
+./gradlew :core:testDebugUnitTest --tests "plus.rua.project.ui.CalendarUtilsTest"  # 运行单个测试
+
+# Baseline Profile（需要连接设备）
+./gradlew :macrobenchmark:updateBaselineProfile                       # 一键生成 + 自动复制到 :core
+./gradlew :macrobenchmark:connectedBenchmarkAndroidTest               # 仅运行基准测试
+
+# 性能 Profiling（需要连接设备）
+./scripts/profile.sh                  # 默认 8 秒
+./scripts/profile.sh 15               # 自定义时长
+```
+
+构建产物位于 `app/build/outputs/apk/<variant>/` 目录。
+
 线条小狗表情包来自 https://www.douban.com/group/topic/264788645/?_i=9181692phrDzjR,9241256phrDzjR
