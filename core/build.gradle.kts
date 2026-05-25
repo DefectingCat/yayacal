@@ -14,6 +14,21 @@ android {
         consumerProguardFiles("proguard-rules.pro")
     }
 
+    buildTypes {
+        debug {
+            buildConfigField("boolean", "ENABLE_TRACE", "true")
+        }
+        release {
+            isMinifyEnabled = false
+            consumerProguardFiles("proguard-rules.pro")
+            buildConfigField("boolean", "ENABLE_TRACE", "false")
+        }
+        create("trace") {
+            initWith(buildTypes.getByName("release"))
+            buildConfigField("boolean", "ENABLE_TRACE", "true")
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true

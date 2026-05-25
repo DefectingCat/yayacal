@@ -21,6 +21,8 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
 import kotlinx.datetime.plus
 import plus.rua.project.ShiftKind
+import plus.rua.project.composeTraceBeginSection
+import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
 
 
@@ -74,6 +76,7 @@ fun WeekPager(
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
         modifier = modifier
     ) { page ->
+        composeTraceBeginSection("WeekPager:Page")
         val pageOffset = abs(pagerState.currentPageOffsetFraction)
         val isCurrentPage = page == pagerState.currentPage
         val alpha = if (isCurrentPage) {
@@ -104,5 +107,6 @@ fun WeekPager(
                 )
             }
         }
+        composeTraceEndSection()
     }
 }

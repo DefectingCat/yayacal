@@ -42,6 +42,12 @@ android {
             )
             signingConfig = signingConfigs.getByName("debug")
         }
+        // trace 构建类型：release 优化 + trace 标记保留，用于性能分析
+        create("trace") {
+            initWith(buildTypes.getByName("release"))
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+        }
         // benchmark 构建类型供 macrobenchmark 模块使用
         create("benchmark") {
             initWith(buildTypes.getByName("release"))

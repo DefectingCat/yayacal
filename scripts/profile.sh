@@ -7,6 +7,7 @@
 #   ./scripts/profile.sh              # 默认抓取 8 秒
 #   ./scripts/profile.sh 15           # 抓取 15 秒
 #   ./scripts/profile.sh --no-launch  # 不自动启动应用（应用已在运行）
+#   ./scripts/profile.sh --trace      # 使用 trace 构建类型（保留自定义 trace 标记）
 #
 
 set -euo pipefail
@@ -19,18 +20,23 @@ LOGS_DIR="${PROJECT_ROOT}/logs"
 # 解析参数
 DURATION_SEC=8
 NO_LAUNCH=false
+USE_TRACE_BUILD=false
 
 for arg in "$@"; do
   case "$arg" in
     --no-launch)
       NO_LAUNCH=true
       ;;
+    --trace)
+      USE_TRACE_BUILD=true
+      ;;
     --help|-h)
-      echo "用法: $0 [秒数] [--no-launch]"
+      echo "用法: $0 [秒数] [--no-launch] [--trace]"
       echo ""
       echo "选项:"
       echo "  秒数         抓取时长（默认 8 秒）"
       echo "  --no-launch  不自动启动应用"
+      echo "  --trace      使用 trace 构建（release 优化 + 保留 trace 标记）"
       echo "  --help       显示此帮助"
       exit 0
       ;;
@@ -47,6 +53,7 @@ echo "========================================"
 echo "  YaYa 性能追踪"
 echo "  包名: ${PACKAGE}"
 echo "  时长: ${DURATION_SEC}s"
+echo "  构建: $([ "$USE_TRACE_BUILD" = true ] && echo "trace (release + trace)" || echo "debug")"
 echo "  输出: ${LOGS_DIR}/"
 echo "========================================"
 
@@ -72,6 +79,9 @@ fi
 # 检查应用是否已安装
 if ! adb shell pm list packages | grep -q "${PACKAGE}"; then
   echo "错误: 应用 ${PACKAGE} 未安装。请先运行 ./gradlew :app:installDebug"
+  if [ "$USE_TRACE_BUILD" = true ]; then
+    echo "       或使用 ./gradlew :app:installTrace 安装 trace 构建"
+  fi
   exit 1
 fi
 
@@ -128,6 +138,16 @@ data_sources {
 }
 data_sources {
   config {
+    name: "android.gpu.memory"
+  }
+}
+data_sources {
+  config {
+    name: "android.surfaceflinger.frametimeline"
+  }
+}
+data_sources {
+  config {
     name: "linux.process_stats"
     target_buffer: 1
     process_stats_config {
@@ -171,7 +191,17 @@ REPORT_FILE="${LOGS_DIR}/report_${TIMESTAMP}.md"
 
 # 计算帧率相关数据
 FRAME_COUNT=$(grep -c "FrameTimeline" "${FRAMESTATS_FILE}" 2>/dev/null || echo "0")
-JANK_COUNT=$(grep -c "jank" "${FRAMESTATS_FILE}" 2>/dev/null || echo "0")
+
+# 从 gfxinfo 提取关键指标
+TOTAL_FRAMES=$(grep "Total frames rendered:" "${FRAMESTATS_FILE}" | tail -1 | awk '{print $4}' || echo "N/A")
+JANKY_FRAMES=$(grep "Janky frames:" "${FRAMESTATS_FILE}" | tail -1 | awk '{print $3}' || echo "N/A")
+JANKY_PERCENT=$(grep "Janky frames:" "${FRAMESTATS_FILE}" | tail -1 | grep -oP '\(\K[^)]+' || echo "N/A")
+P50=$(grep "50th percentile:" "${FRAMESTATS_FILE}" | tail -1 | awk '{print $3}' || echo "N/A")
+P90=$(grep "90th percentile:" "${FRAMESTATS_FILE}" | tail -1 | awk '{print $3}' || echo "N/A")
+P99=$(grep "99th percentile:" "${FRAMESTATS_FILE}" | tail -1 | awk '{print $3}' || echo "N/A")
+SLOW_UI=$(grep "Number Slow UI thread:" "${FRAMESTATS_FILE}" | tail -1 | awk '{print $4}' || echo "N/A")
+SLOW_DRAW=$(grep "Number Slow issue draw commands:" "${FRAMESTATS_FILE}" | tail -1 | awk '{print $5}' || echo "N/A")
+HIGH_INPUT=$(grep "Number High input latency:" "${FRAMESTATS_FILE}" | tail -1 | awk '{print $4}' || echo "N/A")
 
 # 获取应用版本
 APP_VERSION=$(adb shell dumpsys package "${PACKAGE}" | grep versionName | head -1 | awk '{print $1}' | cut -d= -f2 2>/dev/null || echo "unknown")
@@ -180,12 +210,19 @@ APP_VERSION=$(adb shell dumpsys package "${PACKAGE}" | grep versionName | head -
 DEVICE_MODEL=$(adb shell getprop ro.product.model 2>/dev/null | tr -d '\r')
 ANDROID_VERSION=$(adb shell getprop ro.build.version.release 2>/dev/null | tr -d '\r')
 
+# 获取内存摘要
+TOTAL_PSS=$(grep "TOTAL PSS:" "${MEMINFO_FILE}" | awk '{print $3}' || echo "N/A")
+JAVA_HEAP=$(grep "Java Heap:" "${MEMINFO_FILE}" | head -1 | awk '{print $2}' || echo "N/A")
+NATIVE_HEAP=$(grep "Native Heap:" "${MEMINFO_FILE}" | head -1 | awk '{print $2}' || echo "N/A")
+GRAPHICS=$(grep "Graphics:" "${MEMINFO_FILE}" | head -1 | awk '{print $2}' || echo "N/A")
+
 cat > "${REPORT_FILE}" <<EOF
 # YaYa 性能追踪报告
 
 **时间:** $(date '+%Y-%m-%d %H:%M:%S')
 **设备:** ${DEVICE_MODEL} (Android ${ANDROID_VERSION})
 **应用版本:** ${APP_VERSION}
+**构建类型:** $([ "$USE_TRACE_BUILD" = true ] && echo "trace" || echo "debug")
 **追踪时长:** ${DURATION_SEC}s
 
 ## 文件清单
@@ -197,14 +234,56 @@ cat > "${REPORT_FILE}" <<EOF
 | \`meminfo_${TIMESTAMP}.txt\` | 内存快照 |
 | \`report_${TIMESTAMP}.md\` | 本报告 |
 
-## 快速分析指南
+## 帧率摘要
 
-### 1. 查看 Compose 渲染耗时
-打开 [Perfetto UI](https://ui.perfetto.dev)，上传 trace 文件，搜索：
-- \`MonthView:Compose\` — 月视图重组耗时
-- \`YearView:Compose\` — 年视图重组耗时
+| 指标 | 数值 |
+|------|------|
+| 总渲染帧数 | ${TOTAL_FRAMES} |
+| 掉帧数 | ${JANKY_FRAMES} |
+| 掉帧比例 | ${JANKY_PERCENT} |
+| 50th percentile | ${P50} |
+| 90th percentile | ${P90} |
+| 99th percentile | ${P99} |
+| Slow UI thread | ${SLOW_UI} |
+| Slow draw commands | ${SLOW_DRAW} |
+| High input latency | ${HIGH_INPUT} |
+
+## 内存摘要
+
+| 指标 | 数值 (KB) |
+|------|----------|
+| Total PSS | ${TOTAL_PSS} |
+| Java Heap | ${JAVA_HEAP} |
+| Native Heap | ${NATIVE_HEAP} |
+| Graphics | ${GRAPHICS} |
+
+## Perfetto 分析指南
+
+打开 [Perfetto UI](https://ui.perfetto.dev)，上传 trace 文件：
+
+### 1. 查看 Compose 自定义标记
+搜索以下 trace section：
+
+**月视图相关：**
+- \`MonthView:Compose\` — 月视图整体重组
+- \`CalendarPagerArea\` — 日历分页器区域重组
+- \`CalendarPager:Page\` — 月视图单页重组
+- \`WeekPager:Page\` — 周视图单页重组
+- \`getMonthDays:*\` — 月份网格计算
+
+**年视图相关：**
+- \`YearView:Compose\` — 年视图整体重组
+- \`YearGridView:*\` — 年视图网格重组
+- \`generateMiniMonthDays:*\` — 迷你月日期计算
+- \`YearView:SelectMonth\` — 年视图选择月份
+
+**转场动画：**
+- \`MonthView→YearView\` — 月→年视图切换
+- \`YearView→MonthView\` — 年→月视图切换
 - \`VM:collapseProgress\` — 折叠动画状态更新
-- \`getMonthDays\` — 月份网格计算
+
+**单日单元格：**
+- \`DayCell\` — 单个日期单元格（通过 transition label）
 
 ### 2. 分析帧率
 在 \`framestats_${TIMESTAMP}.txt\` 中查看：
@@ -217,11 +296,33 @@ cat > "${REPORT_FILE}" <<EOF
 - \`Graphics\` 行 — GPU 内存使用
 - \`Native Heap\` 行 — 原生堆内存
 
-## 帧统计摘要
+### 4. 年月视图切换专项分析
 
-- FrameTimeline 条目数: ${FRAME_COUNT}
-- Jank 标记数: ${JANK_COUNT}
+在 Perfetto 中按以下步骤分析转场性能：
 
+1. 找到 \`MonthView→YearView\` 或 \`YearView→MonthView\` 标记
+2. 查看标记前后 500ms 的帧数据：
+   - 查找超过 16.67ms 的帧（Choreographer#doFrame）
+   - 检查是否有连续多帧超过预算
+3. 同时搜索 \`MonthView:Compose\` 和 \`YearView:Compose\`，观察重组重叠情况
+4. 查看 \`YearGridView:*\` 的耗时，年视图 12 个月网格的计算和绘制成本
+
+## 基线对比方法
+
+要对比优化前后的性能：
+
+\`\`\`bash
+# 1. 记录当前数据作为基线
+./scripts/profile.sh --trace 15
+
+# 2. 修改代码后重新编译
+./gradlew :app:installTrace
+
+# 3. 再次记录
+./scripts/profile.sh --trace 15
+
+# 4. 对比两个 report 中的帧率摘要表格
+\`\`\`
 EOF
 
 echo ""
@@ -230,13 +331,13 @@ echo "  完成！"
 echo "========================================"
 echo ""
 echo "输出文件:"
-echo "  trace:     ${LOCAL_TRACE}"
+echo "  trace:      ${LOCAL_TRACE}"
 echo "  framestats: ${FRAMESTATS_FILE}"
-echo "  meminfo:   ${MEMINFO_FILE}"
-echo "  report:    ${REPORT_FILE}"
+echo "  meminfo:    ${MEMINFO_FILE}"
+echo "  report:     ${REPORT_FILE}"
 echo ""
 echo "下一步:"
 echo "  1. 打开 https://ui.perfetto.dev"
 echo "  2. 上传 trace_${TIMESTAMP}.perfetto-trace"
-echo "  3. 搜索 'MonthView:Compose' 查看自定义标记"
+echo "  3. 搜索 'MonthView→YearView' 查看转场 trace"
 echo ""

@@ -5,10 +5,10 @@ import plus.rua.project.shared.BuildConfig
 
 /**
  * Systrace 包装，用于录制 Compose 性能 trace。
- * 仅在 debug 构建中启用，release 构建中为空操作。
+ * 由 [BuildConfig.ENABLE_TRACE] 控制开关，release 构建默认关闭，trace 构建开启。
  */
 fun composeTraceBeginSection(name: String) {
-    if (!BuildConfig.DEBUG) return
+    if (!BuildConfig.ENABLE_TRACE) return
     try {
         Trace.beginSection(name)
     } catch (_: RuntimeException) {
@@ -17,7 +17,7 @@ fun composeTraceBeginSection(name: String) {
 }
 
 fun composeTraceEndSection() {
-    if (!BuildConfig.DEBUG) return
+    if (!BuildConfig.ENABLE_TRACE) return
     try {
         Trace.endSection()
     } catch (_: RuntimeException) {

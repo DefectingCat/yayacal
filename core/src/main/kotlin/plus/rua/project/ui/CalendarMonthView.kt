@@ -187,6 +187,7 @@ fun CalendarMonthView(
             ) { yearViewActive ->
                 if (!yearViewActive) {
                     composeTraceBeginSection("MonthView:Compose")
+                    composeTraceBeginSection("CalendarPagerArea")
                     val layoutReady = rowHeightPx > 0
                     Box(
                         modifier = Modifier
@@ -254,6 +255,7 @@ fun CalendarMonthView(
                             )
                         }
                     }
+                    composeTraceEndSection()
                     composeTraceEndSection()
                 } else {
                     composeTraceBeginSection("YearView:Compose")
