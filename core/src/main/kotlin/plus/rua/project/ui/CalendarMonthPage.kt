@@ -15,7 +15,8 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
@@ -210,10 +211,8 @@ private fun WeekRow(
                     if (isAnchor && phase1 >= 1f) Modifier.background(MaterialTheme.colorScheme.surface)
                     else Modifier
                 )
-                .graphicsLayer {
-                    translationY = yOffsetPx
-                    this.alpha = rowAlpha
-                }
+                .offset(y = with(density) { yOffsetPx.toDp() })
+                .alpha(rowAlpha)
                 .then(
                     if (weekIndex == 0 && rowHeightPx == 0) {
                         Modifier.onSizeChanged { size ->

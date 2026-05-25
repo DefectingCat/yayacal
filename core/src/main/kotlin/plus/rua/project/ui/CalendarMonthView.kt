@@ -29,6 +29,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -193,7 +194,7 @@ fun CalendarMonthView(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.background)
-                            .graphicsLayer { alpha = if (layoutReady) 1f else 0f }
+                            .alpha(if (layoutReady) 1f else 0f)
                     ) {
                         Column(
                             modifier = Modifier
@@ -323,7 +324,7 @@ fun CalendarMonthView(
                                 },
                                 sharedTransitionScope = sharedScope,
                                 animatedVisibilityScope = this@AnimatedContent,
-                                modifier = Modifier.graphicsLayer { this.alpha = crossFadeAlpha }
+                                modifier = Modifier.alpha(crossFadeAlpha)
                             )
                         }
                     }
@@ -584,8 +585,6 @@ private fun BottomCardArea(
         animationSpec = tween(350, delayMillis = 100, easing = FastOutSlowInEasing),
         label = "bottomCardSlide"
     )
-    val slideOffsetY = with(density) { (slideProgress * 200).dp.toPx() }
-
     // 延迟一帧显示 BottomCard，避免 AnimatedGif 和 lunar 计算阻塞首帧
     var hasLoaded by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
@@ -609,10 +608,8 @@ private fun BottomCardArea(
             onExpandDragEnd = { viewModel.onExpandDragEnd() },
             dragRangePx = dragRangePx,
             modifier = modifier
-                .graphicsLayer {
-                    translationY = slideOffsetY
-                    this.alpha = 1f - slideProgress
-                }
+                .offset(y = with(density) { (slideProgress * 200).dp })
+                .alpha(1f - slideProgress)
         )
     }
 }

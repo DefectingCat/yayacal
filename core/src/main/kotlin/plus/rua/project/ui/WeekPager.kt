@@ -13,7 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.drop
 import kotlinx.datetime.DatePeriod
@@ -87,7 +87,7 @@ fun WeekPager(
         val weekMonday = pageToWeekMonday(page, initialWeekMonday)
         Row(
             modifier = Modifier
-                .graphicsLayer { this.alpha = alpha }
+                .alpha(alpha)
                 .fillMaxWidth()
                 .padding(vertical = ROW_PADDING_DP.dp)
         ) {

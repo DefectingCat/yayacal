@@ -11,7 +11,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.draw.alpha
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -117,7 +117,7 @@ fun CalendarPager(
             shiftKindAt = shiftKindAt,
             showLegalHoliday = showLegalHoliday,
             onRowHeightMeasured = onRowHeightMeasured,
-            modifier = Modifier.graphicsLayer { this.alpha = alpha }
+            modifier = Modifier.alpha(alpha)
         )
     }
 }
