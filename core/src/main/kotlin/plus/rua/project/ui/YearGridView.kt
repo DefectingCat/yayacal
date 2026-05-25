@@ -25,7 +25,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -109,29 +112,24 @@ fun YearGridView(
     val textMeasurer = rememberTextMeasurer()
     val dayTextStyle = remember { TextStyle(fontSize = 8.sp, lineHeight = 12.sp) }
 
-    // P0-D: 预测量 1..31 × 3 种颜色 = 93 个 TextLayoutResult
-    val dayLayouts = remember(textMeasurer, dayTextStyle, colors) {
+    // 延迟文本测量到下一帧，避免首帧阻塞
+    val dayLayouts by produceState<Map<Pair<Int, Color>, androidx.compose.ui.text.TextLayoutResult>?>(null, textMeasurer, dayTextStyle, colors) {
         val days = 1..31
         val colorList = listOf(colors.day, colors.todayText, colors.otherMonth)
-        days.flatMap { d ->
+        value = days.flatMap { d ->
             colorList.map { c ->
                 (d to c) to textMeasurer.measure(d.toString(), dayTextStyle.copy(color = c))
             }
         }.toMap()
     }
 
-    // P0-H: 预测量月份标题（选中/非选中两种颜色）
-    val titleLayouts = remember(textMeasurer, colors) {
-        (1..12).flatMap { month ->
+    val titleLayouts by produceState<Map<Pair<Int, Boolean>, androidx.compose.ui.text.TextLayoutResult>?>(null, textMeasurer, colors) {
+        value = (1..12).flatMap { month ->
             val text = "${month}月"
             listOf(
                 (month to true) to textMeasurer.measure(
                     text,
-                    TextStyle(
-                        fontSize = 10.sp,
-                        color = colors.titleSelected,
-                        fontWeight = FontWeight.Bold
-                    )
+                    TextStyle(fontSize = 10.sp, color = colors.titleSelected, fontWeight = FontWeight.Bold)
                 ),
                 (month to false) to textMeasurer.measure(
                     text,
@@ -141,9 +139,8 @@ fun YearGridView(
         }.toMap()
     }
 
-    // P0-H: 预测量星期标签
-    val weekdayLayouts = remember(textMeasurer, colors) {
-        WEEKDAY_LABELS.associateWith { label ->
+    val weekdayLayouts by produceState<Map<String, androidx.compose.ui.text.TextLayoutResult>?>(null, textMeasurer, colors) {
+        value = WEEKDAY_LABELS.associateWith { label ->
             textMeasurer.measure(label, TextStyle(fontSize = 8.sp, color = colors.weekday))
         }
     }
@@ -213,9 +210,9 @@ private fun MiniMonth(
     today: LocalDate,
     days: List<MiniDayData>,
     colors: MiniMonthColors,
-    dayLayouts: Map<Pair<Int, Color>, androidx.compose.ui.text.TextLayoutResult>,
-    titleLayouts: Map<Pair<Int, Boolean>, androidx.compose.ui.text.TextLayoutResult>,
-    weekdayLayouts: Map<String, androidx.compose.ui.text.TextLayoutResult>,
+    dayLayouts: Map<Pair<Int, Color>, androidx.compose.ui.text.TextLayoutResult>?,
+    titleLayouts: Map<Pair<Int, Boolean>, androidx.compose.ui.text.TextLayoutResult>?,
+    weekdayLayouts: Map<String, androidx.compose.ui.text.TextLayoutResult>?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -240,10 +237,13 @@ private fun MiniMonth(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Canvas(modifier = Modifier.fillMaxWidth().height(totalHeight)) {
+            val dl = dayLayouts ?: return@Canvas
+            val tl = titleLayouts ?: return@Canvas
+            val wl = weekdayLayouts ?: return@Canvas
             val cellWidth = size.width / 7f
 
             // 1. 绘制标题
-            val titleLayout = titleLayouts[month to isSelected]!!
+            val titleLayout = tl[month to isSelected]!!
             drawText(
                 textLayoutResult = titleLayout,
                 topLeft = Offset(
@@ -255,7 +255,7 @@ private fun MiniMonth(
             // 2. 绘制星期行
             val weekdayY = titleHeightPx + titleToWeekdayGapPx
             WEEKDAY_LABELS.forEachIndexed { i, label ->
-                val layout = weekdayLayouts[label]!!
+                val layout = wl[label]!!
                 drawText(
                     textLayoutResult = layout,
                     topLeft = Offset(
@@ -292,7 +292,7 @@ private fun MiniMonth(
                 }
 
                 if (dayNum > 0) {
-                    dayLayouts[dayNum to textColor]?.let { layoutResult ->
+                    dl[dayNum to textColor]?.let { layoutResult ->
                         drawText(
                             textLayoutResult = layoutResult,
                             topLeft = Offset(
