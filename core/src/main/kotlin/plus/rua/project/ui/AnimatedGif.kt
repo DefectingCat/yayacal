@@ -2,6 +2,8 @@ package plus.rua.project.ui
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,13 +40,17 @@ fun AnimatedGif(
 ) {
     val webpFile = remember(seed) { WEBP_FILES.random() }
     val uri = remember(webpFile) { getWebpUri(webpFile) }
-    val alpha = remember { Animatable(0f) }
+    val scale = remember { Animatable(0f) }
 
     LaunchedEffect(seed) {
-        alpha.snapTo(0f)
-        alpha.animateTo(
+        scale.snapTo(0f)
+        scale.animateTo(
+            targetValue = 1.1f,
+            animationSpec = tween(250, easing = FastOutSlowInEasing),
+        )
+        scale.animateTo(
             targetValue = 1f,
-            animationSpec = tween(150, easing = FastOutSlowInEasing),
+            animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         )
     }
 
@@ -57,7 +63,9 @@ fun AnimatedGif(
         contentDescription = contentDescription,
         state = state,
         modifier = modifier.graphicsLayer {
-            this.alpha = alpha.value
+            scaleX = scale.value
+            scaleY = scale.value
+            alpha = scale.value.coerceIn(0f, 1f)
         },
     )
 }

@@ -167,12 +167,11 @@ fun YearGridView(
                 ) {
                     (0 until 3).forEach { col ->
                         val month = row * 3 + col + 1
-                        val isSelectedMonth = month == selectedMonth
                         with(sharedTransitionScope) {
                             MiniMonth(
                                 year = year,
                                 month = month,
-                                isSelected = isSelectedMonth,
+                                isSelected = month == selectedMonth,
                                 today = today,
                                 days = monthDays[month - 1],
                                 colors = colors,
@@ -182,19 +181,13 @@ fun YearGridView(
                                 onClick = { onMonthClick(month) },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .then(
-                                        if (isSelectedMonth) {
-                                            Modifier.sharedElement(
-                                                sharedContentState = rememberSharedContentState(
-                                                    key = "month_grid_${year}_$month"
-                                                ),
-                                                animatedVisibilityScope = animatedVisibilityScope,
-                                                boundsTransform = { _, _ ->
-                                                    tween(400, easing = FastOutSlowInEasing)
-                                                }
-                                            )
-                                        } else {
-                                            Modifier
+                                    .sharedElement(
+                                        sharedContentState = rememberSharedContentState(
+                                            key = "month_grid_${year}_$month"
+                                        ),
+                                        animatedVisibilityScope = animatedVisibilityScope,
+                                        boundsTransform = { _, _ ->
+                                            tween(400, easing = FastOutSlowInEasing)
                                         }
                                     )
                             )
