@@ -25,6 +25,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import plus.rua.project.DayCellInfo
 import plus.rua.project.LunarCache
 import plus.rua.project.ShiftKind
 
@@ -69,27 +70,26 @@ fun CalendarMonthPage(
     val density = LocalDensity.current
     val interactionSource = remember { MutableInteractionSource() }
 
-    val holidayBadges by produceState(
-        initialValue = emptyMap<LocalDate, String?>(),
+    val lunarDataMap by produceState(
+        initialValue = emptyMap<LocalDate, DayCellInfo>(),
         key1 = year,
         key2 = month
     ) {
-        val map = mutableMapOf<LocalDate, String?>()
+        val map = mutableMapOf<LocalDate, DayCellInfo>()
         for (dayData in days) {
-            val info = LunarCache.default.getOrCompute(dayData.date)
-            map[dayData.date] = info.holidayBadge
+            map[dayData.date] = LunarCache.default.getOrCompute(dayData.date)
         }
         value = map
     }
 
-    val holidayEdges = remember(holidayBadges, year, month) {
+    val holidayEdges = remember(lunarDataMap, year, month) {
         val map = mutableMapOf<LocalDate, HolidayEdgeInfo>()
         for (dayData in days) {
             val date = dayData.date
-            val badge = holidayBadges[date]
+            val badge = lunarDataMap[date]?.holidayBadge
             if (badge == null) continue
-            val prevBadge = holidayBadges[date.minus(DatePeriod(days = 1))]
-            val nextBadge = holidayBadges[date.plus(DatePeriod(days = 1))]
+            val prevBadge = lunarDataMap[date.minus(DatePeriod(days = 1))]?.holidayBadge
+            val nextBadge = lunarDataMap[date.plus(DatePeriod(days = 1))]?.holidayBadge
             map[date] = HolidayEdgeInfo(
                 isStart = prevBadge != badge,
                 isEnd = nextBadge != badge
@@ -128,6 +128,7 @@ fun CalendarMonthPage(
                     shiftKindAt = shiftKindAt,
                     showLegalHoliday = showLegalHoliday,
                     holidayEdges = holidayEdges,
+                    lunarDataMap = lunarDataMap,
                     onDateClick = onDateClick,
                     onRowHeightMeasured = onRowHeightMeasured,
                     interactionSource = interactionSource
@@ -150,6 +151,7 @@ private fun WeekRow(
     shiftKindAt: (LocalDate) -> ShiftKind?,
     showLegalHoliday: Boolean,
     holidayEdges: Map<LocalDate, HolidayEdgeInfo>,
+    lunarDataMap: Map<LocalDate, DayCellInfo>,
     onDateClick: (LocalDate) -> Unit,
     onRowHeightMeasured: ((Int) -> Unit)?,
     interactionSource: MutableInteractionSource,
@@ -235,7 +237,8 @@ private fun WeekRow(
                         holidayEdgeInfo = holidayEdges[dayData.date],
                         onClick = { onDateClick(dayData.date) },
                         modifier = Modifier.weight(1f),
-                        interactionSource = interactionSource
+                        interactionSource = interactionSource,
+                        lunarData = lunarDataMap[dayData.date]
                     )
                 }
             }

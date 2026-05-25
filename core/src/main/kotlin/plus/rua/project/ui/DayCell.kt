@@ -72,15 +72,61 @@ fun DayCell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
-    lunarCache: LunarCache = LunarCache.default
+    lunarCache: LunarCache = LunarCache.default,
+    lunarData: DayCellInfo? = null,
 ) {
-    val lunarData by produceState(
-        initialValue = DayCellInfo("", false, null),
-        key1 = date,
-        key2 = lunarCache
-    ) {
-        value = lunarCache.getOrCompute(date)
+    if (lunarData != null) {
+        DayCellImpl(
+            date = date,
+            isCurrentMonth = isCurrentMonth,
+            isSelected = isSelected,
+            isToday = isToday,
+            shiftKind = shiftKind,
+            showLegalHoliday = showLegalHoliday,
+            holidayEdgeInfo = holidayEdgeInfo,
+            onClick = onClick,
+            modifier = modifier,
+            interactionSource = interactionSource,
+            lunarData = lunarData,
+        )
+    } else {
+        val computed by produceState(
+            initialValue = DayCellInfo("", false, null),
+            key1 = date,
+            key2 = lunarCache
+        ) {
+            value = lunarCache.getOrCompute(date)
+        }
+        DayCellImpl(
+            date = date,
+            isCurrentMonth = isCurrentMonth,
+            isSelected = isSelected,
+            isToday = isToday,
+            shiftKind = shiftKind,
+            showLegalHoliday = showLegalHoliday,
+            holidayEdgeInfo = holidayEdgeInfo,
+            onClick = onClick,
+            modifier = modifier,
+            interactionSource = interactionSource,
+            lunarData = computed,
+        )
     }
+}
+
+@Composable
+private fun DayCellImpl(
+    date: LocalDate,
+    isCurrentMonth: Boolean,
+    isSelected: Boolean,
+    isToday: Boolean,
+    shiftKind: ShiftKind?,
+    showLegalHoliday: Boolean,
+    holidayEdgeInfo: HolidayEdgeInfo?,
+    onClick: () -> Unit,
+    modifier: Modifier,
+    interactionSource: MutableInteractionSource,
+    lunarData: DayCellInfo,
+) {
     val annotationText = lunarData.annotationText
     val isAnnotationHighlight = lunarData.isAnnotationHighlight
     val holidayBadge = lunarData.holidayBadge
