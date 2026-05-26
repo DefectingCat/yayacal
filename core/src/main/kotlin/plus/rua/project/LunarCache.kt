@@ -100,7 +100,7 @@ class LunarCache(
         // 默认：农历日期
         val name = lunarDay.getName()
         val text = if (name == "初一") {
-            "${lunarMonthName}月"
+            lunarMonthName
         } else {
             name
         }
