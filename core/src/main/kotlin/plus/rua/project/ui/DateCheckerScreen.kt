@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
@@ -42,6 +43,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -58,6 +60,7 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import kotlin.time.Clock
+import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
 import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
@@ -124,6 +127,10 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
     var showDatePicker by remember { mutableStateOf(false) }
     var datePickerTarget by remember { mutableStateOf<DatePickerTarget?>(null) }
+    var highlightedRowId by remember { mutableIntStateOf(-1) }
+
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         modifier = modifier.semantics { testTagsAsResourceId = true },
@@ -150,8 +157,15 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = {
-                    rows = rows + ExpiryRow(nextId, null)
+                    val newId = nextId
+                    rows = rows + ExpiryRow(newId, null)
                     nextId++
+                    highlightedRowId = newId
+                    scope.launch {
+                        listState.scrollToItem(rows.size)
+                        kotlinx.coroutines.delay(800)
+                        highlightedRowId = -1
+                    }
                 },
                 modifier = Modifier.testTag("date_checker_fab"),
                 shape = CircleShape,
@@ -203,6 +217,7 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             Spacer(modifier = Modifier.height(12.dp))
 
             LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
@@ -232,6 +247,7 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
                     SwipeToDismissBox(
                         state = dismissState,
+                        modifier = Modifier.animateItem(),
                         backgroundContent = {
                             Box(
                                 modifier = Modifier
@@ -254,6 +270,7 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                             expiryDate = expiryDate,
                             daysRemaining = daysRemaining,
                             status = status,
+                            isHighlighted = row.id == highlightedRowId,
                             onDaysChange = { newDays ->
                                 rows = rows.map {
                                     if (it.id == row.id) it.copy(days = newDays) else it
@@ -404,6 +421,7 @@ private fun ExpiryCard(
     expiryDate: LocalDate?,
     daysRemaining: Int?,
     status: ExpiryStatus,
+    isHighlighted: Boolean,
     onDaysChange: (Int?) -> Unit,
     onExpiryDateChange: (LocalDate) -> Unit,
     onShowDatePicker: () -> Unit,
@@ -412,11 +430,21 @@ private fun ExpiryCard(
     var daysText by remember(days) { mutableStateOf(days?.toString() ?: "") }
     var dateText by remember(expiryDate) { mutableStateOf(expiryDate?.toString() ?: "") }
 
+    val backgroundColor by androidx.compose.animation.animateColorAsState(
+        targetValue = if (isHighlighted) {
+            MaterialTheme.colorScheme.primaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerHigh
+        },
+        animationSpec = androidx.compose.animation.core.tween(400),
+        label = "highlight"
+    )
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(backgroundColor)
     ) {
         Column(
             modifier = Modifier
