@@ -4,13 +4,15 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import plus.rua.project.ui.CalendarMonthView
+import plus.rua.project.ui.theme.YaYaTheme
 
 class MainActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         setContent {
-            CalendarMonthView(
+            YaYaTheme {
+                CalendarMonthView(
                 onNavigateToAbout = {
                     startActivityWithSlide(Intent(this, AboutActivity::class.java))
                 },
@@ -18,6 +20,7 @@ class MainActivity : BaseActivity() {
                     startActivityWithSlide(Intent(this, ToolsActivity::class.java))
                 }
             )
+            }
         }
     }
 }
