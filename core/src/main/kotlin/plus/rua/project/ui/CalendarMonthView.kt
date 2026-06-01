@@ -6,6 +6,7 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -194,11 +195,11 @@ fun CalendarMonthView(
                     val enter = scaleIn(
                         initialScale = 0.85f,
                         animationSpec = tween(350, easing = FastOutSlowInEasing)
-                    ) + fadeIn(tween(250, easing = FastOutSlowInEasing))
+                    ) + fadeIn(tween(350, easing = FastOutSlowInEasing))
                     val exit = scaleOut(
                         targetScale = 0.85f,
-                        animationSpec = tween(250, easing = FastOutSlowInEasing)
-                    ) + fadeOut(tween(200, easing = FastOutSlowInEasing))
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeOut(tween(350, easing = FastOutSlowInEasing))
                     enter togetherWith exit
                 },
                 modifier = Modifier.fillMaxSize()
@@ -582,11 +583,17 @@ private fun BottomCardArea(
         dragRangeMinPx
     }
 
-    val slideProgress by animateFloatAsState(
-        targetValue = if (isYearView) 1f else 0f,
-        animationSpec = tween(350, delayMillis = 100, easing = FastOutSlowInEasing),
-        label = "bottomCardSlide"
-    )
+    val slideAnim = remember { Animatable(if (isYearView) 1f else 0f) }
+    LaunchedEffect(isYearView) {
+        if (isYearView) {
+            slideAnim.animateTo(1f, tween(200))
+        } else {
+            slideAnim.snapTo(1f)
+            delay(200)
+            slideAnim.animateTo(0f, tween(150))
+        }
+    }
+    val slideProgress = slideAnim.value
     var lastLoggedSlide by remember { mutableStateOf(-1f) }
     SideEffect {
         if (kotlin.math.abs(lastLoggedSlide - slideProgress) > 0.001f) {
@@ -620,7 +627,7 @@ private fun BottomCardArea(
             onExpandDragEnd = { viewModel.onExpandDragEnd() },
             dragRangePx = dragRangePx,
             modifier = modifier
-                .offset(y = with(density) { (slideProgress * 200).dp })
+                .offset(y = with(density) { (slideProgress * 300).dp })
                 .alpha(1f - slideProgress)
         )
     }
