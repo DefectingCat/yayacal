@@ -41,23 +41,23 @@ list_scenarios() {
 
 主日历场景:
   month_browse    - 月视图左右滑动翻页（自动滑动）
-  date_select     - 点击不同日期（需手动：依次点击多个日期）
+  date_select     - 点击不同日期（自动：依次点击多个日期）
   collapse_expand - 折叠/展开 月视图↔周视图（自动拖拽）
   year_view       - 年视图切换+年份滑动（自动）
   year_select     - 年视图中选择月份返回（自动）
   today_jump      - 跳转到今天（自动）
   menu_toggle     - FAB 菜单打开关闭（自动）
   legal_holiday   - 显示调休切换（自动）
-  cross_month     - 跨月日期选择（需手动：点击灰色日期）
+  cross_month     - 跨月日期选择（自动：点击灰色日期）
 
 其他页面:
   tools           - 工具页面（自动打开）
-  date_checker    - 日期检查器（需手动：添加行、输入天数、滑动删除）
+  date_checker    - 日期检查器（自动：添加行、输入天数、滑动删除）
   about           - 关于页面（自动打开）
   licenses        - 开源许可列表（自动打开+滑动）
 
 综合场景:
-  full_flow       - 完整用户流程（需手动：按提示操作所有功能）
+  full_flow       - 完整用户流程（自动：串联所有主要交互）
   all_activities  - 遍历所有 Activity（自动）
 
 批量录制:
@@ -224,15 +224,28 @@ run_scenario() {
 
         date_select)
             SCENARIO_NAME="点击日期选择"
-            SCENARIO_DESC="依次点击不同日期，测试 DayCell 重组和 AnimatedGif 动画性能"
+            SCENARIO_DESC="依次点击日历中不同位置的日期，测试 DayCell 重组和 AnimatedGif 动画性能"
             echo ""
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
             adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
             sleep 1
-            echo "  → 请手动操作：trace 开始后，依次点击日历中不同的日期（建议点击 5-10 个）"
-            echo "     可尝试点击同一行不同列、跨行点击，观察选中动画"
+            echo "  → 自动执行：trace 开始后将依次点击日历中不同位置的日期"
+            # 日历网格大致区域：7列 x 最多6行
+            local col_w=$((screen_w / 7))
+            local row_h=$(((screen_h * 40 / 100) / 6))
+            local grid_top=$((screen_h * 22 / 100))
+            wait_then_do 2 bash -c "
+                for row in 1 2 3 4 5; do
+                    for col in 1 3 5 6; do
+                        local x=$((col_w * col + col_w / 2))
+                        local y=$((grid_top + row_h * row + row_h / 2))
+                        adb shell input tap \$x \$y
+                        sleep 0.6
+                    done
+                done
+            "
             ;;
 
         collapse_expand)
@@ -393,8 +406,24 @@ run_scenario() {
             echo ""
             adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
             sleep 1
-            echo "  → 请手动操作：trace 开始后，点击日历中灰色显示的上月/下月日期"
-            echo "     建议：先点击右侧灰色日期（下月），再点击左侧灰色日期（上月）"
+            echo "  → 自动执行：trace 开始后将点击首行左侧（上月）和末行右侧（下月）的灰色日期"
+            local col_w=$((screen_w / 7))
+            local row_h=$(((screen_h * 40 / 100) / 6))
+            local grid_top=$((screen_h * 22 / 100))
+            wait_then_do 2 bash -c "
+                # 点击首行左侧（上月灰色日期，第1列）
+                adb shell input tap $((col_w / 2)) $((grid_top + row_h / 2))
+                sleep 1.5
+                # 点击末行右侧（下月灰色日期，第7列）
+                adb shell input tap $((screen_w - col_w / 2)) $((grid_top + row_h * 5 + row_h / 2))
+                sleep 1.5
+                # 再点击首行右侧（上月灰色日期，第2列）
+                adb shell input tap $((col_w + col_w / 2)) $((grid_top + row_h / 2))
+                sleep 1.5
+                # 再点击末行左侧（下月灰色日期，第6列）
+                adb shell input tap $((screen_w - col_w - col_w / 2)) $((grid_top + row_h * 5 + row_h / 2))
+                sleep 1.5
+            "
             ;;
 
         tools)
@@ -418,12 +447,37 @@ run_scenario() {
             echo ""
             adb shell am start -n "${PACKAGE}/${DATECHECKER_ACTIVITY}" >/dev/null 2>&1
             sleep 1
-            echo "  → 请手动操作：trace 开始后，执行以下操作"
-            echo "     1. 点击 FAB (+) 添加一行"
-            echo "     2. 在新行的"天数"输入框中输入数字（如 90）"
-            echo "     3. 点击另一行的日历图标修改到期日期"
-            echo "     4. 向左滑动某一行删除"
-            echo "     5. 修改生产日期"
+            echo "  → 自动执行：trace 开始后将自动添加行、输入天数、滑动删除"
+            wait_then_do 2 bash -c "
+                # 1. 点击 FAB 添加新行
+                adb shell input tap $fab_x $fab_y
+                sleep 1.0
+
+                # 2. 点击新行的天数输入框（大致在屏幕中间偏下）
+                adb shell input tap $((screen_w*35/100)) $((screen_h*75/100))
+                sleep 0.5
+                adb shell input text '90'
+                sleep 0.8
+
+                # 3. 点击空白处收起键盘（点击列表区域上方）
+                adb shell input tap $cx $((screen_h*20/100))
+                sleep 0.8
+
+                # 4. 再添加一行
+                adb shell input tap $fab_x $fab_y
+                sleep 1.0
+
+                # 5. 向左滑动第2行删除（从右向左滑）
+                adb shell input swipe $((screen_w*80/100)) $((screen_h*65/100)) $((screen_w*20/100)) $((screen_h*65/100)) 300
+                sleep 1.5
+
+                # 6. 点击生产日期卡片（顶部区域）
+                adb shell input tap $cx $((screen_h*18/100))
+                sleep 0.8
+                # 点击日期选择器的"确定"按钮（大致在右下角）
+                adb shell input tap $((screen_w*80/100)) $((screen_h*90/100))
+                sleep 1.0
+            "
             ;;
 
         about)
@@ -460,34 +514,117 @@ run_scenario() {
 
         full_flow)
             SCENARIO_NAME="完整用户流程"
-            SCENARIO_DESC="覆盖所有主要交互的完整流程，综合评估整体性能"
+            SCENARIO_DESC="自动串联所有主要交互的完整流程，综合评估整体性能"
             echo ""
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
             adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
             sleep 1
-            echo "  → 请严格按以下顺序手动操作："
-            echo ""
-            echo "     1. 左右滑动翻页 2-3 次"
-            echo "     2. 点击几个不同日期"
-            echo "     3. 向上拖拽 BottomCard 切换到周视图"
-            echo "     4. 在周视图中左右滑动翻周"
-            echo "     5. 向下拖拽展开回月视图"
-            echo "     6. 点击 FAB 打开菜单 → 年视图"
-            echo "     7. 年视图中滑动浏览年份"
-            echo "     8. 点击一个月份返回"
-            echo "     9. 点击 FAB → 显示调休（切换一次）"
-            echo "    10. 点击"今天"按钮"
-            echo "    11. 点击 FAB → 工具"
-            echo "    12. 在工具页点击"日期检查器""
-            echo "    13. 添加一行、输入天数、滑动删除一行"
-            echo "    14. 返回 → 返回 → 关于"
-            echo "    15. 点击"开放源代码许可""
-            echo "    16. 滑动许可列表"
-            echo "    17. 返回 → 返回回到主页面"
-            echo ""
-            echo "     建议在 trace 期间尽可能流畅地完成上述操作"
+            echo "  → 自动执行：trace 开始后将按顺序自动执行所有主要交互"
+            local col_w=$((screen_w / 7))
+            local row_h=$(((screen_h * 40 / 100) / 6))
+            local grid_top=$((screen_h * 22 / 100))
+            wait_then_do 2 bash -c "
+                # 1. 左右滑动翻页 2 次
+                adb shell input swipe $((screen_w*80/100)) $grid_y $((screen_w*20/100)) $grid_y 200
+                sleep 0.8
+                adb shell input swipe $((screen_w*20/100)) $grid_y $((screen_w*80/100)) $grid_y 200
+                sleep 0.8
+
+                # 2. 点击几个不同日期
+                adb shell input tap $((col_w * 2)) $((grid_top + row_h * 2 + row_h / 2))
+                sleep 0.6
+                adb shell input tap $((col_w * 5)) $((grid_top + row_h * 3 + row_h / 2))
+                sleep 0.6
+                adb shell input tap $((col_w * 3)) $((grid_top + row_h * 4 + row_h / 2))
+                sleep 0.6
+
+                # 3. 向上拖拽 BottomCard 切换到周视图
+                adb shell input swipe $cx $((screen_h*70/100)) $cx $((screen_h*40/100)) 400
+                sleep 1.0
+
+                # 4. 在周视图中左右滑动
+                adb shell input swipe $((screen_w*80/100)) $grid_y $((screen_w*20/100)) $grid_y 200
+                sleep 0.8
+                adb shell input swipe $((screen_w*20/100)) $grid_y $((screen_w*80/100)) $grid_y 200
+                sleep 0.8
+
+                # 5. 向下拖拽展开回月视图
+                adb shell input swipe $cx $((screen_h*40/100)) $cx $((screen_h*70/100)) 400
+                sleep 1.0
+
+                # 6. 点击 FAB 打开菜单
+                adb shell input tap $fab_x $fab_y
+                sleep 0.5
+                # 7. 点击"年视图"
+                adb shell input tap $fab_x $((fab_y - 120))
+                sleep 1.5
+
+                # 8. 年视图中滑动浏览年份
+                adb shell input swipe $((screen_w*80/100)) $cy $((screen_w*20/100)) $cy 200
+                sleep 0.8
+                adb shell input swipe $((screen_w*20/100)) $cy $((screen_w*80/100)) $cy 200
+                sleep 0.8
+
+                # 9. 点击一个月份返回
+                adb shell input tap $((screen_w*50/100)) $((screen_h*35/100))
+                sleep 1.5
+
+                # 10. 点击 FAB → 显示调休（切换一次）
+                adb shell input tap $fab_x $fab_y
+                sleep 0.4
+                adb shell input tap $fab_x $((fab_y - 200))
+                sleep 1.0
+
+                # 11. 点击"今天"按钮
+                adb shell input tap $((screen_w*15/100)) $((screen_h*12/100))
+                sleep 1.5
+
+                # 12. 打开工具页面
+                adb shell am start -n ${PACKAGE}/${TOOLS_ACTIVITY}
+                sleep 1.5
+
+                # 13. 打开日期检查器
+                adb shell input tap $((screen_w*50/100)) $((screen_h*25/100))
+                sleep 1.5
+
+                # 14. 日期检查器：添加一行 + 输入天数
+                adb shell input tap $fab_x $fab_y
+                sleep 1.0
+                adb shell input tap $((screen_w*35/100)) $((screen_h*75/100))
+                sleep 0.5
+                adb shell input text '90'
+                sleep 0.8
+                adb shell input tap $cx $((screen_h*20/100))
+                sleep 0.8
+
+                # 15. 返回 → 关于
+                adb shell input keyevent 4
+                sleep 1.0
+                adb shell input keyevent 4
+                sleep 1.0
+                adb shell am start -n ${PACKAGE}/${ABOUT_ACTIVITY}
+                sleep 1.5
+
+                # 16. 点击"开放源代码许可"
+                adb shell input tap $cx $((screen_h*65/100))
+                sleep 1.5
+
+                # 17. 滑动许可列表
+                adb shell input swipe $cx $((screen_h*70/100)) $cx $((screen_h*30/100)) 300
+                sleep 0.8
+                adb shell input swipe $cx $((screen_h*30/100)) $cx $((screen_h*70/100)) 300
+                sleep 0.8
+
+                # 18. 返回主页面
+                adb shell input keyevent 4
+                sleep 1.0
+                adb shell input keyevent 4
+                sleep 1.0
+                adb shell am start -n ${PACKAGE}/${MAIN_ACTIVITY}
+                sleep 1.0
+            "
             ;;
 
         all_activities)
@@ -588,16 +725,20 @@ run_all_scenarios() {
 
     local auto_scenarios=(
         month_browse
+        date_select
         collapse_expand
         year_view
         year_select
         today_jump
         menu_toggle
         legal_holiday
+        cross_month
         tools
+        date_checker
         about
         licenses
         all_activities
+        full_flow
     )
     local total=${#auto_scenarios[@]}
     local build_flag=""
@@ -659,7 +800,7 @@ generate_summary_report() {
 |------|--------|--------|---------|-----|-----|-----|-----------|-----------|
 EOF
 
-    for s in month_browse collapse_expand year_view year_select today_jump menu_toggle legal_holiday tools about licenses all_activities; do
+    for s in month_browse date_select collapse_expand year_view year_select today_jump menu_toggle legal_holiday cross_month tools date_checker about licenses all_activities full_flow; do
         local report
         report=$(ls -t "${LOGS_DIR}"/report_*"_${s}".md 2>/dev/null | head -1)
         if [ -n "$report" ]; then
@@ -684,12 +825,13 @@ EOF
 2. **Slow draw commands** 高的场景说明 GPU 绘制是瓶颈
 3. **P99 延迟高**的场景说明存在偶发性卡顿
 4. 对比各场景的 **Total PSS**，观察内存波动
+5. **full_flow** 综合场景的数据可反映真实用户使用时的整体体验
 
 ## 文件清单
 
 EOF
 
-    for s in month_browse collapse_expand year_view year_select today_jump menu_toggle legal_holiday tools about licenses all_activities; do
+    for s in month_browse date_select collapse_expand year_view year_select today_jump menu_toggle legal_holiday cross_month tools date_checker about licenses all_activities full_flow; do
         local trace report
         trace=$(ls -t "${LOGS_DIR}"/trace_*"_${s}".perfetto-trace 2>/dev/null | head -1)
         report=$(ls -t "${LOGS_DIR}"/report_*"_${s}".md 2>/dev/null | head -1)
