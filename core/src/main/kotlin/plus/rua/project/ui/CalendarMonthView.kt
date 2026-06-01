@@ -4,7 +4,6 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -12,11 +11,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
@@ -88,14 +84,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import plus.rua.project.util.logd
 
 /**
- * 日历主界面，包含月/周视图切换、折叠动画和年视图共享元素转场。
+ * 日历主界面，包含月/周视图切换、折叠动画和年视图转场。
  *
  * 折叠时日历从月视图收缩为周视图（1行），BottomCard 同步上移填充空间。
- * 通过左下角 FAB 菜单切换月/年视图，使用 SharedTransitionLayout 实现共享元素转场。
+ * 通过左下角 FAB 菜单切换月/年视图。
  *
  * @param modifier 外部布局修饰符
  */
-@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 fun CalendarMonthView(
     modifier: Modifier = Modifier,
@@ -185,8 +180,6 @@ fun CalendarMonthView(
                 screenWidthPx = size.width
             }
     ) {
-        SharedTransitionLayout {
-            val sharedScope = this
             var lastLoggedTargetState by remember { mutableStateOf(false) }
             SideEffect {
                 if (lastLoggedTargetState != isYearView) {
@@ -198,10 +191,14 @@ fun CalendarMonthView(
                 targetState = isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
-                    val enter = fadeIn(tween(300, easing = FastOutSlowInEasing)) +
-                        slideInVertically(tween(300, easing = FastOutSlowInEasing)) { it / 6 }
-                    val exit = fadeOut(tween(200, easing = FastOutSlowInEasing)) +
-                        slideOutVertically(tween(200, easing = FastOutSlowInEasing)) { -it / 6 }
+                    val enter = scaleIn(
+                        initialScale = 0.85f,
+                        animationSpec = tween(350, easing = FastOutSlowInEasing)
+                    ) + fadeIn(tween(250, easing = FastOutSlowInEasing))
+                    val exit = scaleOut(
+                        targetScale = 0.85f,
+                        animationSpec = tween(250, easing = FastOutSlowInEasing)
+                    ) + fadeOut(tween(200, easing = FastOutSlowInEasing))
                     enter togetherWith exit
                 },
                 modifier = Modifier.fillMaxSize()
@@ -261,32 +258,20 @@ fun CalendarMonthView(
                             val onRowHeightMeasured = remember {
                                 { h: Int -> if (h > 0) rowHeightPx = h }
                             }
-                            with(sharedScope) {
-                                // P0: 缓存 sharedElement tween，避免每次重组创建新实例导致动画重新计算
-                                val sharedTween = remember { tween<androidx.compose.ui.geometry.Rect>(400, easing = FastOutSlowInEasing) }
-                                CalendarPagerArea(
-                                    selectedDate = selectedDate,
-                                    today = today,
-                                    collapseProgress = animatedCollapseProgress,
-                                    showLegalHoliday = showLegalHoliday,
-                                    rowHeightPx = rowHeightPx,
-                                    screenWidthPx = screenWidthPx,
-                                    onDateClick = onDateClick,
-                                    onMonthChanged = onMonthChanged,
-                                    shiftKindAt = shiftKindAt,
-                                    onRowHeightMeasured = onRowHeightMeasured,
-                                    pagerState = pagerState,
-                                    modifier = Modifier
-                                        .sharedElement(
-                                            sharedContentState = rememberSharedContentState(
-                                                key = "month_grid_${currentYear}_${currentMonth}"
-                                            ),
-                                            animatedVisibilityScope = this@AnimatedContent,
-                                            boundsTransform = { _, _ -> sharedTween }
-                                        )
-                                        .clipToBounds()
-                                )
-                            }
+                            CalendarPagerArea(
+                                selectedDate = selectedDate,
+                                today = today,
+                                collapseProgress = animatedCollapseProgress,
+                                showLegalHoliday = showLegalHoliday,
+                                rowHeightPx = rowHeightPx,
+                                screenWidthPx = screenWidthPx,
+                                onDateClick = onDateClick,
+                                onMonthChanged = onMonthChanged,
+                                shiftKindAt = shiftKindAt,
+                                onRowHeightMeasured = onRowHeightMeasured,
+                                pagerState = pagerState,
+                                modifier = Modifier.clipToBounds()
+                            )
                             BottomCardArea(
                                 viewModel = viewModel,
                                 today = today,
@@ -365,8 +350,6 @@ fun CalendarMonthView(
                                         coroutineScope.launch { pagerState.scrollToPage(targetPage) }
                                     }
                                 },
-                                sharedTransitionScope = sharedScope,
-                                animatedVisibilityScope = this@AnimatedContent,
                                 modifier = Modifier
                             )
                         }
@@ -374,7 +357,6 @@ fun CalendarMonthView(
                     composeTraceEndSection()
                 }
             }
-        }
 
         // FAB 浮动按钮
     FloatingActionButton(
