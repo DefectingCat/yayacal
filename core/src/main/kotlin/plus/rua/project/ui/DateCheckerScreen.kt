@@ -131,6 +131,7 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         )
     }
     var nextId by remember { mutableIntStateOf(3) }
+    var pendingDeleteIds by remember { mutableStateOf(setOf<Int>()) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var datePickerTarget by remember { mutableStateOf<DatePickerTarget?>(null) }
@@ -233,37 +234,39 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     .padding(horizontal = 16.dp, vertical = 4.dp)
             ) {
                 rows.forEachIndexed { index, row ->
-                    val expiryDate = row.days?.let { productionDate.plus(DatePeriod(days = it)) }
-                    val daysRemaining = expiryDate?.let { today.daysUntil(it) }
-                    val status = when {
-                        daysRemaining == null -> ExpiryStatus.UNKNOWN
-                        daysRemaining < 0 -> ExpiryStatus.EXPIRED
-                        daysRemaining == 0 -> ExpiryStatus.URGENT
-                        daysRemaining <= 7 -> ExpiryStatus.URGENT
-                        daysRemaining <= 30 -> ExpiryStatus.WARNING
-                        else -> ExpiryStatus.SAFE
-                    }
-
-                    val dismissState = rememberSwipeToDismissBoxState(
-                        confirmValueChange = { value ->
-                            if (value == SwipeToDismissBoxValue.EndToStart) {
-                                rows = rows.filter { it.id != row.id }
-                                true
-                            } else {
-                                false
-                            }
-                        }
-                    )
+                    val isBeingDeleted = row.id in pendingDeleteIds
 
                     key(row.id) {
+                        val dismissState = rememberSwipeToDismissBoxState(
+                            confirmValueChange = { value ->
+                                if (value == SwipeToDismissBoxValue.EndToStart) {
+                                    pendingDeleteIds = pendingDeleteIds + row.id
+                                    true
+                                } else {
+                                    false
+                                }
+                            }
+                        )
+
                         var visible by remember { mutableStateOf(false) }
 
                         androidx.compose.runtime.LaunchedEffect(Unit) {
                             visible = true
                         }
 
+                        val expiryDate = row.days?.let { productionDate.plus(DatePeriod(days = it)) }
+                        val daysRemaining = expiryDate?.let { today.daysUntil(it) }
+                        val status = when {
+                            daysRemaining == null -> ExpiryStatus.UNKNOWN
+                            daysRemaining < 0 -> ExpiryStatus.EXPIRED
+                            daysRemaining == 0 -> ExpiryStatus.URGENT
+                            daysRemaining <= 7 -> ExpiryStatus.URGENT
+                            daysRemaining <= 30 -> ExpiryStatus.WARNING
+                            else -> ExpiryStatus.SAFE
+                        }
+
                         AnimatedVisibility(
-                            visible = visible,
+                            visible = visible && !isBeingDeleted,
                             enter = expandVertically(
                                 expandFrom = Alignment.Bottom,
                                 animationSpec = androidx.compose.animation.core.spring(
@@ -312,6 +315,14 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                         showDatePicker = true
                                     }
                                 )
+                            }
+                        }
+
+                        if (isBeingDeleted) {
+                            androidx.compose.runtime.LaunchedEffect(row.id) {
+                                delay(400)
+                                rows = rows.filter { it.id != row.id }
+                                pendingDeleteIds = pendingDeleteIds - row.id
                             }
                         }
                     }
