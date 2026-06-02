@@ -6,7 +6,7 @@ plugins {
     alias(libs.plugins.composeCompiler)
 }
 
-val baseVersion = findProperty("app.version.base") as? String ?: "1.0.0"
+val baseVersion = findProperty("app.version.base") as? String ?: "1.1.0"
 
 val gitHash = try {
     providers.exec {
@@ -27,7 +27,7 @@ android {
         applicationId = "plus.rua.project"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
+        versionCode = 2
         versionName = appVersionName
 
     }
