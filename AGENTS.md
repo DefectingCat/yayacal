@@ -1,10 +1,8 @@
-<!-- Generated: 2026-06-01 -->
-
 # YaYa
 
 纯 Android + Jetpack Compose 日历应用。功能：农历/节气/节日、个人班次排期（WORK/OFF 循环）、月/周/年三视图。
 
-> 注意：README 中提及的 "Kotlin Multiplatform / iOS" 与当前代码不符。实际为纯 Android 项目，模块名为 `:core` 和 `:app`，无 `:shared` 或 `:androidApp`。
+> **README 与实际不符**：README 提及 "Kotlin Multiplatform / iOS"，实际为纯 Android 项目。模块名为 `:core` 和 `:app`，无 `:shared` 或 `:androidApp`。
 
 ## 模块结构
 
@@ -19,46 +17,38 @@
 ## 常用命令
 
 ```bash
-# 构建与安装
-./gradlew :app:assembleDebug
-./gradlew :app:installDebug
-
-# 测试（仅 :core 有单元测试）
-./gradlew :core:test
-./gradlew :core:test --tests "plus.rua.project.ui.CalendarUtilsTest"
-
-# 代码格式化
-./gradlew spotlessApply
-
-# Baseline Profile（需连接设备/模拟器）
-./gradlew :macrobenchmark:updateBaselineProfile   # 生成 + 自动复制到 core/src/main/baseline-prof.txt
-./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
-
-# 性能追踪（需连接设备）
-./scripts/profile.sh          # 默认 8 秒
-./scripts/profile.sh 15       # 自定义时长
-./scripts/profile.sh --no-launch
+./gradlew :app:assembleDebug                          # 构建 debug APK
+./gradlew :app:installDebug                           # 安装到设备
+./gradlew :core:testDebugUnitTest                     # 运行全部单元测试
+./gradlew :core:testDebugUnitTest --tests "plus.rua.project.ui.CalendarUtilsTest"  # 单类
+./gradlew spotlessApply                               # 格式化（ktlint）
 ```
 
-输出：`logs/trace_*.perfetto-trace`、`logs/framestats_*.txt`、`logs/meminfo_*.txt`、`logs/report_*.md`。
+Baseline Profile 和性能追踪需连接设备：
+```bash
+./gradlew :macrobenchmark:updateBaselineProfile       # 生成 + 自动复制到 core/src/main/baseline-prof.txt
+./scripts/profile.sh                                  # 默认 8 秒，输出到 logs/
+```
 
-## 构建配置要点
+## 构建配置
 
 - **AGP** 9.2.1 · **Kotlin** 2.3.21 · **JVM target** 17
 - **compileSdk/targetSdk** 37 · **minSdk** 24
-- **版本目录**：`gradle/libs.versions.toml` — 所有依赖版本统一在此声明
+- **版本目录**：`gradle/libs.versions.toml`
 - **构建类型**：`debug`（默认）、`release`（R8 混淆 + 资源压缩）、`trace`（release + trace 标记保留）、`benchmark`（macrobenchmark 专用）
 - **R8**：`android.enableR8.fullMode=true`（`gradle.properties`）
-- **缓存**：configuration cache + build cache 已启用（`gradle.properties`）
-- **版本号**：动态生成格式 `baseVersion_gitHash_buildDate`（例：`1.0.0_a1b2c_010626`）
+- **缓存**：configuration cache + build cache 已启用
+- **版本号**：动态 `baseVersion_gitHash_buildDate`（例：`1.0.0_a1b2c_010626`）
+- **格式化**：Spotless + ktlint，覆盖 `src/**/*.kt` 和 `*.gradle.kts`（根 `build.gradle.kts`）
 
-## 包名约定
+## 包名
 
 - `:core` 逻辑层：`plus.rua.project`
 - `:core` UI 层：`plus.rua.project.ui`
+- `:core` `android.namespace` 实际为 `plus.rua.project.shared`（build.gradle.kts），但代码包名用 `plus.rua.project`
 - `:app`：`plus.rua.project`
 
-## 代码规范（关键差异项）
+## 代码规范
 
 - 公共 `@Composable` 函数必须有 KDoc（参数说明 + 回调触发时机），见 `COMMENTS.md`
 - `Modifier` 参数始终放签名最后
@@ -66,12 +56,12 @@
 - 可点击列表项用 `Card(onClick = ...)` + `CardDefaults.cardElevation(defaultElevation = 0.dp)`，不要用 `Modifier.clickable()` 裸包
 - `@Suppress("DEPRECATION")` 必须附带行内注释说明原因（当前主要用于 `monthNumber`）
 - UI 文本使用中文
-- Spotless 在根 `build.gradle.kts` 配置，覆盖 `src/**/*.kt` 和 `*.gradle.kts`
+- **禁止** `java.util.Calendar`，日期逻辑全部用 `kotlinx-datetime`
 
 ## 关键依赖
 
 - **Compose BOM** `2026.05.01` + **Material 3**
-- **`kotlinx-datetime`** 0.8.0 — 所有日期逻辑（禁止 `java.util.Calendar`）
+- **`kotlinx-datetime`** 0.8.0 — 所有日期逻辑
 - **`tyme4kt`** 1.4.5 — 农历、节气、传统节日
 - **`sketch`** 4.4.0 — GIF 显示（`sketch-compose` + `sketch-animated-webp`）
 
