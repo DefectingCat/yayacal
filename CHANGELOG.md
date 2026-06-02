@@ -5,6 +5,103 @@ All notable changes to the YaYa project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2026-06-02
+
+### Added
+
+#### Date Checker Tool
+- New "Date Checker" tool page accessible from FAB → Tools menu for tracking item expiration dates
+- Swipe-to-delete with animated removal and staggered enter/exit animations
+- Expired status display with visual indicators
+- Auto-scroll and highlight animation for new entries
+
+#### Tools Page
+- New "Tools" entry in FAB menu linking to a dedicated tools landing page
+- Date Checker as the first tool module
+
+#### Theme & Visual
+- `YaYaTheme` introduced and applied to all Activities for unified theming
+- Legal holiday badges now display with colored background and continuous edge rounded corners
+- Holiday badge wave-scale entrance animation
+- Personal shift badges redesigned with light circle background + centered text
+- Shift badge circular base to avoid overlapping with selection ring
+
+#### Year ↔ Month View Transition
+- BottomCard slide-in animation and fade effect during year/month view transitions
+- Month→year view no longer forces collapse state to expand
+
+#### Performance
+- LunarCache LRU cache for lunar/solar term calculations with startup pre-computation
+- Macrobenchmark module with automated Baseline Profile generation
+- Baseline Profile covering date checker, shift settings, tools page, and core calendar scenarios
+- `ComposeTrace` cross-platform trace markers for Perfetto/Systrace
+- SolarDay static cache to eliminate repeated object creation
+- MiniMonth pure Canvas rendering eliminating 96 Text measurement overhead
+- `graphicsLayer(translationY)` replacing `offset(Dp)` to avoid layout passes
+- Aggregated `CalendarUiState` to reduce Compose recomposition
+- `remember` stabilization for lambdas and computations
+- Scene-based `profile.sh` with `--all` batch mode for 15 automated trace scenarios
+- Perfetto trace analysis script (`analyze-trace.sh`)
+- Trace build type for release + retained trace markers
+
+#### Build & Tooling
+- Spotless 8.5.1 code formatter with ktlint integration
+- `.editorconfig` for ktlint Composable function naming rules
+- Dependency update checker and auto-upgrade tool integration
+- `app_icon` shrunk to 512×512 and converted to WebP (446KB savings)
+- 152 GIF assets batch-converted to animated WebP format
+- `uiTooling` moved to `debugImplementation`; unused `@Preview` and `kotlin-test` entries removed
+- `sketch` library for GIF/WebP display (`sketch-compose` + `sketch-animated-webp`)
+- PowerShell performance tracing script (`profile.ps1`)
+
+#### Documentation
+- Comprehensive `AGENTS.md` at every directory level (root, app, core, scripts, etc.)
+- Updated `DEVELOPMENT.md` with Perfetto trace analysis and emulator launch commands
+- Updated `CLAUDE.md` to reflect pure Android project structure
+
+### Changed
+
+- Project migrated from Kotlin Multiplatform (KMP/CMP) to pure Android (`:app` + `:core`)
+- All Compose UI and business logic consolidated into `:core` module; `:app` remains a thin shell
+- Removed KMP/CMP plugins, iOS app module, and `:shared` module
+- `androidApp` module renamed to `app`
+- Collapse animation refactored: removed fling velocity threshold, now spring-driven
+- `CalendarPager` ↔ `WeekPager` switching uses `AnimatedContent` for smooth crossfade
+- Year view page year calculation uses `settledPage` to prevent flicker during swipe
+- ViewModel decoupled from Compose runtime, migrated to `StateFlow`
+- `LunarCache` made injectable with extracted repeated computations
+- MenuItem and ToolItem unified to use `Card(onClick)` pattern
+- Holiday badge null checks simplified to Elvis operator
+- `@Suppress` annotations cleaned up with deprecated API replacements
+- Removed unnecessary P0 code (custom combine, dead StateFlow, duplicate grid algorithms, runBlocking)
+- Removed debug logging from LicensesScreen and BottomCard
+
+### Fixed
+
+- Lunar first-day month name no longer appends redundant "月" suffix
+- Year view stale year display on enter
+- Year view page year flicker during swipe transitions
+- Collapse animation flicker when switching between CalendarPager and WeekPager
+- Folded state cross-month dates not grayed out in week view
+- Date checker swipe-to-delete state misalignment and deprecation warning
+- Shared element transition animation loss after year view page change
+- Night mode theme transparency issues with explicit background colors
+- Predictive back gesture failure and end-of-animation flash on certain devices
+- Back animation residual transition eliminated with `snapTo`
+- Fast swipe collapse/expand failure, now uses progress threshold detection
+- `graphicsLayer` optimization reverted due to excessive GPU compositing overhead on real devices
+- Reverted shared element transitions in favor of zoom + fade animation
+
+### Removed
+
+- iOS app module (`iosApp/`) and all related Xcode project files
+- `:shared` module and `shared/build.gradle.kts`
+- Shared element transition animations (replaced by zoom + fade)
+- Year/month scroll wheel picker with haptic feedback (reverted)
+- Aliyun Maven mirrors (switched to Maven Central / Google)
+- Unused Compose runtime ProGuard keep rules
+- Temporary performance monitoring logs (trace markers retained)
+
 ## [1.0.0] - 2026-05-20
 
 ### Added
@@ -138,103 +235,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default ripple effect on DayCell (replaced by circular reveal animation)
 - Aliyun Maven mirrors (switched back to Maven Central / Google)
 - Unused Compose runtime ProGuard keep rules
-
-## [1.1.0] - 2026-06-02
-
-### Added
-
-#### Date Checker Tool
-- New "Date Checker" tool page accessible from FAB → Tools menu for tracking item expiration dates
-- Swipe-to-delete with animated removal and staggered enter/exit animations
-- Expired status display with visual indicators
-- Auto-scroll and highlight animation for new entries
-
-#### Tools Page
-- New "Tools" entry in FAB menu linking to a dedicated tools landing page
-- Date Checker as the first tool module
-
-#### Theme & Visual
-- `YaYaTheme` introduced and applied to all Activities for unified theming
-- Legal holiday badges now display with colored background and continuous edge rounded corners
-- Holiday badge wave-scale entrance animation
-- Personal shift badges redesigned with light circle background + centered text
-- Shift badge circular base to avoid overlapping with selection ring
-
-#### Year ↔ Month View Transition
-- BottomCard slide-in animation and fade effect during year/month view transitions
-- Month→year view no longer forces collapse state to expand
-
-#### Performance
-- LunarCache LRU cache for lunar/solar term calculations with startup pre-computation
-- Macrobenchmark module with automated Baseline Profile generation
-- Baseline Profile covering date checker, shift settings, tools page, and core calendar scenarios
-- `ComposeTrace` cross-platform trace markers for Perfetto/Systrace
-- SolarDay static cache to eliminate repeated object creation
-- MiniMonth pure Canvas rendering eliminating 96 Text measurement overhead
-- `graphicsLayer(translationY)` replacing `offset(Dp)` to avoid layout passes
-- Aggregated `CalendarUiState` to reduce Compose recomposition
-- `remember` stabilization for lambdas and computations
-- Scene-based `profile.sh` with `--all` batch mode for 15 automated trace scenarios
-- Perfetto trace analysis script (`analyze-trace.sh`)
-- Trace build type for release + retained trace markers
-
-#### Build & Tooling
-- Spotless 8.5.1 code formatter with ktlint integration
-- `.editorconfig` for ktlint Composable function naming rules
-- Dependency update checker and auto-upgrade tool integration
-- `app_icon` shrunk to 512×512 and converted to WebP (446KB savings)
-- 152 GIF assets batch-converted to animated WebP format
-- `uiTooling` moved to `debugImplementation`; unused `@Preview` and `kotlin-test` entries removed
-- `sketch` library for GIF/WebP display (`sketch-compose` + `sketch-animated-webp`)
-- PowerShell performance tracing script (`profile.ps1`)
-
-#### Documentation
-- Comprehensive `AGENTS.md` at every directory level (root, app, core, scripts, etc.)
-- Updated `DEVELOPMENT.md` with Perfetto trace analysis and emulator launch commands
-- Updated `CLAUDE.md` to reflect pure Android project structure
-
-### Changed
-
-- Project migrated from Kotlin Multiplatform (KMP/CMP) to pure Android (`:app` + `:core`)
-- All Compose UI and business logic consolidated into `:core` module; `:app` remains a thin shell
-- Removed KMP/CMP plugins, iOS app module, and `:shared` module
-- `androidApp` module renamed to `app`
-- Collapse animation refactored: removed fling velocity threshold, now spring-driven
-- `CalendarPager` ↔ `WeekPager` switching uses `AnimatedContent` for smooth crossfade
-- Year view page year calculation uses `settledPage` to prevent flicker during swipe
-- ViewModel decoupled from Compose runtime, migrated to `StateFlow`
-- `LunarCache` made injectable with extracted repeated computations
-- MenuItem and ToolItem unified to use `Card(onClick)` pattern
-- Holiday badge null checks simplified to Elvis operator
-- `@Suppress` annotations cleaned up with deprecated API replacements
-- Removed unnecessary P0 code (custom combine, dead StateFlow, duplicate grid algorithms, runBlocking)
-- Removed debug logging from LicensesScreen and BottomCard
-
-### Fixed
-
-- Lunar first-day month name no longer appends redundant "月" suffix
-- Year view stale year display on enter
-- Year view page year flicker during swipe transitions
-- Collapse animation flicker when switching between CalendarPager and WeekPager
-- Folded state cross-month dates not grayed out in week view
-- Date checker swipe-to-delete state misalignment and deprecation warning
-- Shared element transition animation loss after year view page change
-- Night mode theme transparency issues with explicit background colors
-- Predictive back gesture failure and end-of-animation flash on certain devices
-- Back animation residual transition eliminated with `snapTo`
-- Fast swipe collapse/expand failure, now uses progress threshold detection
-- `graphicsLayer` optimization reverted due to excessive GPU compositing overhead on real devices
-- Reverted shared element transitions in favor of zoom + fade animation
-
-### Removed
-
-- iOS app module (`iosApp/`) and all related Xcode project files
-- `:shared` module and `shared/build.gradle.kts`
-- Shared element transition animations (replaced by zoom + fade)
-- Year/month scroll wheel picker with haptic feedback (reverted)
-- Aliyun Maven mirrors (switched to Maven Central / Google)
-- Unused Compose runtime ProGuard keep rules
-- Temporary performance monitoring logs (trace markers retained)
 
 ## [Unreleased]
 
