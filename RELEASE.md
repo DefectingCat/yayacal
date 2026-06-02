@@ -12,10 +12,15 @@
 
 ## 2. 更新版本号
 
+编辑 `gradle.properties`：
+
+- `app.version.base` 改为新版本号（如 `1.2.0`）
+
 编辑 `app/build.gradle.kts`：
 
-- `baseVersion` 默认值改为新版本号（如 `"1.2.0"`）
 - `versionCode` 递增 `+1`
+
+> `app.version.base` 优先于 `build.gradle.kts` 中的默认值，因此以 `gradle.properties` 为准。
 
 ## 3. 构建 Release APK
 
@@ -28,7 +33,7 @@
 ## 4. 提交、打 Tag、推送
 
 ```bash
-git add CHANGELOG.md app/build.gradle.kts
+git add CHANGELOG.md gradle.properties app/build.gradle.kts
 git commit -m "release: vx.y.z"
 git tag vx.y.z
 git push origin main --tags
@@ -49,7 +54,7 @@ gh release create vx.y.z \
 
 - [ ] CHANGELOG.md 新版本条目已添加（倒序，新版在前）
 - [ ] CHANGELOG.md 底部链接已添加
-- [ ] `app/build.gradle.kts` 中 `baseVersion` 和 `versionCode` 已更新
+- [ ] `gradle.properties` 中 `app.version.base` 和 `app/build.gradle.kts` 中 `versionCode` 已更新
 - [ ] Release APK 构建成功
 - [ ] Git tag 已推送
 - [ ] GitHub Release 已创建且包含 APK
