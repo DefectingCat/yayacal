@@ -158,9 +158,10 @@ get_screen_center() {
     echo "$w $h"
 }
 
-# 清理后台进程
+# 清理后台进程（整棵进程树）
 cleanup_bg() {
     if [ -n "$BG_PID" ] && kill -0 "$BG_PID" 2>/dev/null; then
+        pkill -P "$BG_PID" 2>/dev/null || true
         kill "$BG_PID" 2>/dev/null || true
         wait "$BG_PID" 2>/dev/null || true
     fi
@@ -209,7 +210,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true || true
             sleep 1
             echo "  → 自动执行：trace 开始后将连续左右滑动翻页"
             wait_then_do 2 bash -c "
@@ -229,7 +230,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：trace 开始后将依次点击日历中不同位置的日期"
             # 日历网格大致区域：7列 x 最多6行
@@ -255,7 +256,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：trace 开始后将自动拖拽 BottomCard 上下切换"
             wait_then_do 2 bash -c "
@@ -277,7 +278,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             # 打开年视图（点击 FAB → 年视图）
             adb shell input tap "$fab_x" "$fab_y"
@@ -303,7 +304,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             # 打开年视图
             adb shell input tap "$fab_x" "$fab_y"
@@ -339,7 +340,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             # 先翻几页离开当月
             adb shell input swipe $((screen_w*20/100)) $grid_y $((screen_w*80/100)) $grid_y 200
@@ -364,7 +365,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：trace 开始后将反复点击 FAB"
             wait_then_do 2 bash -c "
@@ -382,7 +383,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：trace 开始后将反复切换"显示调休""
             wait_then_do 2 bash -c "
@@ -404,7 +405,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：trace 开始后将点击首行左侧（上月）和末行右侧（下月）的灰色日期"
             local col_w=$((screen_w / 7))
@@ -433,7 +434,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${TOOLS_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${TOOLS_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：工具页面已打开，trace 期间保持静态"
             ;;
@@ -445,7 +446,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${DATECHECKER_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${DATECHECKER_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：trace 开始后将自动添加行、输入天数、滑动删除"
             wait_then_do 2 bash -c "
@@ -487,7 +488,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${ABOUT_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${ABOUT_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：关于页面已打开，trace 期间保持静态"
             ;;
@@ -499,7 +500,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${LICENSES_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${LICENSES_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：许可页面已打开，trace 开始后将上下滑动"
             wait_then_do 2 bash -c "
@@ -519,7 +520,7 @@ run_scenario() {
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
             echo ""
-            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1
+            adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
             sleep 1
             echo "  → 自动执行：trace 开始后将按顺序自动执行所有主要交互"
             local col_w=$((screen_w / 7))
@@ -871,7 +872,7 @@ else
     if [ "$NO_LAUNCH" = false ]; then
         echo ""
         echo "[1/5] 启动应用..."
-        adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true
+        adb shell am start -n "${PACKAGE}/${MAIN_ACTIVITY}" >/dev/null 2>&1 || true || true
         sleep 2
     else
         echo ""
