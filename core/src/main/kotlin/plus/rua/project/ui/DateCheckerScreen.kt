@@ -36,6 +36,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
@@ -192,7 +196,11 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                PlusIcon(color = MaterialTheme.colorScheme.onPrimary)
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "添加",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
             }
         },
         containerColor = MaterialTheme.colorScheme.surface
@@ -356,7 +364,11 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {
-                RefreshIcon(color = MaterialTheme.colorScheme.onPrimary)
+                Icon(
+                    imageVector = Icons.Filled.Refresh,
+                    contentDescription = "重置",
+                    tint = MaterialTheme.colorScheme.onPrimary
+                )
             }
         }
     }
@@ -659,30 +671,6 @@ private fun BackArrowIcon(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun PlusIcon(color: Color, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = 2.dp.toPx()
-        val cx = size.width / 2
-        val cy = size.height / 2
-        val half = size.minDimension * 0.35f
-        drawLine(
-            color = color,
-            start = Offset(cx, cy - half),
-            end = Offset(cx, cy + half),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = color,
-            start = Offset(cx - half, cy),
-            end = Offset(cx + half, cy),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-@Composable
 private fun CalendarIcon(color: Color, modifier: Modifier = Modifier) {
     androidx.compose.foundation.Canvas(modifier = modifier.size(24.dp)) {
         val strokeWidth = 1.5f.dp.toPx()
@@ -727,46 +715,6 @@ private fun ArrowRightIcon(color: Color, modifier: Modifier = Modifier) {
             color = color,
             start = Offset(size.width * 0.4f, y + size.height * 0.3f),
             end = Offset(size.width * 0.65f, y),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-@Composable
-private fun RefreshIcon(color: Color, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = 2.dp.toPx()
-        val cx = size.width / 2
-        val cy = size.height / 2
-        val radius = size.minDimension * 0.32f
-        val sweepAngle = 280f
-
-        drawArc(
-            color = color,
-            startAngle = -90f + (360f - sweepAngle) / 2,
-            sweepAngle = sweepAngle,
-            useCenter = false,
-            topLeft = Offset(cx - radius, cy - radius),
-            size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
-            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-        )
-
-        val endAngle = Math.toRadians((-90f + (360f - sweepAngle) / 2 + sweepAngle).toDouble())
-        val tipLen = 4.dp.toPx()
-        val tipX = cx + radius * kotlin.math.cos(endAngle).toFloat()
-        val tipY = cy + radius * kotlin.math.sin(endAngle).toFloat()
-        drawLine(
-            color = color,
-            start = Offset(tipX - tipLen * 0.7f, tipY - tipLen),
-            end = Offset(tipX, tipY),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = color,
-            start = Offset(tipX + tipLen, tipY - tipLen * 0.3f),
-            end = Offset(tipX, tipY),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round
         )

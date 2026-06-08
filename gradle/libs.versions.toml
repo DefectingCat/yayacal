@@ -31,6 +31,7 @@ androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", 
 compose-animation = { module = "androidx.compose.animation:animation" }
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
 compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-material-icons = { module = "androidx.compose.material:material-icons-extended" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-runtime = { module = "androidx.compose.runtime:runtime" }
 compose-ui = { module = "androidx.compose.ui:ui" }
