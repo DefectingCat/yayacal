@@ -85,11 +85,13 @@ fun AboutScreen(
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            Text(
-                text = "版本：${getAppVersion()}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            TextButton(onClick = { /* TODO */ }) {
+                Text(
+                    text = "版本：${getAppVersion()}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
 
             Spacer(modifier = Modifier.height(48.dp))
 
