@@ -8,6 +8,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -67,6 +68,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.semantics
@@ -249,18 +251,47 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f)
-                    .verticalScroll(scrollState)
-                    .animateContentSize(
-                        animationSpec = androidx.compose.animation.core.spring(
-                            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+            if (rows.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = plus.rua.project.shared.R.drawable.ic_empty_state),
+                            contentDescription = "空状态",
+                            modifier = Modifier.size(120.dp)
                         )
-                    )
-                    .padding(horizontal = 16.dp, vertical = 4.dp)
-            ) {
+                        Text(
+                            text = "暂无保质期记录",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = "点击右下角 + 添加",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .verticalScroll(scrollState)
+                        .animateContentSize(
+                            animationSpec = androidx.compose.animation.core.spring(
+                                stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
+                            )
+                        )
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                ) {
                 rows.forEachIndexed { index, row ->
                     val isBeingDeleted = row.id in pendingDeleteIds
 
@@ -362,6 +393,7 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 }
 
                 Spacer(modifier = Modifier.height(80.dp))
+                }
             }
             }
 
