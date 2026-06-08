@@ -27,11 +27,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -47,6 +49,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -58,7 +61,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
@@ -78,6 +83,7 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
+import plus.rua.project.DateCheckerStorage
 
 private data class ExpiryRow(val id: Int, val days: Int? = null)
 
@@ -120,22 +126,30 @@ private fun ExpiryStatus.containerColor(): Color = when (this) {
 @Composable
 fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+    val context = LocalContext.current.applicationContext
+    val storage = remember { DateCheckerStorage.fromContext(context) }
 
-    var productionDate by remember { mutableStateOf(today) }
+    val saved = remember { storage.load() }
+    val defaultRows = listOf(30, 60, 180)
+
+    var productionDate by remember { mutableStateOf(saved?.first ?: today) }
     var rows by remember {
         mutableStateOf(
-            listOf(
-                ExpiryRow(0, 30),
-                ExpiryRow(1, 60),
-                ExpiryRow(2, 180)
-            )
+            (saved?.second ?: defaultRows).mapIndexed { index, days ->
+                ExpiryRow(index, days)
+            }
         )
     }
-    var nextId by remember { mutableIntStateOf(3) }
+    var nextId by remember { mutableIntStateOf(rows.size) }
+
+    LaunchedEffect(productionDate, rows) {
+        storage.save(productionDate, rows.map { it.days })
+    }
     var pendingDeleteIds by remember { mutableStateOf(setOf<Int>()) }
 
     var showDatePicker by remember { mutableStateOf(false) }
     var datePickerTarget by remember { mutableStateOf<DatePickerTarget?>(null) }
+    var showResetDialog by remember { mutableStateOf(false) }
 
     val scrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
@@ -183,20 +197,21 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
         },
         containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            ProductionDateCard(
-                date = productionDate,
-                isToday = productionDate == today,
-                onClick = {
-                    datePickerTarget = DatePickerTarget.Production
-                    showDatePicker = true
-                },
-                modifier = Modifier.padding(horizontal = 16.dp)
-            )
+            Column(modifier = Modifier.fillMaxSize()) {
+                ProductionDateCard(
+                    date = productionDate,
+                    isToday = productionDate == today,
+                    onClick = {
+                        datePickerTarget = DatePickerTarget.Production
+                        showDatePicker = true
+                    },
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
 
             Spacer(modifier = Modifier.height(24.dp))
 
@@ -330,7 +345,45 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     }
                 }
             }
+            }
+
+            FloatingActionButton(
+                onClick = { showResetDialog = true },
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(start = 16.dp, bottom = 16.dp),
+                shape = CircleShape,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                RefreshIcon(color = MaterialTheme.colorScheme.onPrimary)
+            }
         }
+    }
+
+    if (showResetDialog) {
+        AlertDialog(
+            onDismissRequest = { showResetDialog = false },
+            title = { Text("恢复默认") },
+            text = { Text("将重置生产日期和保质期列表为默认值") },
+            confirmButton = {
+                TextButton(onClick = {
+                    productionDate = today
+                    rows = defaultRows.mapIndexed { index, days ->
+                        ExpiryRow(index, days)
+                    }
+                    nextId = defaultRows.size
+                    showResetDialog = false
+                }) {
+                    Text("确定")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetDialog = false }) {
+                    Text("取消")
+                }
+            }
+        )
     }
 
     if (showDatePicker) {
@@ -674,6 +727,46 @@ private fun ArrowRightIcon(color: Color, modifier: Modifier = Modifier) {
             color = color,
             start = Offset(size.width * 0.4f, y + size.height * 0.3f),
             end = Offset(size.width * 0.65f, y),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+private fun RefreshIcon(color: Color, modifier: Modifier = Modifier) {
+    androidx.compose.foundation.Canvas(modifier = modifier.size(24.dp)) {
+        val strokeWidth = 2.dp.toPx()
+        val cx = size.width / 2
+        val cy = size.height / 2
+        val radius = size.minDimension * 0.32f
+        val sweepAngle = 280f
+
+        drawArc(
+            color = color,
+            startAngle = -90f + (360f - sweepAngle) / 2,
+            sweepAngle = sweepAngle,
+            useCenter = false,
+            topLeft = Offset(cx - radius, cy - radius),
+            size = androidx.compose.ui.geometry.Size(radius * 2, radius * 2),
+            style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        )
+
+        val endAngle = Math.toRadians((-90f + (360f - sweepAngle) / 2 + sweepAngle).toDouble())
+        val tipLen = 4.dp.toPx()
+        val tipX = cx + radius * kotlin.math.cos(endAngle).toFloat()
+        val tipY = cy + radius * kotlin.math.sin(endAngle).toFloat()
+        drawLine(
+            color = color,
+            start = Offset(tipX - tipLen * 0.7f, tipY - tipLen),
+            end = Offset(tipX, tipY),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = color,
+            start = Offset(tipX + tipLen, tipY - tipLen * 0.3f),
+            end = Offset(tipX, tipY),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round
         )
