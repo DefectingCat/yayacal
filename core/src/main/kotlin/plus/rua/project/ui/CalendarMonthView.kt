@@ -18,7 +18,6 @@ import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -38,10 +37,14 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,8 +66,6 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -368,8 +369,18 @@ fun CalendarMonthView(
             containerColor = MaterialTheme.colorScheme.primaryContainer,
             contentColor = MaterialTheme.colorScheme.onPrimaryContainer
         ) {
-            val iconColor = MaterialTheme.colorScheme.onPrimaryContainer
-            MenuIcon(color = iconColor)
+            AnimatedContent(
+                targetState = isMenuExpanded,
+                transitionSpec = {
+                    fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+                },
+                label = "fab_icon"
+            ) { expanded ->
+                Icon(
+                    imageVector = if (expanded) Icons.Filled.Close else Icons.Filled.Menu,
+                    contentDescription = if (expanded) "关闭菜单" else "打开菜单"
+                )
+            }
         }
 
         // Scrim：全透明，仅拦截点击关闭菜单，无动画
@@ -462,24 +473,6 @@ fun CalendarMonthView(
                     )
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun MenuIcon(color: Color, modifier: Modifier = Modifier) {
-    Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = 2.dp.toPx()
-        val lineSpacing = 4.dp.toPx()
-        val totalHeight = strokeWidth * 3 + lineSpacing * 2
-        val startY = (size.height - totalHeight) / 2
-        repeat(3) { i ->
-            drawLine(
-                color = color,
-                start = Offset(0f, startY + i * (strokeWidth + lineSpacing)),
-                end = Offset(size.width, startY + i * (strokeWidth + lineSpacing)),
-                strokeWidth = strokeWidth
-            )
         }
     }
 }
