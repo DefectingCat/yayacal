@@ -37,6 +37,7 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
@@ -172,7 +173,10 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        BackArrowIcon()
+                        Icon(
+                            imageVector = Icons.Filled.ChevronLeft,
+                            contentDescription = "返回"
+                        )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -647,28 +651,6 @@ private fun ExpiryCard(
 }
 
 // region Icons
-
-@Composable
-private fun BackArrowIcon(modifier: Modifier = Modifier) {
-    val color = MaterialTheme.colorScheme.onSurface
-    androidx.compose.foundation.Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = 2.dp.toPx()
-        drawLine(
-            color = color,
-            start = Offset(size.width * 0.75f, size.height * 0.15f),
-            end = Offset(size.width * 0.25f, size.height * 0.5f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = color,
-            start = Offset(size.width * 0.25f, size.height * 0.5f),
-            end = Offset(size.width * 0.75f, size.height * 0.85f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-    }
-}
 
 @Composable
 private fun CalendarIcon(color: Color, modifier: Modifier = Modifier) {

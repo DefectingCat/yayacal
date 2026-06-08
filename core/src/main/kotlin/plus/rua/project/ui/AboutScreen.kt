@@ -1,6 +1,5 @@
 package plus.rua.project.ui
 
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,7 +7,10 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
@@ -20,8 +22,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.unit.dp
 import com.github.panpf.sketch.AsyncImage
 import plus.rua.project.AppInfo
@@ -48,24 +48,10 @@ fun AboutScreen(
                 title = { Text("关于鸭鸭日历") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        val arrowColor = MaterialTheme.colorScheme.onSurface
-                        Canvas(modifier = Modifier.size(24.dp)) {
-                            val strokeWidth = 2.dp.toPx()
-                            drawLine(
-                                color = arrowColor,
-                                start = Offset(size.width * 0.75f, size.height * 0.15f),
-                                end = Offset(size.width * 0.25f, size.height * 0.5f),
-                                strokeWidth = strokeWidth,
-                                cap = StrokeCap.Round
-                            )
-                            drawLine(
-                                color = arrowColor,
-                                start = Offset(size.width * 0.25f, size.height * 0.5f),
-                                end = Offset(size.width * 0.75f, size.height * 0.85f),
-                                strokeWidth = strokeWidth,
-                                cap = StrokeCap.Round
-                            )
-                        }
+                        Icon(
+                            imageVector = Icons.Filled.ChevronLeft,
+                            contentDescription = "返回"
+                        )
                     }
                 }
             )
