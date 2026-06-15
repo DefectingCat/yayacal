@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        启动窗口背景使用的 Material 3 静态基准色（Light）。
+        Android 12+ 上 Compose 使用动态颜色，该值作为 fallback，
+        在动态颜色获取前减少启动窗口与首帧的色差闪烁。
+    -->
+    <color name="splash_background">#FFFBFE</color>
+</resources>
