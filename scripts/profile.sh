@@ -225,7 +225,7 @@ run_scenario() {
 
         date_select)
             SCENARIO_NAME="点击日期选择"
-            SCENARIO_DESC="依次点击日历中不同位置的日期，测试 DayCell 重组和 AnimatedGif 动画性能"
+            SCENARIO_DESC="依次点击日历中不同位置的日期，测试 DayCell 重组和 AnimatedWebp 动画性能"
             echo ""
             echo "[场景] ${SCENARIO_NAME}"
             echo "  ${SCENARIO_DESC}"
@@ -1100,7 +1100,7 @@ EOF
             cat >> "${REPORT_FILE}" <<EOF
 - \`DayCell\` — 单个日期单元格重组（通过 transition label）
 - \`MonthView:Compose\` — 日期选中触发的整页重组
-- \`AnimatedGif\` 相关 trace（如果存在）— 选中动画
+- \`AnimatedWebp\` 相关 trace（如果存在）— 选中动画
 - 查找是否有连续多帧超过 16.67ms（选中动画期间）
 EOF
             ;;

@@ -10,7 +10,7 @@ import androidx.compose.ui.platform.LocalContext
  * @param webpFile WebP 文件名（如 "001.webp"）
  * @return 平台特定的资源 URI
  */
-fun getWebpUri(webpFile: String): String = "file:///android_asset/gifs/$webpFile"
+fun getWebpUri(webpFile: String): String = "file:///android_asset/animations/$webpFile"
 
 fun getAppIconUri(): String = "file:///android_asset/app_icon.webp?v=2"
 

@@ -12,6 +12,21 @@ android {
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
         consumerProguardFiles("proguard-rules.pro")
+
+        // 构建期扫描 assets/animations/ 生成 WebP 文件列表，避免运行期硬编码 (1..152)
+        // 与 assets/ 目录耦合却不校验，导致增删文件后隐性 bug
+        val webpFiles = layout.projectDirectory
+            .dir("src/main/assets/animations")
+            .asFile
+            .listFiles { f -> f.extension.equals("webp", ignoreCase = true) }
+            ?.map { it.name }
+            ?.sorted()
+            ?: emptyList()
+        require(webpFiles.isNotEmpty()) { "assets/animations/ 不应为空，请检查目录" }
+        // 拼成 Java 数组字面量: new String[]{"001.webp","002.webp",...}
+        val quoted = webpFiles.joinToString(",") { name -> "\"$name\"" }
+        val arrayLiteral = "new String[]{$quoted}"
+        buildConfigField("String[]", "WEBP_FILES", arrayLiteral)
     }
 
     buildTypes {
