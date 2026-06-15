@@ -53,7 +53,10 @@ android {
             initWith(buildTypes.getByName("release"))
             signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
-            isDebuggable = true
+            // isDebuggable=false 使 macrobenchmark 在模拟器上稳定运行，且 Partial 编译模式可用。
+            // 代价是生成的 baseline-prof.txt 会包含 R8 混淆后的类名；功能上仍然有效。
+            // 若需要可人工维护的可读 profile，请在真机上使用 debuggable build 或引入 Baseline Profile Gradle plugin。
+            isDebuggable = false
         }
     }
 

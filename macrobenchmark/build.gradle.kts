@@ -11,6 +11,10 @@ android {
         targetSdk = libs.versions.android.targetSdk.get().toInt()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // 允许在模拟器 / debuggable target 上运行 macrobenchmark（仅用于开发验证）。
+        // 正式发布 benchmark 请在物理设备、release 目标应用上执行。
+        testInstrumentationRunnerArguments["androidx.benchmark.suppressErrors"] = "EMULATOR,DEBUGGABLE"
     }
 
     compileOptions {

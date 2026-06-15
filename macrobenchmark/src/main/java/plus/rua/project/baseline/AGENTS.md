@@ -5,14 +5,14 @@
 
 ## Purpose
 Baseline Profile 自动生成器与启动性能基准测试。包含：
-- `BaselineProfileGenerator.kt`：通过 UI Automator 模拟完整用户交互路径（冷启动、FAB 展开、年/月视图切换、日期选择、折叠/展开、关于页、开源许可页），生成 AOT 编译优化所需的 startup profile。
+- `BaselineProfileGenerator.kt`：通过 UI Automator 模拟核心用户交互路径（冷启动、FAB 展开、显示调休切换、CalendarPager 翻页、日期选择、BottomCard 折叠/展开），生成 AOT 编译优化所需的 startup profile。
 - `StartupBenchmark.kt`：冷启动性能基准测试，测量 `timeToInitialDisplay` 与 `timeToFullDisplay`。
 
 ## Key Files
 
 | File | Description |
 |------|-------------|
-| `BaselineProfileGenerator.kt` | Profile 生成测试类，覆盖全部用户交互路径 |
+| `BaselineProfileGenerator.kt` | Profile 生成测试类，覆盖启动与核心交互路径 |
 | `StartupBenchmark.kt` | 冷启动基准测试类，覆盖 Full/Partial/None 三种编译模式 |
 
 ## Subdirectories
