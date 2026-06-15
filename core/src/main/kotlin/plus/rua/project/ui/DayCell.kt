@@ -60,7 +60,7 @@ enum class DayCellState {
 }
 
 /**
- * 单个日期单元格，显示日期数字并支持选中/今天/非当月状态。
+ * 单个日期单元格，显示日期数字并支持选中/今天/非当月状态；生日日期左上角显示金色皇冠。
  *
  * @param date 日期
  * @param isCurrentMonth 是否属于当前显示月份
@@ -289,10 +289,11 @@ private fun DayCellImpl(
             modifier = Modifier
                 .fillMaxSize()
                 .semantics {
+                    val birthdaySuffix = if (isBirthday) "，生日" else ""
                     contentDescription = if (isToday) {
-                        "今天 ${date.year}年${date.month.number}月${date.day}日"
+                        "今天 ${date.year}年${date.month.number}月${date.day}日$birthdaySuffix"
                     } else {
-                        "${date.year}年${date.month.number}月${date.day}日"
+                        "${date.year}年${date.month.number}月${date.day}日$birthdaySuffix"
                     }
                 }
                 .clip(CircleShape)
