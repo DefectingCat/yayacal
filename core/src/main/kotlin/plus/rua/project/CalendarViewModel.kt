@@ -21,10 +21,7 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import plus.rua.project.ui.COLLAPSE_THRESHOLD
 import plus.rua.project.ui.getMonthGridInfo
-import plus.rua.project.util.logd
 import kotlin.time.Clock
-
-private const val TAG_VM = "CalendarExpand"
 
 /**
  * 日历日期数据，用于网格单元格渲染。
@@ -170,23 +167,11 @@ class CalendarViewModel(
      * 当前视图被直接移除；动画只作用在目标视图的 scale/alpha 上。
      */
     fun toggleYearView() {
-        val t0 = System.nanoTime()
         if (_isYearView.value) {
-            logd(TAG_VM, "[toggleYearView] ===== START Year→Month t=$t0 =====")
-            composeTraceBeginSection("YearView→MonthView")
             _isYearView.value = false
-            logd(TAG_VM, "[toggleYearView] isYearView=false dt=${(System.nanoTime() - t0) / 1_000_000}ms")
-            composeTraceEndSection()
-            logd(TAG_VM, "[toggleYearView] ===== END Year→Month total=${(System.nanoTime() - t0) / 1_000_000}ms =====")
         } else {
-            logd(TAG_VM, "[toggleYearView] ===== START Month→Year t=$t0 =====")
-            composeTraceBeginSection("MonthView→YearView")
             _yearViewYear.value = _selectedDate.value.year
-            logd(TAG_VM, "[toggleYearView] yearViewYear=${_yearViewYear.value} dt=${(System.nanoTime() - t0) / 1_000_000}ms")
             _isYearView.value = true
-            logd(TAG_VM, "[toggleYearView] isYearView=true dt=${(System.nanoTime() - t0) / 1_000_000}ms")
-            composeTraceEndSection()
-            logd(TAG_VM, "[toggleYearView] ===== END Month→Year total=${(System.nanoTime() - t0) / 1_000_000}ms =====")
         }
     }
 
@@ -201,18 +186,10 @@ class CalendarViewModel(
      * 从年视图选择月份后返回月视图。
      */
     fun selectMonthFromYearView(month: Int) {
-        val t0 = System.nanoTime()
-        logd(TAG_VM, "[selectMonthFromYearView] ===== START month=$month t=$t0 =====")
-        composeTraceBeginSection("YearView:SelectMonth")
         val date = if (_yearViewYear.value == today.year && today.month.number == month) today
         else LocalDate(_yearViewYear.value, Month(month), 1)
-        logd(TAG_VM, "[selectMonthFromYearView] targetDate=$date dt=${(System.nanoTime() - t0) / 1_000_000}ms")
         _selectedDate.value = date
-        logd(TAG_VM, "[selectMonthFromYearView] selectedDate set dt=${(System.nanoTime() - t0) / 1_000_000}ms")
         _isYearView.value = false
-        logd(TAG_VM, "[selectMonthFromYearView] isYearView=false dt=${(System.nanoTime() - t0) / 1_000_000}ms")
-        composeTraceEndSection()
-        logd(TAG_VM, "[selectMonthFromYearView] ===== END total=${(System.nanoTime() - t0) / 1_000_000}ms =====")
     }
 
     fun incrementYear() {
@@ -233,9 +210,7 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onDrag(delta: Float) {
-        composeTraceBeginSection("VM:collapseProgress:onDrag")
         _collapseProgress.value = (_collapseProgress.value + delta).coerceIn(0f, 1f)
-        composeTraceEndSection()
     }
 
     /**
@@ -244,7 +219,6 @@ class CalendarViewModel(
      * 拖拽超过阈值时自动折叠到周视图，否则回弹到月视图。
      */
     fun onDragEnd() {
-        composeTraceBeginSection("VM:collapseProgress:onDragEnd")
         val progress = _collapseProgress.value
         if (progress > COLLAPSE_THRESHOLD) {
             _isCollapsed.value = true
@@ -253,7 +227,6 @@ class CalendarViewModel(
             _isCollapsed.value = false
             _collapseProgress.value = 0f
         }
-        composeTraceEndSection()
     }
 
     /**
@@ -262,11 +235,7 @@ class CalendarViewModel(
      * @param delta 拖拽增量，已归一化到 [0,1] 区间
      */
     fun onExpandDrag(delta: Float) {
-        composeTraceBeginSection("VM:collapseProgress:onExpandDrag")
-        val old = _collapseProgress.value
         _collapseProgress.value = (_collapseProgress.value + delta).coerceIn(0f, 1f)
-        logd(TAG_VM, "onExpandDrag: delta=$delta old=$old new=${_collapseProgress.value}")
-        composeTraceEndSection()
     }
 
     /**
@@ -275,19 +244,14 @@ class CalendarViewModel(
      * 下拉超过阈值时自动展开到月视图，否则回弹到周视图。
      */
     fun onExpandDragEnd() {
-        composeTraceBeginSection("VM:collapseProgress:onExpandDragEnd")
         val progress = _collapseProgress.value
-        val result = if (progress < (1 - COLLAPSE_THRESHOLD)) {
+        if (progress < (1 - COLLAPSE_THRESHOLD)) {
             _isCollapsed.value = false
             _collapseProgress.value = 0f
-            "EXPANDED"
         } else {
             _isCollapsed.value = true
             _collapseProgress.value = 1f
-            "COLLAPSED (bounce back)"
         }
-        logd(TAG_VM, "onExpandDragEnd: progress=$progress threshold=${1 - COLLAPSE_THRESHOLD} result=$result")
-        composeTraceEndSection()
     }
 
     /**
@@ -302,9 +266,7 @@ class CalendarViewModel(
         val week1Monday = jan4.minus(DatePeriod(days = jan4DayOfWeek))
         val diff = week1Monday.daysUntil(date)
         val weekNumber = diff / 7 + 1
-        return if (weekNumber < 1) {
-            getIsoWeekNumber(LocalDate(date.year - 1, 12, 28))
-        } else if (weekNumber > getIsoWeeksInYear(date.year)) {
+        return if (weekNumber > getIsoWeeksInYear(date.year)) {
             1
         } else {
             weekNumber
@@ -325,14 +287,16 @@ class CalendarViewModel(
      *
      * 网格行数按实际需要计算（4/5/6行），每行7格，首行从该月1号所在周的周一开始。
      *
+     * 注意：此方法当前无 UI 调用方，UI 层使用 [CalendarMonthPage] 内的 generateMonthDays；
+     * 保留此方法供测试覆盖和未来复用（含 isToday/isSelected 字段语义）。
+     *
      * @param year 年份
      * @param month 月份（1-12）
      * @return 日历网格列表，每项包含日期、是否当月、是否今天、是否选中
      */
     fun getMonthDays(year: Int, month: Int): List<CalendarDay> {
-        composeTraceBeginSection("getMonthDays:$year-$month")
         val info = getMonthGridInfo(year, month)
-        val result = (0 until info.totalDays).map { i ->
+        return (0 until info.totalDays).map { i ->
             val date = info.startDate.plus(DatePeriod(days = i))
             CalendarDay(
                 date = date,
@@ -341,7 +305,5 @@ class CalendarViewModel(
                 isSelected = date == selectedDate.value
             )
         }
-        composeTraceEndSection()
-        return result
     }
 }

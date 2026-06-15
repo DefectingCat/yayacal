@@ -2,8 +2,6 @@
 
 纯 Android + Jetpack Compose 日历应用。功能：农历/节气/节日、个人班次排期（WORK/OFF 循环）、月/周/年三视图。
 
-> **README 与实际不符**：README 提及 "Kotlin Multiplatform / iOS"，实际为纯 Android 项目。模块名为 `:core` 和 `:app`，无 `:shared` 或 `:androidApp`。
-
 ## 模块结构
 
 | 模块 | 类型 | 职责 |

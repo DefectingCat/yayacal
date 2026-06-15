@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
-import plus.rua.project.util.logd
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
@@ -33,8 +32,6 @@ import kotlinx.datetime.plus
 import plus.rua.project.DayCellInfo
 import plus.rua.project.LunarCache
 import plus.rua.project.ShiftKind
-
-private const val TAG_CMP = "CalendarExpandAnim"
 
 
 /**
@@ -108,16 +105,6 @@ fun CalendarMonthPage(
     val weeks = remember(days) { days.chunked(7) }
     val anchorIndex = remember(year, month, selectedDate) {
         weeks.indexOfFirst { week -> week.any { it.date == selectedDate } }
-    }
-
-    // 全局动画参数日志（每次重组）
-    val pageFrameNs = System.nanoTime()
-    val totalCells = weeks.size * 7
-    logd(TAG_CMP) {
-        "Page[$year-$month]: anchorIndex=$anchorIndex weeksSize=${weeks.size} totalCells=$totalCells " +
-            "phase1End=${if (anchorIndex > 0 && weeks.size > 1) anchorIndex.toFloat() / (weeks.size - 1) else 0f} " +
-            "effectiveWeeks=$effectiveWeeks rowHeightPx=$rowHeightPx " +
-            "collapseProgress=$collapseProgress lunarMapSize=${lunarDataMap.size} frameNs=$pageFrameNs"
     }
 
     val totalHeightDp = if (rowHeightPx > 0) {
@@ -214,17 +201,6 @@ private fun WeekRow(
         isAbove -> (1f - phase1).coerceIn(0f, 1f)
         isBelow -> (1f - phase2).coerceIn(0f, 1f)
         else -> 1f
-    }
-
-    val frameTimeNs = System.nanoTime()
-    logd(TAG_CMP) {
-        "WeekRow[$weekIndex]: " +
-            "isAnchor=$isAnchor isAbove=$isAbove isBelow=$isBelow " +
-            "phase1=$phase1 phase2=$phase2 phase1End=$phase1End " +
-            "belowRowsHeight=$belowRowsHeight rowHeightPx=$rowHeightPx " +
-            "yOffsetPx=$yOffsetPx rowAlpha=$rowAlpha " +
-            "collapseProgress=$collapseProgress " +
-            "frameNs=$frameTimeNs"
     }
 
     if (rowAlpha > 0.01f) {

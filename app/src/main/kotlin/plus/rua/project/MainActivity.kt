@@ -13,13 +13,13 @@ class MainActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 CalendarMonthView(
-                onNavigateToAbout = {
-                    startActivityWithSlide(Intent(this, AboutActivity::class.java))
-                },
-                onNavigateToTools = {
-                    startActivityWithSlide(Intent(this, ToolsActivity::class.java))
-                }
-            )
+                    onNavigateToAbout = {
+                        startActivityWithSlide(Intent(this, AboutActivity::class.java))
+                    },
+                    onNavigateToTools = {
+                        startActivityWithSlide(Intent(this, ToolsActivity::class.java))
+                    }
+                )
             }
         }
     }

@@ -19,8 +19,8 @@
 - Kotlin 2.3 · Jetpack Compose · Material 3
 - `kotlinx-datetime` 处理所有日期逻辑
 - `tyme4kt` 提供农历、节气与传统节日
-- `sketch` 渲染 GIF 动画
-- 双模块：`:core`（UI + 逻辑） · `:app`（薄壳）
+- `sketch` 渲染动画 WebP
+- 三模块：`:core`（UI + 逻辑） · `:app`（薄壳） · `:macrobenchmark`（Baseline Profile 生成）
 
 ## 构建
 

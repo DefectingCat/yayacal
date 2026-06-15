@@ -35,7 +35,6 @@ android {
         }
         release {
             isMinifyEnabled = false
-            consumerProguardFiles("proguard-rules.pro")
             buildConfigField("boolean", "ENABLE_TRACE", "false")
         }
         create("trace") {

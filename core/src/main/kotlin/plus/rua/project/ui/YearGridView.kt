@@ -23,11 +23,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import plus.rua.project.util.logd
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -82,14 +79,6 @@ fun YearGridView(
     onMonthClick: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val enterT = System.nanoTime()
-    logd("AnimLog", "[YearGridView] ★★★ ENTER year=$year selectedMonth=$selectedMonth t=$enterT")
-    androidx.compose.runtime.DisposableEffect(year) {
-        logd("AnimLog", "[YearGridView] DisposableEffect attached year=$year")
-        onDispose {
-            logd("AnimLog", "[YearGridView] ★★★ LEAVE year=$year alive=${(System.nanoTime() - enterT) / 1_000_000}ms")
-        }
-    }
     composeTraceBeginSection("YearGridView:$year")
 
     // P0-F: 主题色在 YearGridView 级别一次性读取并缓存

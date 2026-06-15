@@ -5,19 +5,15 @@ import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.PagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
-import plus.rua.project.util.logd
 import androidx.compose.ui.draw.alpha
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
@@ -80,14 +76,6 @@ fun CalendarPager(
         derivedStateOf { pagerState.currentPage }
     }
 
-    var lastLoggedPage by remember { mutableIntStateOf(-1) }
-    SideEffect {
-        if (lastLoggedPage != pagerState.currentPage) {
-            lastLoggedPage = pagerState.currentPage
-            logd("AnimLog", "[CalendarPager] page=${pagerState.currentPage} settledPage=${pagerState.settledPage} offsetFraction=${pagerState.currentPageOffsetFraction}")
-        }
-    }
-
     HorizontalPager(
         state = pagerState,
         beyondViewportPageCount = 0,
@@ -102,9 +90,6 @@ fun CalendarPager(
             pageOffset
         }
         val (year, month) = pageToYearMonth(page, initialYear, initialMonth)
-        if (isCurrentPage) {
-            logd("AnimLog", "[CalendarPager] Compose page=$page ($year-$month) alpha=$alpha pageOffset=$pageOffset")
-        }
         composeTraceBeginSection("CalendarPager:Page:$year-$month")
         CalendarMonthPage(
             year = year,
@@ -112,7 +97,6 @@ fun CalendarPager(
             selectedDate = selectedDate,
             today = today,
             onDateClick = { date ->
-                val clickT = System.nanoTime()
                 onDateClick(date)
                 // 点击跨月日期时，滚动到该月对应的页
                 val clickedYear = date.year
@@ -121,7 +105,6 @@ fun CalendarPager(
                     val targetPage =
                         yearMonthToPage(clickedYear, clickedMonth, initialYear, initialMonth)
                     if (targetPage != pagerState.currentPage) {
-                        logd("AnimLog", "[CalendarPager] Cross-month click date=$date targetPage=$targetPage t=$clickT")
                         coroutineScope.launch {
                             pagerState.animateScrollToPage(targetPage)
                         }
