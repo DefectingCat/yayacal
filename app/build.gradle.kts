@@ -91,6 +91,7 @@ android {
 dependencies {
     implementation(project(":core"))
 
+    implementation(libs.androidx.core.splashscreen)
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.activity.compose)
     implementation(libs.androidx.profileinstaller)
