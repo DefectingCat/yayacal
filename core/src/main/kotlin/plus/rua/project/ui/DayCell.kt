@@ -105,9 +105,9 @@ fun DayCell(
             holidayEdgeInfo = holidayEdgeInfo,
             cellIndex = cellIndex,
             onClick = onClick,
-            modifier = modifier,
             interactionSource = interactionSource,
             lunarData = lunarData,
+            modifier = modifier,
         )
     } else {
         val computed by produceState(
@@ -127,9 +127,9 @@ fun DayCell(
             holidayEdgeInfo = holidayEdgeInfo,
             cellIndex = cellIndex,
             onClick = onClick,
-            modifier = modifier,
             interactionSource = interactionSource,
             lunarData = computed,
+            modifier = modifier,
         )
     }
 }
@@ -145,9 +145,9 @@ private fun DayCellImpl(
     holidayEdgeInfo: HolidayEdgeInfo?,
     cellIndex: Int,
     onClick: () -> Unit,
-    modifier: Modifier,
     interactionSource: MutableInteractionSource,
     lunarData: DayCellInfo,
+    modifier: Modifier,
 ) {
     val isBirthday = lunarData.isBirthday
     var birthdayClickTick by remember(date) { mutableIntStateOf(0) }
@@ -376,7 +376,7 @@ private fun DayCellImpl(
         if (isBirthday) {
             Icon(
                 painter = painterResource(R.drawable.ic_birthday_crown),
-                contentDescription = "生日",
+                contentDescription = null,
                 tint = Color.Unspecified,
                 modifier = Modifier
                     .align(Alignment.TopStart)
