@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!--
-  Adaptive Icon 前景: 引用 mipmap 中密度分桶的 foreground 位图,
-  避免矢量化位图主体的质量损失。
--->
-<mipmap xmlns:android="http://schemas.android.com/apk/res/android"
-    android:src="@mipmap/ic_launcher_foreground" />
