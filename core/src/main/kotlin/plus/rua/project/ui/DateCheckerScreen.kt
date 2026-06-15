@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -453,7 +454,23 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             null -> productionDate.toEpochMillis()
         }
 
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        val productionMillis = productionDate.toEpochMillis()
+        // Row 日期选择器禁选早于生产日期(到期日不应在生产之前);
+        // Production 选择器本身不受限制。当前 BOM 无 SelectableDates.AllDates,
+        // 用空实现 object 等价于默认全允许(default 方法均返回 true)。
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialMillis,
+            selectableDates = when (datePickerTarget) {
+                is DatePickerTarget.Row -> object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                        utcTimeMillis >= productionMillis
+
+                    override fun isSelectableYear(year: Int): Boolean =
+                        year >= productionDate.year
+                }
+                else -> object : SelectableDates {}
+            }
+        )
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
