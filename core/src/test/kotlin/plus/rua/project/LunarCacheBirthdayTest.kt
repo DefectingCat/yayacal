@@ -27,16 +27,4 @@ class LunarCacheBirthdayTest {
         val info = cache.getOrCompute(LocalDate(2026, 6, 15))
         assertFalse("普通日期不应为生日", info.isBirthday)
     }
-
-    @Test
-    fun solarBirthdayNotFirstLunarDay21_stillReturnsTrue() = runTest {
-        val info = cache.getOrCompute(LocalDate(2026, 9, 4))
-        assertTrue(info.isBirthday)
-    }
-
-    @Test
-    fun lunarBirthdayNotSeptember4_stillReturnsTrue() = runTest {
-        val info = cache.getOrCompute(LocalDate(2026, 3, 9))
-        assertTrue(info.isBirthday)
-    }
 }

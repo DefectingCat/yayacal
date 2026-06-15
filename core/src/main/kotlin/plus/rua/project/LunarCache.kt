@@ -75,8 +75,11 @@ class LunarCache(
         val lunarDay = solarDay.getLunarDay()
         val lunarMonth = lunarDay.getLunarMonth()
         val lunarMonthName = lunarMonth.getName()
-        val isBirthday = (date.month.number == 9 && date.day == 4) ||
-            (lunarDay.getLunarMonth().getIndexInYear() == 0 && lunarDay.day == 21)
+        // 阳历生日：每年 9 月 4 日
+        val isSolarBirthday = date.month.number == 9 && date.day == 4
+        // 农历生日：每年正月二十一（tyme4kt 中正月 indexInYear = 0）
+        val isLunarBirthday = lunarMonth.getIndexInYear() == 0 && lunarDay.day == 21
+        val isBirthday = isSolarBirthday || isLunarBirthday
 
         // 农历传统节日（仅当天）
         val lunarFestival = lunarDay.getFestival()
@@ -118,6 +121,7 @@ class LunarCache(
  * @param annotationText 底部标注文字（农历/节气/节日）
  * @param isAnnotationHighlight 是否为高亮标注（节日/节气）
  * @param holidayBadge 法定调休角标（"班"/"休"/null）
+ * @param isBirthday 是否为生日
  */
 data class DayCellInfo(
     val annotationText: String,
