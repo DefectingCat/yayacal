@@ -38,8 +38,10 @@ import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
@@ -64,11 +66,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
@@ -542,8 +541,10 @@ private fun ProductionDateCard(
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                CalendarIcon(
-                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                Icon(
+                    imageVector = Icons.Filled.DateRange,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -629,8 +630,10 @@ private fun ExpiryCard(
 
                 Spacer(modifier = Modifier.width(8.dp))
 
-                ArrowRightIcon(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
                     modifier = Modifier.size(20.dp)
                 )
 
@@ -656,8 +659,10 @@ private fun ExpiryCard(
                             onClick = onShowDatePicker,
                             modifier = Modifier.size(32.dp)
                         ) {
-                            CalendarIcon(
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            Icon(
+                                imageVector = Icons.Filled.DateRange,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -707,61 +712,6 @@ private fun ExpiryCard(
 
     }
 }
-
-// region Icons
-
-@Composable
-private fun CalendarIcon(color: Color, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.Canvas(modifier = modifier.size(24.dp)) {
-        val strokeWidth = 1.5f.dp.toPx()
-        val pad = 3.dp.toPx()
-        val topY = pad + 4.dp.toPx()
-        val bottomY = size.height - pad
-        val leftX = pad
-        val rightX = size.width - pad
-
-        drawLine(color, Offset(leftX, topY), Offset(rightX, topY), strokeWidth)
-        drawLine(color, Offset(leftX, topY), Offset(leftX, bottomY), strokeWidth)
-        drawLine(color, Offset(rightX, topY), Offset(rightX, bottomY), strokeWidth)
-        drawLine(color, Offset(leftX, bottomY), Offset(rightX, bottomY), strokeWidth)
-
-        val h1 = size.width * 0.3f
-        val h2 = size.width * 0.7f
-        drawLine(color, Offset(h1, pad), Offset(h1, topY), strokeWidth)
-        drawLine(color, Offset(h2, pad), Offset(h2, topY), strokeWidth)
-    }
-}
-
-@Composable
-private fun ArrowRightIcon(color: Color, modifier: Modifier = Modifier) {
-    androidx.compose.foundation.Canvas(modifier = modifier) {
-        val strokeWidth = 2.dp.toPx()
-        val y = size.height / 2
-        drawLine(
-            color = color,
-            start = Offset(0f, y),
-            end = Offset(size.width * 0.65f, y),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = color,
-            start = Offset(size.width * 0.4f, y - size.height * 0.3f),
-            end = Offset(size.width * 0.65f, y),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = color,
-            start = Offset(size.width * 0.4f, y + size.height * 0.3f),
-            end = Offset(size.width * 0.65f, y),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-    }
-}
-
-// endregion
 
 // region Helpers
 
