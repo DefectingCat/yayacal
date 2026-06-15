@@ -172,7 +172,7 @@ fun BottomCard(
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
-            AnimatedGif(
+            AnimatedWebp(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)

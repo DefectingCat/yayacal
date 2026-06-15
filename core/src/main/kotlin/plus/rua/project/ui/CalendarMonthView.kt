@@ -580,7 +580,7 @@ private fun BottomCardArea(
         slideAnim.animateTo(if (isYearView) 1f else 0f, tween(200))
     }
     val slideProgress = slideAnim.value
-    // 延迟一帧显示 BottomCard，避免 AnimatedGif 和 lunar 计算阻塞首帧
+    // 延迟一帧显示 BottomCard，避免 AnimatedWebp 和 lunar 计算阻塞首帧
     var hasLoaded by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         delay(32)

@@ -31,7 +31,7 @@ private val WEBP_FILES = (1..152).map { "${it.toString().padStart(3, '0')}.webp"
  * @param seed 用于控制重新随机时机的 key，变化时重新选择 WebP
  */
 @Composable
-fun AnimatedGif(
+fun AnimatedWebp(
     modifier: Modifier = Modifier,
     contentDescription: String? = null,
     seed: Any? = null,
