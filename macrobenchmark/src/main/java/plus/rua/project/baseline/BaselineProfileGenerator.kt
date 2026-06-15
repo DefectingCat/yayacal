@@ -55,16 +55,6 @@ class BaselineProfileGenerator {
     private fun MacrobenchmarkScope.safeWaitCalendarPager(timeout: Long = 5000): UiObject2? =
         device.wait(Until.findObject(By.res("calendar_pager")), timeout)
 
-    private fun MacrobenchmarkScope.waitForMainActivity() {
-        for (i in 1..5) {
-            val pager = device.wait(Until.findObject(By.res("calendar_pager")), 2000)
-            if (pager != null) return
-            val fab = device.wait(Until.findObject(By.res("fab_menu")), 1000)
-            if (fab != null) return
-            Thread.sleep(500)
-        }
-    }
-
     @Test
     fun generateAppStartupProfile() {
         baselineProfileRule.collect(
@@ -99,7 +89,8 @@ class BaselineProfileGenerator {
                 device.waitForIdle()
 
                 // ── 4. 点击"今天"按钮跳回当月（覆盖 MonthHeader 今天按钮） ──
-                val todayBtn = device.wait(Until.findObject(By.text("今天")), 3000)
+                // 模拟器上 UI 渲染/动画较慢，使用较长超时等待按钮渲染
+                val todayBtn = device.wait(Until.findObject(By.text("今天")), 10000)
                 assertNotNull("今天按钮必须出现", todayBtn)
                 todayBtn!!.click()
                 device.waitForIdle()

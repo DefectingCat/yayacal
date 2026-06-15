@@ -14,9 +14,9 @@ class MainActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
-            // 在首次 composition 绘制完成后报告 fully drawn，用于准确的启动时间度量。
-            ReportDrawn()
             YaYaTheme {
+                // 在主题内的首次 composition 绘制完成后报告 fully drawn，用于准确的启动时间度量。
+                ReportDrawn()
                 CalendarMonthView(
                     onNavigateToAbout = {
                         startActivityWithSlide(Intent(this, AboutActivity::class.java))
