@@ -143,8 +143,9 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var productionDate by remember { mutableStateOf(saved?.first ?: today) }
     var rows by remember {
         mutableStateOf(
+            // clampExpiryDays 兜底:清理本修复前可能持久化的负数旧数据
             (saved?.second ?: defaultRows).mapIndexed { index, days ->
-                ExpiryRow(index, days)
+                ExpiryRow(index, clampExpiryDays(days))
             }
         )
     }
