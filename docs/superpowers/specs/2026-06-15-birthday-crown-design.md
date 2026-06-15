@@ -46,10 +46,10 @@ data class DayCellInfo(
 
 ```kotlin
 val isBirthday = (date.month.number == 9 && date.day == 4) ||
-    (lunarDay.getLunarMonth().getMonthInYear() == 1 && lunarDay.getDayInMonth() == 21)
+    (lunarDay.getLunarMonth().getIndexInYear() == 0 && lunarDay.day == 21)
 ```
 
-> 注意：`tyme4kt` 的 API 名称以实际导入版本为准；若 `getMonthInYear()` / `getDayInMonth()` 名称不同，在实现阶段按实际 API 调整。
+> 注意：`tyme4kt` 中 `LunarMonth.getIndexInYear()` 返回 0-based 索引（正月 = 0），`LunarDay.day` 是 Kotlin 属性，返回农历日。
 
 ## 4. 资源处理
 

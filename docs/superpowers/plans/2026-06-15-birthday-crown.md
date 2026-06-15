@@ -162,7 +162,7 @@ private fun compute(date: LocalDate): DayCellInfo {
     val lunarMonthName = lunarMonth.getName()
 
     val isBirthday = (date.month.number == 9 && date.day == 4) ||
-        (lunarDay.getLunarMonth().getIndexInYear() == 1 && lunarDay.getDay() == 21)
+        (lunarDay.getLunarMonth().getIndexInYear() == 0 && lunarDay.day == 21)
 
     // 农历传统节日（仅当天）
     val lunarFestival = lunarDay.getFestival()
@@ -365,4 +365,4 @@ git commit -m "style: apply spotless formatting"
 3. **Type consistency**
    - `DayCellInfo.isBirthday` 在 Task 2 定义，Task 3 读取。
    - `R.drawable.ic_birthday_crown` 在 Task 1 创建，Task 3 引用。
-   - tyme4kt API 使用 `getIndexInYear()` 与 `getDay()`，已通过本地 JVM 脚本验证。
+   - tyme4kt API 使用 `LunarMonth.getIndexInYear()`（0-based，正月 = 0）与 `LunarDay.day`（Kotlin 属性），已通过本地 JVM 脚本验证。
