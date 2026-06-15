@@ -745,6 +745,17 @@ private fun ArrowRightIcon(color: Color, modifier: Modifier = Modifier) {
 
 // region Helpers
 
+/**
+ * 将保质期天数钳制到合法范围 [0, +∞)。
+ *
+ * 天数语义上不能为负(到期日不应早于生产日期)。
+ * 无论来自天数输入框还是日期选择器,写入 [ExpiryRow.days] 前都应经过此函数。
+ *
+ * @param days 原始天数
+ * @return 钳制后的天数,最小为 0
+ */
+fun clampExpiryDays(days: Int): Int = days.coerceAtLeast(0)
+
 private fun LocalDate.toEpochMillis(): Long =
     this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
 
