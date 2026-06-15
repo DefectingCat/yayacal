@@ -43,6 +43,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -142,8 +143,9 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
     var productionDate by remember { mutableStateOf(saved?.first ?: today) }
     var rows by remember {
         mutableStateOf(
+            // clampExpiryDays 兜底:清理本修复前可能持久化的负数旧数据
             (saved?.second ?: defaultRows).mapIndexed { index, days ->
-                ExpiryRow(index, days)
+                ExpiryRow(index, clampExpiryDays(days))
             }
         )
     }
@@ -365,7 +367,8 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                         }
                                     },
                                     onExpiryDateChange = { newDate ->
-                                        val newDays = productionDate.daysUntil(newDate)
+                                        val rawDays = productionDate.daysUntil(newDate)
+                                        val newDays = clampExpiryDays(rawDays)
                                         rows = rows.map {
                                             if (it.id == row.id) it.copy(days = newDays) else it
                                         }
@@ -452,7 +455,23 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             null -> productionDate.toEpochMillis()
         }
 
-        val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
+        val productionMillis = productionDate.toEpochMillis()
+        // Row 日期选择器禁选早于生产日期(到期日不应在生产之前);
+        // Production 选择器本身不受限制。当前 BOM 无 SelectableDates.AllDates,
+        // 用空实现 object 等价于默认全允许(default 方法均返回 true)。
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialMillis,
+            selectableDates = when (datePickerTarget) {
+                is DatePickerTarget.Row -> object : SelectableDates {
+                    override fun isSelectableDate(utcTimeMillis: Long): Boolean =
+                        utcTimeMillis >= productionMillis
+
+                    override fun isSelectableYear(year: Int): Boolean =
+                        year >= productionDate.year
+                }
+                else -> object : SelectableDates {}
+            }
+        )
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -463,7 +482,8 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         when (val target = datePickerTarget) {
                             is DatePickerTarget.Production -> productionDate = selected
                             is DatePickerTarget.Row -> {
-                                val newDays = productionDate.daysUntil(selected)
+                                val rawDays = productionDate.daysUntil(selected)
+                                val newDays = clampExpiryDays(rawDays)
                                 rows = rows.map {
                                     if (it.id == target.rowId) it.copy(days = newDays) else it
                                 }
@@ -744,6 +764,17 @@ private fun ArrowRightIcon(color: Color, modifier: Modifier = Modifier) {
 // endregion
 
 // region Helpers
+
+/**
+ * 将保质期天数钳制到合法范围 [0, +∞)。
+ *
+ * 天数语义上不能为负(到期日不应早于生产日期)。
+ * 无论来自天数输入框还是日期选择器,写入 [ExpiryRow.days] 前都应经过此函数。
+ *
+ * @param days 原始天数
+ * @return 钳制后的天数,最小为 0
+ */
+fun clampExpiryDays(days: Int): Int = days.coerceAtLeast(0)
 
 private fun LocalDate.toEpochMillis(): Long =
     this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
