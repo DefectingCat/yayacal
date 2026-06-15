@@ -1,25 +1,25 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-05-22 | Updated: 2026-05-22 -->
+<!-- Generated: 2026-05-22 | Updated: 2026-06-15 -->
 
 # assets
 
 ## Purpose
-原始资产文件目录，存放不需要 Android 资源系统处理的二进制文件。当前包含 GIF 动画资源。
+`:app` 模块原始资产文件目录。当前为空（2026-06 清理后）。
 
 ## Key Files
 
-无顶层文件
+无
 
 ## Subdirectories
 
-| Directory | Purpose |
-|-----------|---------|
-| `gifs/` | GIF 动画资源（见 `gifs/AGENTS.md`） |
+无（原 `gifs/` 子目录的镜像说明已删除 —— 实际 UI/WebP 资源只在 `:core`）
 
 ## For AI Agents
 
 ### Working In This Directory
-- 新增原始资源文件直接放入此目录或其子目录
-- 通过 `AssetManager` 在运行时访问
+- 历史上此目录曾放 `app_icon.png`/`app_icon_original.png` 作图标源，因无代码引用已于 2026-06 删除
+- 应用内图标用 `core/src/main/assets/app_icon.webp`（`Platform.kt`）
+- 启动器图标用 `app/src/main/res/mipmap-*/`（含 Adaptive Icon）
+- **不要再把图标源 PNG 放这里**：会被打进 APK。源文件放仓库外或 `.assets-source/`
 
 <!-- MANUAL: -->
