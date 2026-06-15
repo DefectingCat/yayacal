@@ -3,7 +3,7 @@
 纯 Android + Jetpack Compose 日历应用，支持农历/节气/节日、个人班次排期，提供月/周/年三种视图。
 
 <div>
-    <img src="app/src/main/assets/app_icon.png" />
+    <img src="core/src/main/assets/app_icon.webp" width="128" height="128" />
 </div>
 
 ## 特性
