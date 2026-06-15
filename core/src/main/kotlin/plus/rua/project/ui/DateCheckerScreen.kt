@@ -365,7 +365,8 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                                         }
                                     },
                                     onExpiryDateChange = { newDate ->
-                                        val newDays = productionDate.daysUntil(newDate)
+                                        val rawDays = productionDate.daysUntil(newDate)
+                                        val newDays = clampExpiryDays(rawDays)
                                         rows = rows.map {
                                             if (it.id == row.id) it.copy(days = newDays) else it
                                         }
@@ -463,7 +464,8 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         when (val target = datePickerTarget) {
                             is DatePickerTarget.Production -> productionDate = selected
                             is DatePickerTarget.Row -> {
-                                val newDays = productionDate.daysUntil(selected)
+                                val rawDays = productionDate.daysUntil(selected)
+                                val newDays = clampExpiryDays(rawDays)
                                 rows = rows.map {
                                     if (it.id == target.rowId) it.copy(days = newDays) else it
                                 }
