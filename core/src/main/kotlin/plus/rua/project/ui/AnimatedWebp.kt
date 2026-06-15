@@ -15,11 +15,15 @@ import com.github.panpf.sketch.rememberAsyncImageState
 import com.github.panpf.sketch.request.ImageOptions
 import com.github.panpf.sketch.request.repeatCount
 import plus.rua.project.getWebpUri
+import plus.rua.project.shared.BuildConfig
 
 /**
- * WebP 动画文件名列表（001.webp ~ 152.webp）。
+ * WebP 动画文件名列表，由构建期 `BuildConfig.WEBP_FILES` 注入
+ * （见 `core/build.gradle.kts` 扫描 `assets/animations/` 的 `buildConfigField`）。
+ *
+ * `internal` 让同模块测试可直接访问（见 `AnimatedWebpFilesTest`）。
  */
-private val WEBP_FILES = (1..152).map { "${it.toString().padStart(3, '0')}.webp" }
+internal val WEBP_FILES: List<String> = BuildConfig.WEBP_FILES.toList()
 
 /**
  * 显示动画 WebP 图片，切换日期时随机选择一个。
