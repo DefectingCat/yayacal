@@ -75,23 +75,25 @@ class LunarCache(
         val lunarDay = solarDay.getLunarDay()
         val lunarMonth = lunarDay.getLunarMonth()
         val lunarMonthName = lunarMonth.getName()
+        val isBirthday = (date.month.number == 9 && date.day == 4) ||
+            (lunarDay.getLunarMonth().getIndexInYear() == 0 && lunarDay.day == 21)
 
         // 农历传统节日（仅当天）
         val lunarFestival = lunarDay.getFestival()
         if (lunarFestival != null) {
-            return DayCellInfo(lunarFestival.getName(), true, holidayBadge, lunarMonthName)
+            return DayCellInfo(lunarFestival.getName(), true, holidayBadge, lunarMonthName, isBirthday)
         }
 
         // 节气（当天才显示）
         val termDay = solarDay.getTermDay()
         if (termDay.getDayIndex() == 0) {
-            return DayCellInfo(termDay.getSolarTerm().getName(), true, holidayBadge, lunarMonthName)
+            return DayCellInfo(termDay.getSolarTerm().getName(), true, holidayBadge, lunarMonthName, isBirthday)
         }
 
         // 公历节日（仅当天）
         val solarFestival = solarDay.getFestival()
         if (solarFestival != null) {
-            return DayCellInfo(solarFestival.getName(), true, holidayBadge, lunarMonthName)
+            return DayCellInfo(solarFestival.getName(), true, holidayBadge, lunarMonthName, isBirthday)
         }
 
         // 默认：农历日期
@@ -101,7 +103,7 @@ class LunarCache(
         } else {
             name
         }
-        return DayCellInfo(text, false, holidayBadge, lunarMonthName)
+        return DayCellInfo(text, false, holidayBadge, lunarMonthName, isBirthday)
     }
 
     companion object {
@@ -121,5 +123,6 @@ data class DayCellInfo(
     val annotationText: String,
     val isAnnotationHighlight: Boolean,
     val holidayBadge: String?,
-    val lunarMonthName: String? = null
+    val lunarMonthName: String? = null,
+    val isBirthday: Boolean = false
 )
