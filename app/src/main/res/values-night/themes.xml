@@ -3,11 +3,7 @@
     <style name="Theme.YaYa" parent="@android:style/Theme.Material.NoActionBar" />
 
     <style name="Theme.YaYa.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/splash_background</item>
+        <item name="windowSplashScreenBackground">@drawable/launch_bg</item>
         <item name="postSplashScreenTheme">@style/Theme.YaYa</item>
-    </style>
-
-    <style name="Theme.YaYa.Splash" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/splash_background</item>
     </style>
 </resources>
