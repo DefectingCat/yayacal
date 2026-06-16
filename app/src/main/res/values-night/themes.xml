@@ -2,8 +2,15 @@
 <resources>
     <style name="Theme.YaYa" parent="@android:style/Theme.Material.NoActionBar" />
 
+    <!--
+        启动主题：用于 MAIN/LAUNCHER Activity。
+    -->
     <style name="Theme.YaYa.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@drawable/launch_bg</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
         <item name="postSplashScreenTheme">@style/Theme.YaYa</item>
+    </style>
+
+    <style name="Theme.YaYa.Splash" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/splash_background</item>
     </style>
 </resources>
