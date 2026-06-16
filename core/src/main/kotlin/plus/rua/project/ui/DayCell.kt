@@ -60,7 +60,8 @@ enum class DayCellState {
 }
 
 /**
- * 单个日期单元格，显示日期数字并支持选中/今天/非当月状态；生日日期左上角显示金色皇冠。
+ * 单个日期单元格，显示日期数字并支持选中/今天/非当月状态；玫瑰日日期左上角显示玫瑰图标，
+ * 生日日期左上角显示金色皇冠；若两者重合则优先显示玫瑰图标。
  *
  * @param date 日期
  * @param isCurrentMonth 是否属于当前显示月份
@@ -156,6 +157,16 @@ private fun DayCellImpl(
         if (birthdayClickTick > 0) {
             crownScale.animateTo(1.4f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
             crownScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+        }
+    }
+
+    val isRoseDay = lunarData.isRoseDay
+    var roseClickTick by remember(date) { mutableIntStateOf(0) }
+    val roseScale = remember(date) { Animatable(1f) }
+    LaunchedEffect(roseClickTick) {
+        if (roseClickTick > 0) {
+            roseScale.animateTo(1.4f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+            roseScale.animateTo(1f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
         }
     }
 
@@ -321,7 +332,11 @@ private fun DayCellImpl(
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = {
-                        if (isBirthday) birthdayClickTick += 1
+                        if (isRoseDay) {
+                            roseClickTick += 1
+                        } else if (isBirthday) {
+                            birthdayClickTick += 1
+                        }
                         onClick()
                     }
                 ),
@@ -373,7 +388,24 @@ private fun DayCellImpl(
                 )
             }
         }
-        if (isBirthday) {
+        if (isRoseDay) {
+            Icon(
+                painter = painterResource(R.drawable.ic_rose),
+                contentDescription = null,
+                tint = Color.Unspecified,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .zIndex(1f)
+                    .padding(start = 2.dp, top = 2.dp)
+                    .size(14.dp)
+                    .graphicsLayer {
+                        rotationZ = -45f
+                        transformOrigin = TransformOrigin.Center
+                        scaleX = roseScale.value
+                        scaleY = roseScale.value
+                    }
+            )
+        } else if (isBirthday) {
             Icon(
                 painter = painterResource(R.drawable.ic_birthday_crown),
                 contentDescription = null,
