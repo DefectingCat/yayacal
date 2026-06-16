@@ -1,5 +1,5 @@
 <!-- Parent: ../../../../../AGENTS.md -->
-<!-- Generated: 2026-05-20 | Updated: 2026-05-20 -->
+<!-- Generated: 2026-05-20 | Updated: 2026-06-16 -->
 
 # ui
 
@@ -20,9 +20,10 @@
 | `DayCell.kt` | 单个日期单元格：支持选中/今天/班次状态样式 |
 | `BottomCard.kt` | 底部卡片：拖拽手柄，驱动折叠/展开手势，显示农历、节气、节假日和班次状态 |
 | `AboutScreen.kt` | 关于页面：应用信息、开源许可入口 |
+| `DogParkScreen.kt` | 小狗乐园彩蛋页面：全屏循环播放视频 |
 | `LicensesScreen.kt` | 许可证列表页面 |
 | `Licenses.kt` | 许可证数据（依赖项名称 + 许可证文本） |
-| `AnimatedGif.kt` | GIF 动画显示组件（基于 sketch） |
+| `AnimatedWebp.kt` | GIF 动画显示组件（基于 sketch） |
 | `CalendarUtils.kt` | 日历工具：pager 常量、页码↔日期转换算法 |
 
 ## Subdirectories
