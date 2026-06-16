@@ -34,6 +34,10 @@
             android:exported="false" />
 
         <activity
+            android:name=".DogParkActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".LicensesActivity"
             android:exported="false" />
 
