@@ -80,23 +80,25 @@ class LunarCache(
         // 农历生日：每年正月二十一（tyme4kt 中正月 indexInYear = 0）
         val isLunarBirthday = lunarMonth.getIndexInYear() == 0 && lunarDay.day == 21
         val isBirthday = isSolarBirthday || isLunarBirthday
+        // 玫瑰日：每年 10 月 16 日
+        val isRoseDay = date.month.number == 10 && date.day == 16
 
         // 农历传统节日（仅当天）
         val lunarFestival = lunarDay.getFestival()
         if (lunarFestival != null) {
-            return DayCellInfo(lunarFestival.getName(), true, holidayBadge, lunarMonthName, isBirthday)
+            return DayCellInfo(lunarFestival.getName(), true, holidayBadge, lunarMonthName, isBirthday, isRoseDay)
         }
 
         // 节气（当天才显示）
         val termDay = solarDay.getTermDay()
         if (termDay.getDayIndex() == 0) {
-            return DayCellInfo(termDay.getSolarTerm().getName(), true, holidayBadge, lunarMonthName, isBirthday)
+            return DayCellInfo(termDay.getSolarTerm().getName(), true, holidayBadge, lunarMonthName, isBirthday, isRoseDay)
         }
 
         // 公历节日（仅当天）
         val solarFestival = solarDay.getFestival()
         if (solarFestival != null) {
-            return DayCellInfo(solarFestival.getName(), true, holidayBadge, lunarMonthName, isBirthday)
+            return DayCellInfo(solarFestival.getName(), true, holidayBadge, lunarMonthName, isBirthday, isRoseDay)
         }
 
         // 默认：农历日期
@@ -106,7 +108,7 @@ class LunarCache(
         } else {
             name
         }
-        return DayCellInfo(text, false, holidayBadge, lunarMonthName, isBirthday)
+        return DayCellInfo(text, false, holidayBadge, lunarMonthName, isBirthday, isRoseDay)
     }
 
     companion object {
@@ -122,11 +124,13 @@ class LunarCache(
  * @param isAnnotationHighlight 是否为高亮标注（节日/节气）
  * @param holidayBadge 法定调休角标（"班"/"休"/null）
  * @param isBirthday 是否为生日
+ * @param isRoseDay 是否为玫瑰日（每年 10 月 16 日）
  */
 data class DayCellInfo(
     val annotationText: String,
     val isAnnotationHighlight: Boolean,
     val holidayBadge: String?,
     val lunarMonthName: String? = null,
-    val isBirthday: Boolean = false
+    val isBirthday: Boolean = false,
+    val isRoseDay: Boolean = false
 )
