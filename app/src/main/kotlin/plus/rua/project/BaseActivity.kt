@@ -57,4 +57,19 @@ abstract class BaseActivity : ComponentActivity() {
             overridePendingTransition(enterAnim, exitAnim)
         }
     }
+
+    /**
+     * 带 fade 进入动画的 startActivity。
+     */
+    protected fun startActivityWithFade(
+        intent: android.content.Intent,
+        @AnimRes enterAnim: Int = R.anim.fade_in,
+        @AnimRes exitAnim: Int = R.anim.fade_out
+    ) {
+        startActivity(intent)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            @Suppress("DEPRECATION") // API 34+ 使用 overrideActivityTransition，低版本仍用 overridePendingTransition 实现 fade 转场
+            overridePendingTransition(enterAnim, exitAnim)
+        }
+    }
 }

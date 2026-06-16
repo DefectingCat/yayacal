@@ -17,7 +17,9 @@ class AboutActivity : BaseActivity() {
                     onNavigateToLicenses = {
                         startActivityWithSlide(Intent(this, LicensesActivity::class.java))
                     },
-                    onNavigateToDogPark = {}
+                    onNavigateToDogPark = {
+                        startActivityWithFade(Intent(this, DogParkActivity::class.java))
+                    }
                 )
             }
         }
