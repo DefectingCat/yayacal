@@ -13,11 +13,12 @@ class AboutActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 AboutScreen(
-                onBack = { finishWithSlideBack() },
-                onNavigateToLicenses = {
-                    startActivityWithSlide(Intent(this, LicensesActivity::class.java))
-                }
-            )
+                    onBack = { finishWithSlideBack() },
+                    onNavigateToLicenses = {
+                        startActivityWithSlide(Intent(this, LicensesActivity::class.java))
+                    },
+                    onNavigateToDogPark = {}
+                )
             }
         }
     }

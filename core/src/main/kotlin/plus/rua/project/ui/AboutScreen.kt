@@ -1,5 +1,6 @@
 package plus.rua.project.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,18 +22,27 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import com.github.panpf.sketch.AsyncImage
+import kotlinx.coroutines.delay
 import plus.rua.project.AppInfo
 import plus.rua.project.getAppIconUri
 import plus.rua.project.getAppVersion
+
+private const val DOG_PARK_CLICK_THRESHOLD = 7
+private const val EASTER_EGG_TIMEOUT_MS = 1500L
 
 /**
  * 根据当前连续点击次数返回应显示的 Toast 文案。
@@ -52,6 +62,7 @@ internal fun getToastMessage(clickCount: Int): String? = when (clickCount) {
  *
  * @param onBack 返回回调
  * @param onNavigateToLicenses 跳转到开源许可页面回调
+ * @param onNavigateToDogPark 跳转到小狗乐园彩蛋页面回调
  * @param modifier 布局修饰符
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,8 +70,18 @@ internal fun getToastMessage(clickCount: Int): String? = when (clickCount) {
 fun AboutScreen(
     onBack: () -> Unit,
     onNavigateToLicenses: () -> Unit,
+    onNavigateToDogPark: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val context = LocalContext.current
+    var clickCount by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(clickCount) {
+        if (clickCount == 0) return@LaunchedEffect
+        delay(EASTER_EGG_TIMEOUT_MS)
+        clickCount = 0
+    }
+
     Box(
         modifier = modifier.fillMaxSize()
     ) {
@@ -118,7 +139,19 @@ fun AboutScreen(
 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                TextButton(onClick = { /* TODO */ }) {
+                TextButton(
+                    onClick = {
+                        clickCount++
+                        if (clickCount >= DOG_PARK_CLICK_THRESHOLD) {
+                            clickCount = 0
+                            onNavigateToDogPark()
+                        } else {
+                            getToastMessage(clickCount)?.let { message ->
+                                Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    }
+                ) {
                     Text(
                         text = "版本：${getAppVersion()}",
                         style = MaterialTheme.typography.bodyMedium,
