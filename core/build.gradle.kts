@@ -86,6 +86,8 @@ dependencies {
     implementation(libs.sketch.compose)
     implementation(libs.sketch.animated.webp)
     implementation(libs.androidx.profileinstaller)
+    implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.ui)
 
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:${libs.versions.kotlin.get()}")
     testImplementation(libs.kotlinx.coroutines.test)
