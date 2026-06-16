@@ -20,7 +20,7 @@
 - `kotlinx-datetime` 处理所有日期逻辑
 - `tyme4kt` 提供农历、节气与传统节日
 - `sketch` 渲染动画 WebP
-- 三模块：`:core`（UI + 逻辑） · `:app`（薄壳） · `:macrobenchmark`（Baseline Profile 生成）
+- 三模块：`:core`（UI + 逻辑） · `:app`（薄壳） · `:macrobenchmark`（Baseline Profile / Startup Profile 生成）
 
 ## 构建
 
@@ -37,8 +37,8 @@
 ./gradlew :core:testDebugUnitTest                          # 运行全部测试
 ./gradlew :core:testDebugUnitTest --tests "plus.rua.project.ui.CalendarUtilsTest"  # 运行单个测试
 
-# Baseline Profile（需要连接设备）
-./gradlew :macrobenchmark:updateBaselineProfile                       # 一键生成 + 自动复制到 :core
+# Baseline Profile / Startup Profile（需要连接设备）
+./gradlew :macrobenchmark:updateBaselineProfile       # 生成并复制两份 Profile 到 :core
 ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest               # 仅运行基准测试
 
 # 性能 Profiling（需要连接设备）

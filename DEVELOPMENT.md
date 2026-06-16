@@ -39,7 +39,7 @@ trace 中包含自定义标记：
 - `getMonthDays:*` — ViewModel 月份网格计算
 - `VM:collapseProgress:*` — 折叠动画拖拽（onDrag/onDragEnd/onExpandDrag/onExpandDragEnd）
 
-## Baseline Profile
+## Baseline Profile / Startup Profile
 
 ```bash
 # 编译 Android debug APK
@@ -48,28 +48,36 @@ trace 中包含自定义标记：
 # 安装到设备
 ./gradlew :app:installDebug
 
-# 编译 release APK（含 Baseline Profiles）
+# 编译 release APK（含 Baseline / Startup Profiles）
 ./gradlew :app:assembleRelease
 
+# 安装 benchmark 构建类型 APK
 ./gradlew :app:installBenchmark
 ```
 
-Baseline Profile 自动生成器。
+一键生成并复制到 `:core`：
 
-运行方式（一键生成 + 自动复制到 :core）：
-
-```
+```bash
 ./gradlew :macrobenchmark:updateBaselineProfile
 ```
 
+生成后会得到两份产物：
+
+| 产物 | 目标路径 | 用途 |
+|------|--------|------|
+| Baseline Profile | `core/src/main/baseline-prof.txt` | 指导 ART 做 AOT 编译 |
+| Startup Profile | `core/src/main/baselineProfiles/startup-prof.txt` | 指导 AGP 做 DEX layout 优化 |
+
 仅运行基准测试（不自动复制）：
 
-```
+```bash
 ./gradlew :macrobenchmark:connectedBenchmarkAndroidTest
 ```
 
 手动复制路径：
 `macrobenchmark/build/outputs/connected_android_test_additional_output/`
+
+注意：当前 `benchmark` 构建类型继承自 `release`（`isMinifyEnabled = true`），因此生成的文本 profile 会包含 R8 混淆后的类/方法名。AGP 在打包 APK/AAB 时会根据最终混淆映射将其转换为二进制 profile，这是正常行为。
 
 ## 模拟器
 

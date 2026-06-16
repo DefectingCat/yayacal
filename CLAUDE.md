@@ -29,7 +29,7 @@ Gradle configuration cache and build cache are enabled by default (`gradle.prope
 **Three-module structure:**
 - `:core` — all Compose UI, ViewModel, and business logic (`com.android.library`)
 - `:app` — thin Android shell (`MainActivity` → `App()`)
-- `:macrobenchmark` — Macrobenchmark module for Baseline Profile generation
+- `:macrobenchmark` — Macrobenchmark module for Baseline Profile / Startup Profile generation
 
 **Calendar UI composition** (all in `plus.rua.project.ui`):
 ```

@@ -8,7 +8,7 @@
 |------|------|------|
 | `:core` | `com.android.library` | 所有 Compose UI、ViewModel、业务逻辑 |
 | `:app` | `com.android.application` | 薄壳：MainActivity + Manifest + 主题 |
-| `:macrobenchmark` | `com.android.test` | Baseline Profile 生成 |
+| `:macrobenchmark` | `com.android.test` | Baseline Profile / Startup Profile 生成 |
 
 **铁律**：`:app` 不添加业务逻辑，所有代码写在 `:core`。
 
@@ -22,9 +22,9 @@
 ./gradlew spotlessApply                               # 格式化（ktlint）
 ```
 
-Baseline Profile 和性能追踪需连接设备：
+Baseline Profile / Startup Profile 和性能追踪需连接设备：
 ```bash
-./gradlew :macrobenchmark:updateBaselineProfile       # 生成 + 自动复制到 core/src/main/baseline-prof.txt
+./gradlew :macrobenchmark:updateBaselineProfile       # 生成并复制两份 Profile 到 :core
 ./scripts/profile.sh                                  # 默认 8 秒，输出到 logs/
 ```
 
@@ -78,8 +78,8 @@ Baseline Profile 和性能追踪需连接设备：
 | 文件 | 内容 |
 |------|------|
 | `CLAUDE.md` | 完整架构说明、组件树、动画机制、Pager 映射逻辑 |
-| `DEVELOPMENT.md` | 性能追踪、Baseline Profile、模拟器启动参数 |
+| `DEVELOPMENT.md` | 性能追踪、Baseline Profile / Startup Profile、模拟器启动参数 |
 | `COMMENTS.md` | KDoc 规范、注释原则、反模式清单 |
 | `app/AGENTS.md` | `:app` 模块细则 |
 | `core/AGENTS.md` | `:core` 模块细则 |
-| `macrobenchmark/AGENTS.md` | Baseline Profile 模块细则 |
+| `macrobenchmark/AGENTS.md` | Baseline Profile / Startup Profile 模块细则 |

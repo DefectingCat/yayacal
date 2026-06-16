@@ -4,7 +4,7 @@
     <!--
         Macrobenchmark 模块的 AndroidManifest。
         该模块为 com.android.test 类型，通过 targetProjectPath 指向 :app 模块。
-        在 benchmark 构建类型下运行，自动生成 baseline-prof.txt。
+        在 benchmark 构建类型下运行，自动生成 baseline-prof.txt 与 startup-prof.txt。
     -->
 
 </manifest>

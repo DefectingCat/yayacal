@@ -14,7 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Baseline Profile 自动生成器。
+ * Baseline Profile / Startup Profile 自动生成器。
  *
  * 运行方式（一键生成 + 自动复制到 :core）：
  * ```
@@ -29,19 +29,30 @@ import org.junit.runner.RunWith
  * 手动复制路径：
  * `macrobenchmark/build/outputs/connected_android_test_additional_output/`
  *
- * 测试覆盖启动与核心用户交互路径，实现关键路径 AOT：
+ * 说明：
+ * - `includeInStartupProfile = true` 会同时生成两份产物：
+ *   - `*-baseline-prof.txt`：用于 ART 的 AOT 编译优化
+ *   - `*-startup-prof.txt`：用于 AGP 的 DEX layout 优化
+ * - `updateBaselineProfile` Task 会分别将它们复制到：
+ *   - `core/src/main/baseline-prof.txt`
+ *   - `core/src/main/baselineProfiles/startup-prof.txt`
+ *
+ * 测试覆盖启动与核心用户交互路径，用于 AOT 与 DEX layout 优化：
  * 1.  冷启动 → 首帧渲染
- * 2.  显示调休切换 ON/OFF（DayCell 大规模重组 + staggered 动画）
- * 3.  CalendarPager 翻页 → "今天"按钮跳回
- * 4.  跨月日期点击 → 自动跳转
- * 5.  DayCell 点击
- * 6.  BottomCard 拖拽折叠到周视图
- * 7.  周视图左右翻页
- * 8.  BottomCard 拖拽展开回月视图
- * 9.  CalendarPager 左右翻页
+ * 2.  切换"显示调休"ON（DayCell 大规模重组 + staggered 动画）
+ * 3.  CalendarPager 右滑 → 上一个月
+ * 4.  点击"今天"按钮跳回当月
+ * 5.  点击跨月日期 → 自动跳转
+ * 6.  再次点击"今天"跳回当月
+ * 7.  点击 DayCell
+ * 8.  拖拽 BottomCard 折叠到周视图
+ * 9.  周视图左右翻页
+ * 10. 拖拽 BottomCard 展开回月视图
+ * 11. 切换"显示调休"OFF
+ * 12. CalendarPager 左右翻页
  *
  * 注：年视图、关于/开源许可、工具/日期检查器等路径在部分模拟器上不稳定，
- * 暂时从生成流程中移除以保证 Baseline Profile 可稳定生成。后续可在真机上扩展覆盖。
+ * 暂时从生成流程中移除以保证 Profile 可稳定生成。后续可在真机上扩展覆盖。
  */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
@@ -169,7 +180,7 @@ class BaselineProfileGenerator {
                     device.waitForIdle()
                 }
 
-                Log.d(TAG, "Baseline profile 生成完成，核心路径已覆盖")
+                Log.d(TAG, "Baseline Profile / Startup Profile 生成完成，所有路径已覆盖")
             }
         )
     }

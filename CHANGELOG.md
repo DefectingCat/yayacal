@@ -5,6 +5,15 @@ All notable changes to the YaYa project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- 修正 `:macrobenchmark` 将 Startup Profile 误当作 Baseline Profile 使用的问题。
+  `updateBaselineProfile` Task 现在会同时复制 `*-baseline-prof.txt` 到 `core/src/main/baseline-prof.txt`
+  以及 `*-startup-prof.txt` 到 `core/src/main/baselineProfiles/startup-prof.txt`，使 AOT 编译优化与 DEX layout 优化同时生效。
+- 同步更新所有相关文档（`AGENTS.md`、`README.md`、`DEVELOPMENT.md`、`CLAUDE.md`、
+  `macrobenchmark/AGENTS.md`、`BaselineProfileGenerator.kt`），明确区分 Baseline Profile 与 Startup Profile。
+
 ## [1.1.0] - 2026-06-02
 
 ### Added
@@ -235,10 +244,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Default ripple effect on DayCell (replaced by circular reveal animation)
 - Aliyun Maven mirrors (switched back to Maven Central / Google)
 - Unused Compose runtime ProGuard keep rules
-
-## [Unreleased]
-
-- No unreleased changes at this time.
 
 ---
 
