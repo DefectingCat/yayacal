@@ -16,7 +16,7 @@ Android 应用壳层模块，仅包含启动页 `SplashActivity`、主界面 `Ma
 | `src/main/kotlin/plus/rua/project/AboutActivity.kt` | 关于页面 Activity |
 | `src/main/kotlin/plus/rua/project/LicensesActivity.kt` | 许可证列表 Activity |
 | `src/main/AndroidManifest.xml` | Android 清单，声明 Activities 和主题 |
-| `src/main/res/values/themes.xml` | 应用主题配置（Material 3） |
+| `src/main/res/values/themes.xml` | 应用主题配置（Material） |
 | `src/main/res/values-night/themes.xml` | 夜间模式主题 |
 | `src/main/res/values/strings.xml` | 应用名称字符串 |
 | `src/main/res/anim/` | Activity 转场动画（slide_in/slide_out） |
@@ -45,7 +45,7 @@ Android 应用壳层模块，仅包含启动页 `SplashActivity`、主界面 `Ma
 ### Common Patterns
 - 使用 `enableEdgeToEdge()` 实现全屏边缘到边缘显示
 - Activity 转场使用 `overridePendingTransition()` 配合 `res/anim/` 中的 XML 动画
-- 主题继承自 `Theme.AppCompat.DayNight.NoActionBar`
+- 主题继承自 `Theme.Material.Light.NoActionBar` / `Theme.Material.NoActionBar`
 
 ## Dependencies
 
