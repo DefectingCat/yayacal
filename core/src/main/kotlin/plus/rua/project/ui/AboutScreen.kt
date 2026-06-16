@@ -35,6 +35,19 @@ import plus.rua.project.getAppIconUri
 import plus.rua.project.getAppVersion
 
 /**
+ * 根据当前连续点击次数返回应显示的 Toast 文案。
+ *
+ * @param clickCount 当前连续点击次数（从 1 开始）
+ * @return 需要显示的文案，若无需提示则返回 null
+ */
+internal fun getToastMessage(clickCount: Int): String? = when (clickCount) {
+    4 -> "再点击 3 下进入小狗乐园"
+    5 -> "再点击 2 下进入小狗乐园"
+    6 -> "再点击 1 下进入小狗乐园"
+    else -> null
+}
+
+/**
  * 关于页面，展示应用图标、名称、版本号及开源许可入口。
  *
  * @param onBack 返回回调
