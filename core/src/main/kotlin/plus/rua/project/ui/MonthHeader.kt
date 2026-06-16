@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
  * @param weekNumber 当前 ISO 周号
  * @param showToday 是否显示「今天」按钮（当 selectedDate ≠ today 时）
  * @param onToday 点击「今天」按钮跳转今天
+ * @param onYearMonthClick 点击"年月"文字打开日期选择器
  * @param modifier 外部布局修饰符
  */
 @Composable
@@ -43,6 +44,7 @@ fun MonthHeader(
     weekNumber: Int,
     showToday: Boolean,
     onToday: (() -> Unit)? = null,
+    onYearMonthClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Row(
@@ -66,7 +68,11 @@ fun MonthHeader(
             Text(
                 text = "${y}年${m}月",
                 color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.titleLarge
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable(onClick = onYearMonthClick)
+                    .padding(horizontal = 4.dp, vertical = 2.dp)
             )
         }
         Spacer(modifier = Modifier.width(6.dp))

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedContent
@@ -42,11 +44,16 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -74,9 +81,12 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
+import kotlin.time.Instant
 import plus.rua.project.CalendarViewModel
 import plus.rua.project.ShiftKind
 import plus.rua.project.composeTraceBeginSection
@@ -125,6 +135,7 @@ fun CalendarMonthView(
     var rowHeightPx by remember { mutableIntStateOf(0) }
     var screenWidthPx by remember { mutableIntStateOf(0) }
     var isMenuExpanded by remember { mutableStateOf(false) }
+    var showDatePicker by remember { mutableStateOf(false) }
 
     // 视图切换时自动关闭菜单
     LaunchedEffect(isYearView) {
@@ -214,7 +225,8 @@ fun CalendarMonthView(
                                 month = currentMonth,
                                 weekNumber = weekNumber,
                                 showToday = selectedDate != today,
-                                onToday = onToday
+                                onToday = onToday,
+                                onYearMonthClick = { showDatePicker = true }
                             )
                             WeekdayHeader(
                                 modifier = Modifier.fillMaxWidth().padding(bottom = ROW_PADDING_DP.dp)
@@ -439,6 +451,34 @@ fun CalendarMonthView(
                 }
             }
         }
+
+        if (showDatePicker) {
+            val datePickerState = rememberDatePickerState(
+                initialSelectedDateMillis = selectedDate.toEpochMillis()
+            )
+            DatePickerDialog(
+                onDismissRequest = { showDatePicker = false },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            datePickerState.selectedDateMillis?.let { millis ->
+                                viewModel.selectDate(millis.toLocalDate())
+                            }
+                            showDatePicker = false
+                        }
+                    ) {
+                        Text("确定")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDatePicker = false }) {
+                        Text("取消")
+                    }
+                }
+            ) {
+                DatePicker(state = datePickerState)
+            }
+        }
     }
 }
 
@@ -611,3 +651,19 @@ private fun MenuItem(
         )
     }
 }
+
+/**
+ * 将 [LocalDate] 转换为 UTC 午夜的 epoch 毫秒。
+ *
+ * 用于 DatePicker 初始选中值，与 [Long.toLocalDate] 成对使用。
+ */
+private fun LocalDate.toEpochMillis(): Long =
+    this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+
+/**
+ * 将 epoch 毫秒转换为 UTC 日期的 [LocalDate]。
+ *
+ * DatePicker 返回选中日期的 UTC 午夜毫秒，经此函数得到本地逻辑日期。
+ */
+private fun Long.toLocalDate(): LocalDate =
+    Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date

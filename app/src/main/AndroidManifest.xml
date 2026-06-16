@@ -9,19 +9,25 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.YaYa">
+
+        <!--
+            SplashActivity 已临时禁用，不再作为应用入口。
+            如需恢复启动页，将下面的 MAIN/LAUNCHER intent-filter 从 MainActivity
+            移回 SplashActivity 即可。
+        -->
         <activity
             android:name=".SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.YaYa.Splash">
+            android:theme="@style/Theme.YaYa.Splash" />
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <activity
-            android:name=".MainActivity"
-            android:exported="true" />
 
         <activity
             android:name=".AboutActivity"
