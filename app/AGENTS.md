@@ -1,17 +1,18 @@
 <!-- Parent: ../AGENTS.md -->
-<!-- Generated: 2026-05-20 | Updated: 2026-05-20 -->
+<!-- Generated: 2026-05-20 | Updated: 2026-06-16 -->
 
 # app
 
 ## Purpose
-Android 应用壳层模块，仅包含入口 `MainActivity`、`AboutActivity`、`LicensesActivity` 和最小化的 Android 平台配置。所有 UI 和业务逻辑均来自 `:core` 模块。
+Android 应用壳层模块，仅包含启动页 `SplashActivity`、主界面 `MainActivity`、`AboutActivity`、`LicensesActivity` 和最小化的 Android 平台配置。所有 UI 和业务逻辑均来自 `:core` 模块。
 
 ## Key Files
 
 | File | Description |
 |------|-------------|
 | `build.gradle.kts` | Android 应用模块构建配置 |
-| `src/main/kotlin/plus/rua/project/MainActivity.kt` | Android 入口 Activity，设置 `CalendarMonthView()` Composable |
+| `src/main/kotlin/plus/rua/project/MainActivity.kt` | 主界面 Activity，设置 `CalendarMonthView()` Composable |
+| `src/main/kotlin/plus/rua/project/SplashActivity.kt` | 启动页 Activity，400ms 后跳转 MainActivity |
 | `src/main/kotlin/plus/rua/project/AboutActivity.kt` | 关于页面 Activity |
 | `src/main/kotlin/plus/rua/project/LicensesActivity.kt` | 许可证列表 Activity |
 | `src/main/AndroidManifest.xml` | Android 清单，声明 Activities 和主题 |
@@ -35,6 +36,7 @@ Android 应用壳层模块，仅包含入口 `MainActivity`、`AboutActivity`、
 - 不要在此模块添加业务逻辑；所有代码应放在 `:core` 模块
 - 仅修改 Android 特有的配置：Manifest、主题、权限、Activity 声明
 - `MainActivity.kt` 应保持简洁，仅负责调用 `CalendarMonthView()`
+- `SplashActivity.kt` 也是薄壳，将启动页 UI 委托给 `:core` 模块
 
 ### Testing Requirements
 - 构建验证：`./gradlew :app:assembleDebug`
