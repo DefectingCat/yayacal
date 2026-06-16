@@ -24,7 +24,7 @@ class SplashActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 SplashScreen(
-                    iconPainter = painterResource(R.mipmap.ic_launcher_round),
+                    iconPainter = painterResource(R.drawable.ic_splash_icon),
                 )
             }
         }
