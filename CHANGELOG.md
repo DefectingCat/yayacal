@@ -7,12 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-06-18
+
+### Added
+
+- 启动页：新增自定义 `SplashActivity` 与启动主题，集成 `core-splashscreen` 与 `reportFullyDrawn`。
+- 月视图：年月标题支持日期选择器快速跳转。
+- 关于页：连续点击版本号 7 次触发「小狗乐园」全屏视频彩蛋。
+- 日期图标：新增玫瑰节（Rose Day）与生日皇冠动画。
+- 日期检查器：添加数据持久化、空状态提示、恢复默认按钮，以及生产日期/保质期非法日期禁选。
+- 图标：新增 API 26+ Adaptive Icon。
+- Baseline Profile：拆分并同时集成 Baseline Profile 与 Startup Profile 到 `:core`。
+- Macrobenchmark：新增 StartupBenchmark 冷启动耗时测试。
+
+### Changed
+
+- 应用图标：调整小黄鸭占比，优化 Adaptive Icon 前景尺寸。
+- 资源整理：GIF 目录重命名为 `animations`，`AnimatedGif` 改为 `AnimatedWebp`，WebP 文件列表由 BuildConfig 注入以消除硬编码。
+- 构建清理：移除无效 ProGuard 规则、调试日志，trace 标记解耦 ViewModel。
+- UI 统一：日期检查器、FAB 菜单、返回图标等手绘 Canvas 图标替换为 Material Icons。
+- 关于页背景图改为 WebP 格式。
+- 版本号统一由 `gradle.properties` 管理。
+
 ### Fixed
-- 修正 `:macrobenchmark` 将 Startup Profile 误当作 Baseline Profile 使用的问题。
-  `updateBaselineProfile` Task 现在会同时复制 `*-baseline-prof.txt` 到 `core/src/main/baseline-prof.txt`
-  以及 `*-startup-prof.txt` 到 `core/src/main/baselineProfiles/startup-prof.txt`，使 AOT 编译优化与 DEX layout 优化同时生效。
-- 同步更新所有相关文档（`AGENTS.md`、`README.md`、`DEVELOPMENT.md`、`CLAUDE.md`、
-  `macrobenchmark/AGENTS.md`、`BaselineProfileGenerator.kt`），明确区分 Baseline Profile 与 Startup Profile。
+
+- 启动页：修复 SplashScreen API 在某些设备上的崩溃/黑屏问题。
+- 图标：修复 Adaptive Icon 前景加载失败及含背景问题。
+- 日期检查器：修复历史负保质期数据导致列表异常，修复右滑删除卡住及 FAB 遮挡底部问题。
 
 ## [1.1.0] - 2026-06-02
 
@@ -247,5 +268,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.2.0]: https://github.com/xfy/yayacal/releases/tag/v1.2.0
 [1.1.0]: https://github.com/xfy/yayacal/releases/tag/v1.1.0
 [1.0.0]: https://github.com/xfy/yayacal/releases/tag/v1.0.0
