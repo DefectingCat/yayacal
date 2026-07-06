@@ -21,6 +21,9 @@ class MainActivity : BaseActivity() {
                     },
                     onNavigateToTools = {
                         startActivityWithSlide(Intent(this, ToolsActivity::class.java))
+                    },
+                    onNavigateToShiftSettings = {
+                        startActivityWithSlide(Intent(this, ShiftPatternActivity::class.java))
                     }
                 )
             }
