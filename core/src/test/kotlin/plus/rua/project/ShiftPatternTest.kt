@@ -176,4 +176,81 @@ class ShiftPatternTest {
         assertEquals(a, b)
         assertEquals(a.hashCode(), b.hashCode())
     }
+
+    // ---- kindAt: 单日 override ----
+
+    @Test
+    fun kindAt_overrideOnBaseDay_flipsToOff() {
+        // 基础周期下 5/15 = WORK(锚点),override 为 OFF
+        val pattern = twoOnTwoOff.copy(
+            overrides = mapOf(LocalDate(2026, 5, 15) to ShiftKind.OFF)
+        )
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 15)))
+        // 隔天不受影响
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 16)))
+    }
+
+    @Test
+    fun kindAt_overrideOnOffDay_flipsToWork() {
+        // 基础周期下 5/17 = OFF,override 为 WORK
+        val pattern = twoOnTwoOff.copy(
+            overrides = mapOf(LocalDate(2026, 5, 17) to ShiftKind.WORK)
+        )
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 17)))
+    }
+
+    // ---- kindAt: 相位断点 phaseBreak ----
+
+    @Test
+    fun kindAt_phaseBreak_restartsCycleFromBreakDate() {
+        // 断点设在 5/19,从这天起重新 cycle[0]
+        val pattern = twoOnTwoOff.copy(
+            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 5, 19), 0))
+        )
+        // 5/19 = cycle[0] = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 19)))
+        // 5/20 = cycle[1] = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 20)))
+        // 5/21 = cycle[2] = OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 21)))
+        // 断点之前保持原相位:5/18 = (18-15)%4=3 = OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 18)))
+    }
+
+    // ---- kindAt: override + phaseBreak 组合(用户原始例子)----
+
+    @Test
+    fun kindAt_userExample_combinedOverridesAndPhaseBreak() {
+        // 基础锚点 7/8,周期 [WORK,WORK,OFF,OFF]
+        val pattern = ShiftPattern(
+            anchorDate = LocalDate(2026, 7, 8),
+            cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
+            overrides = mapOf(
+                LocalDate(2026, 7, 12) to ShiftKind.OFF,  // 班→休
+                LocalDate(2026, 7, 14) to ShiftKind.WORK, // 休→班
+                LocalDate(2026, 7, 15) to ShiftKind.WORK, // 休→班
+                LocalDate(2026, 7, 16) to ShiftKind.OFF,  // 班→休
+                LocalDate(2026, 7, 17) to ShiftKind.OFF   // 班→休
+            ),
+            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 7, 18), 0))
+        )
+        // 7/10,11 = 基础周期自动算 (idx 2,3) = OFF,OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 10)))
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 11)))
+        // 7/12 = override OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 12)))
+        // 7/13 = 基础周期 (idx 5%4=1) = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 13)))
+        // 7/14,15 = override WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 14)))
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 15)))
+        // 7/16,17 = override OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 16)))
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 17)))
+        // 7/18 起 phaseBreak 重排:cycle[0,1,2,3] = WORK,WORK,OFF,OFF
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 18)))
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 19)))
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 20)))
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 21)))
+    }
 }
