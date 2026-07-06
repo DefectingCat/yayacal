@@ -142,6 +142,7 @@ fun CalendarMonthView(
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
 
     val uiState by viewModel.uiState.collectAsState()
+    val shiftPattern by viewModel.shiftPattern.collectAsState()
     val selectedDate = uiState.selectedDate
     val currentYear = selectedDate.year
     val currentMonth = selectedDate.month.number
@@ -270,7 +271,7 @@ fun CalendarMonthView(
                                     viewModel.selectDate(date)
                                 }
                             }
-                            val shiftKindAt = remember(viewModel) {
+                            val shiftKindAt = remember(viewModel, shiftPattern) {
                                 { date: LocalDate -> viewModel.shiftKindAt(date) }
                             }
                             val onRowHeightMeasured = remember {
@@ -626,6 +627,7 @@ private fun BottomCardArea(
     val shouldShow = hasLoaded
 
     val uiState by viewModel.uiState.collectAsState()
+    val shiftPattern by viewModel.shiftPattern.collectAsState()
     val shiftKind = viewModel.shiftKindAt(uiState.selectedDate)
 
     if (shouldShow) {
