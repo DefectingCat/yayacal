@@ -39,6 +39,10 @@ data class ShiftPattern(
     val phaseBreaks: List<PhaseBreak> = emptyList(),
     val name: String = "默认"
 ) {
+    /**
+     * 返回 [date] 当天的班次。优先级:overrides → 活跃锚点的 cycle 索引。
+     * cycle 为空时返回 null。
+     */
     fun kindAt(date: LocalDate): ShiftKind? {
         if (cycle.isEmpty()) return null
         // 1. 单日翻转优先

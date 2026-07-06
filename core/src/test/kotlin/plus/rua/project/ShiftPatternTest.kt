@@ -217,6 +217,41 @@ class ShiftPatternTest {
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 18)))
     }
 
+    @Test
+    fun kindAt_phaseBreakWithOffset_shiftsPhase() {
+        // 断点 5/19,cycleOffset=2:5/19 对应 cycle[2]=OFF(而非 cycle[0]=WORK)
+        val pattern = twoOnTwoOff.copy(
+            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 5, 19), 2))
+        )
+        // 5/19 = cycle[(0+2)%4] = cycle[2] = OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 19)))
+        // 5/20 = cycle[(1+2)%4] = cycle[3] = OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 20)))
+        // 5/21 = cycle[(2+2)%4] = cycle[0] = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 21)))
+    }
+
+    @Test
+    fun kindAt_multiplePhaseBreaks_usesLatestApplicable() {
+        // 两个断点:5/19(offset 0) 和 5/25(offset 1)
+        val pattern = twoOnTwoOff.copy(
+            phaseBreaks = listOf(
+                PhaseBreak(LocalDate(2026, 5, 19), 0),
+                PhaseBreak(LocalDate(2026, 5, 25), 1)
+            )
+        )
+        // 5/19-5/24 受第一个断点支配(offset 0)
+        // 5/19 = cycle[0] = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 19)))
+        // 5/24 = cycle[(5)%4] = cycle[1] = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 24)))
+        // 5/25 起受第二个断点支配(offset 1)
+        // 5/25 = cycle[(0+1)%4] = cycle[1] = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 25)))
+        // 5/26 = cycle[(1+1)%4] = cycle[2] = OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 26)))
+    }
+
     // ---- kindAt: override + phaseBreak 组合(用户原始例子)----
 
     @Test
