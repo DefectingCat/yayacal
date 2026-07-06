@@ -21,6 +21,7 @@ class ShiftPatternStorage(private val prefs: SharedPreferences) {
         private const val KEY_CYCLE = "shift_cycle"
         private const val KEY_OVERRIDES = "shift_overrides"
         private const val KEY_BREAKS = "shift_breaks"
+        private const val KEY_NAME = "shift_name"
         private const val SEP = ","
 
         fun fromContext(context: Context): ShiftPatternStorage =
@@ -40,6 +41,7 @@ class ShiftPatternStorage(private val prefs: SharedPreferences) {
             .putString(KEY_CYCLE, cycleStr)
             .putString(KEY_OVERRIDES, overridesStr)
             .putString(KEY_BREAKS, breaksStr)
+            .putString(KEY_NAME, pattern.name)
             .apply()
     }
 
@@ -48,10 +50,14 @@ class ShiftPatternStorage(private val prefs: SharedPreferences) {
         val cycleStr = prefs.getString(KEY_CYCLE, null) ?: return null
         return try {
             val anchor = LocalDate.parse(anchorStr)
-            val cycle = cycleStr.split(SEP).map { if (it.trim() == "1") ShiftKind.WORK else ShiftKind.OFF }
+            val cycle = if (cycleStr.isBlank()) {
+                emptyList()
+            } else {
+                cycleStr.split(SEP).map { if (it.trim() == "1") ShiftKind.WORK else ShiftKind.OFF }
+            }
             val overrides = parseOverrides(prefs.getString(KEY_OVERRIDES, null))
             val breaks = parseBreaks(prefs.getString(KEY_BREAKS, null))
-            ShiftPattern(anchor, cycle, overrides, breaks)
+            ShiftPattern(anchor, cycle, overrides, breaks, name = prefs.getString(KEY_NAME, null) ?: "默认")
         } catch (e: Exception) {
             null
         }

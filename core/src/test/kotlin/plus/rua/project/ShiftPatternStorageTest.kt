@@ -58,6 +58,44 @@ class ShiftPatternStorageTest {
         storage.save(pattern)
         assertEquals(pattern, storage.load())
     }
+
+    @Test
+    fun load_corruptOverrides_returnsNull() {
+        storage.clear()
+        // 通过底层 prefs 注入损坏的 overrides 值
+        prefs.edit()
+            .putString("shift_anchor", "2026-05-15")
+            .putString("shift_cycle", "1,1,0,0")
+            .putString("shift_overrides", "not-a-date:1")
+            .apply()
+        assertNull(storage.load())
+    }
+
+    @Test
+    fun saveAndLoad_customName_preserved() {
+        storage.clear()
+        val pattern = ShiftPattern(
+            anchorDate = LocalDate(2026, 5, 15),
+            cycle = listOf(ShiftKind.WORK, ShiftKind.OFF),
+            name = "我的方案"
+        )
+        storage.save(pattern)
+        val loaded = storage.load()
+        assertEquals(pattern, loaded)
+        assertEquals("我的方案", loaded?.name)
+    }
+
+    @Test
+    fun saveAndLoad_emptyCycle_roundTrips() {
+        storage.clear()
+        val pattern = ShiftPattern(
+            anchorDate = LocalDate(2026, 5, 15),
+            cycle = emptyList()
+        )
+        storage.save(pattern)
+        val loaded = storage.load()
+        assertEquals(pattern, loaded)
+    }
 }
 
 // 复制自 DateCheckerStorageTest(其为 private,无法共享);重命名以避免同包下 private 类同名冲突
