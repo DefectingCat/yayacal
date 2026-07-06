@@ -160,6 +160,11 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+            Text(
+                text = "图例:班(蓝)/休(红)/断点(琥珀)",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
             OutlinedButton(
                 onClick = { showResetDialog = true },
