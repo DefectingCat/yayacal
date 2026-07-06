@@ -93,7 +93,15 @@ import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
 import kotlin.time.Clock
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import plus.rua.project.ShiftPatternStorage
 
 /**
  * 日历主界面，包含月/周视图切换、折叠动画和年视图转场。
@@ -107,9 +115,30 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 fun CalendarMonthView(
     modifier: Modifier = Modifier,
     onNavigateToAbout: () -> Unit = {},
-    onNavigateToTools: () -> Unit = {}
+    onNavigateToTools: () -> Unit = {},
+    onNavigateToShiftSettings: () -> Unit = {}
 ) {
-    val viewModel = viewModel<CalendarViewModel>()
+    val context = LocalContext.current.applicationContext
+    val viewModel: CalendarViewModel = viewModel(
+        factory = viewModelFactory {
+            initializer {
+                CalendarViewModel(
+                    clock = Clock.System,
+                    shiftStorage = ShiftPatternStorage.fromContext(context)
+                )
+            }
+        }
+    )
+
+    // 设置页返回后 onResume 重读 storage,立即刷新班次
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshShiftPattern()
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
 
     val uiState by viewModel.uiState.collectAsState()
@@ -425,6 +454,14 @@ fun CalendarMonthView(
                         onClick = {
                             isMenuExpanded = false
                             viewModel.toggleShowLegalHoliday()
+                        }
+                    )
+                    MenuItem(
+                        text = "班次设置",
+                        selected = false,
+                        onClick = {
+                            isMenuExpanded = false
+                            onNavigateToShiftSettings()
                         }
                     )
                     HorizontalDivider(
