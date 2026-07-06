@@ -155,6 +155,32 @@ class CalendarViewModelTest {
         assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 1, 1)))
         assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 1, 2)))
     }
+
+    @Test
+    fun refreshShiftPattern_reloadsAfterStorageChange() {
+        val prefs = CalendarVmTestPrefs()
+        val storage = ShiftPatternStorage(prefs)
+        // 初始:2 班 2 休(默认),构造 VM(不传 storage → 用 DEFAULT_PATTERN)
+        val vm = CalendarViewModel(clock = testClock, shiftStorage = storage)
+        // 2026-05-15 = WORK(默认 2班2休 锚点)
+        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
+        // 改 storage 为 1班1休,锚点 2026-01-01
+        storage.save(
+            ShiftPattern(
+                anchorDate = LocalDate(2026, 1, 1),
+                cycle = listOf(ShiftKind.WORK, ShiftKind.OFF)
+            )
+        )
+        // refresh 前:VM 还持有旧 pattern
+        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
+        // 调用 refresh
+        vm.refreshShiftPattern()
+        // refresh 后:VM 已从 storage 重读
+        // 2026-05-15 距 2026-01-01 = 134 天,134 % 2 = 0 → cycle[0] = WORK
+        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
+        // 2026-01-02 距锚点 1 天,1 % 2 = 1 → cycle[1] = OFF
+        assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 1, 2)))
+    }
 }
 
 private class CalendarVmTestPrefs : SharedPreferences {
