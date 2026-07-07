@@ -48,6 +48,10 @@
         <activity
             android:name=".DateCheckerActivity"
             android:exported="false" />
+
+        <activity
+            android:name=".ShiftPatternActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

@@ -1,9 +1,11 @@
 package plus.rua.project
 
+import android.content.SharedPreferences
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
+import plus.rua.project.ShiftKind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -126,5 +128,127 @@ class CalendarViewModelTest {
         val days = vm.getMonthDays(2026, 5)
         val selectedCell = days.first { it.isSelected }
         assertEquals(15, selectedCell.date.day)
+    }
+
+    // ---- shiftPattern: 默认值与 refresh ----
+
+    @Test
+    fun shiftPattern_noStorage_returnsDefault() {
+        val vm = createViewModel()   // 不传 storage
+        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
+        assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 5, 17)))
+    }
+
+    @Test
+    fun refreshShiftPattern_reloadsFromStorage() {
+        val prefs = CalendarVmTestPrefs()
+        val storage = ShiftPatternStorage(prefs)
+        // storage 里存一个 1班1休,锚点 2026-01-01
+        storage.save(
+            ShiftPattern(
+                anchorDate = LocalDate(2026, 1, 1),
+                cycle = listOf(ShiftKind.WORK, ShiftKind.OFF)
+            )
+        )
+        val vm = CalendarViewModel(clock = testClock, shiftStorage = storage)
+        // 初始即从 storage 读
+        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 1, 1)))
+        assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 1, 2)))
+    }
+
+    @Test
+    fun refreshShiftPattern_reloadsAfterStorageChange() {
+        val prefs = CalendarVmTestPrefs()
+        val storage = ShiftPatternStorage(prefs)
+        // 初始:2 班 2 休(默认),构造 VM(不传 storage → 用 DEFAULT_PATTERN)
+        val vm = CalendarViewModel(clock = testClock, shiftStorage = storage)
+        // 2026-05-15 = WORK(默认 2班2休 锚点)
+        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
+        // 改 storage 为 1班1休,锚点 2026-01-01
+        storage.save(
+            ShiftPattern(
+                anchorDate = LocalDate(2026, 1, 1),
+                cycle = listOf(ShiftKind.WORK, ShiftKind.OFF)
+            )
+        )
+        // refresh 前:VM 还持有旧 pattern
+        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
+        // 调用 refresh
+        vm.refreshShiftPattern()
+        // refresh 后:VM 已从 storage 重读
+        // 2026-05-15 距 2026-01-01 = 134 天,134 % 2 = 0 → cycle[0] = WORK
+        assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
+        // 2026-01-02 距锚点 1 天,1 % 2 = 1 → cycle[1] = OFF
+        assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 1, 2)))
+    }
+}
+
+private class CalendarVmTestPrefs : SharedPreferences {
+
+    private val data = mutableMapOf<String, Any?>()
+
+    override fun getAll(): Map<String, *> = data.toMap()
+
+    override fun getString(key: String, defValue: String?): String? =
+        data[key] as? String ?: defValue
+
+    override fun getStringSet(key: String, defValues: Set<String>?): Set<String>? =
+        data[key] as? Set<String> ?: defValues
+
+    override fun getInt(key: String, defValue: Int): Int =
+        data[key] as? Int ?: defValue
+
+    override fun getLong(key: String, defValue: Long): Long =
+        data[key] as? Long ?: defValue
+
+    override fun getFloat(key: String, defValue: Float): Float =
+        data[key] as? Float ?: defValue
+
+    override fun getBoolean(key: String, defValue: Boolean): Boolean =
+        data[key] as? Boolean ?: defValue
+
+    override fun contains(key: String): Boolean = data.containsKey(key)
+
+    override fun edit(): SharedPreferences.Editor = CalendarVmTestPrefsEditor(data)
+
+    override fun registerOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {}
+
+    override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {}
+}
+
+private class CalendarVmTestPrefsEditor(private val data: MutableMap<String, Any?>) : SharedPreferences.Editor {
+
+    private val pending = mutableMapOf<String, Any?>()
+    private var clearPending = false
+
+    override fun putString(key: String, value: String?): SharedPreferences.Editor = apply {
+        pending[key] = value
+    }
+
+    override fun putStringSet(key: String, values: Set<String>?): SharedPreferences.Editor = apply {
+        pending[key] = values
+    }
+
+    override fun putInt(key: String, value: Int): SharedPreferences.Editor = apply { pending[key] = value }
+    override fun putLong(key: String, value: Long): SharedPreferences.Editor = apply { pending[key] = value }
+    override fun putFloat(key: String, value: Float): SharedPreferences.Editor = apply { pending[key] = value }
+    override fun putBoolean(key: String, value: Boolean): SharedPreferences.Editor = apply { pending[key] = value }
+
+    override fun remove(key: String): SharedPreferences.Editor = apply { pending[key] = null }
+
+    override fun clear(): SharedPreferences.Editor = apply { clearPending = true }
+
+    override fun commit(): Boolean {
+        apply()
+        return true
+    }
+
+    override fun apply() {
+        if (clearPending) {
+            data.clear()
+            clearPending = false
+        }
+        data.putAll(pending)
+        pending.clear()
     }
 }

@@ -59,7 +59,8 @@ data class CalendarUiState(
  * @param clock 时钟源，默认系统时钟；测试时可注入固定时钟
  */
 class CalendarViewModel(
-    private val clock: Clock = Clock.System
+    private val clock: Clock = Clock.System,
+    private val shiftStorage: ShiftPatternStorage? = null
 ) : ViewModel() {
     private val today: LocalDate = clock.todayIn(TimeZone.currentSystemDefault())
 
@@ -112,17 +113,30 @@ class CalendarViewModel(
 
     /**
      * 个人轮班。与法定节假日完全独立,不受调休影响。
-     * MVP 默认:2026-05-15 起,2 班 2 休循环。后续接入设置页与持久化。
+     * 从 [shiftStorage] 加载;storage 为空或未存时回退到 [DEFAULT_PATTERN]。
      */
-    private val _shiftPattern = MutableStateFlow<ShiftPattern?>(
-        ShiftPattern(
+    private val _shiftPattern = MutableStateFlow(loadShiftPattern())
+    val shiftPattern: StateFlow<ShiftPattern?> = _shiftPattern.asStateFlow()
+
+    private fun loadShiftPattern(): ShiftPattern =
+        shiftStorage?.load() ?: DEFAULT_PATTERN
+
+    /**
+     * 设置页返回后调用,从 storage 重新加载,立即生效。
+     */
+    fun refreshShiftPattern() {
+        _shiftPattern.value = loadShiftPattern()
+    }
+
+    fun shiftKindAt(date: LocalDate): ShiftKind? = shiftPattern.value?.kindAt(date)
+
+    companion object {
+        /** 默认轮班:2026-05-15 起,2 班 2 休循环。 */
+        val DEFAULT_PATTERN = ShiftPattern(
             anchorDate = LocalDate(2026, 5, 15),
             cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF)
         )
-    )
-    val shiftPattern: StateFlow<ShiftPattern?> = _shiftPattern.asStateFlow()
-
-    fun shiftKindAt(date: LocalDate): ShiftKind? = shiftPattern.value?.kindAt(date)
+    }
 
     /**
      * 是否在右上角显示法定调休角标。默认禁用,此时右上角让位给个人排班。
