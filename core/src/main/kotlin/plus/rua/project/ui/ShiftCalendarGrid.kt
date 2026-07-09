@@ -48,10 +48,11 @@ import plus.rua.project.ShiftKind
 import plus.rua.project.ShiftPattern
 
 /**
- * 班次设置页用的迷你月历。点某天翻转班/休,长按设/清相位断点。
+ * 班次设置页用的迷你月历。点某天翻转班/休(仅当天),长按翻转并从次日起重排周期。
  *
- * 月份可前后翻页,每格显示日期数字与班次角标(班/休/断)。
- * 点击翻转该天的班/休 override;长按切换相位断点。
+ * 月份可前后翻页,每格显示日期数字与班次角标(班/休/起)。
+ * 点击翻转该天的班/休 override;长按翻转该天并在次日插入重排起点,
+ * 后续按 cycle 重新顺延。再次长按同一天可撤销。
  *
  * @param pattern 当前轮班配置(只读),由 [onPatternChange] 修改
  * @param onPatternChange 修改后的新 pattern 回调
@@ -125,7 +126,7 @@ fun ShiftCalendarGrid(
                                 date = date,
                                 pattern = pattern,
                                 onClick = { onPatternChange(toggleOverride(pattern, date)) },
-                                onLongClick = { onPatternChange(togglePhaseBreak(pattern, date)) },
+                                onLongClick = { onPatternChange(toggleFlipAndRephase(pattern, date)) },
                                 modifier = Modifier.weight(1f)
                             )
                         } else {
@@ -152,15 +153,38 @@ private fun toggleOverride(pattern: ShiftPattern, date: LocalDate): ShiftPattern
 }
 
 /**
- * 切换某天的相位断点:已有则清除,没有则新增(cycleOffset=0)。
+ * 翻转某天的班/休,并从次日起重排周期(后续按 cycle 重新顺延)。
+ *
+ * 实现:翻转该天 override + 在 [date] 次日插入 PhaseBreak(offset=0)。
+ * 次日成为新的 cycle[0],后续自动按周期顺延。
+ *
+ * 撤销:再次长按同一天,若存在由该天派生的断点(次日、offset=0),则移除 override 与该断点。
+ *
+ * @param date 被翻转并作为重排起点的日期
  */
-private fun togglePhaseBreak(pattern: ShiftPattern, date: LocalDate): ShiftPattern {
-    val existing = pattern.phaseBreaks.find { it.date == date }
-    return if (existing != null) {
-        pattern.copy(phaseBreaks = pattern.phaseBreaks - existing)
-    } else {
-        pattern.copy(phaseBreaks = pattern.phaseBreaks + PhaseBreak(date, 0))
+private fun toggleFlipAndRephase(pattern: ShiftPattern, date: LocalDate): ShiftPattern {
+    val nextDay = date.plus(DatePeriod(days = 1))
+    val derivedBreak = pattern.phaseBreaks.find { it.date == nextDay && it.cycleOffset == 0 }
+
+    if (derivedBreak != null) {
+        // 撤销:移除该天的 override 与关联断点
+        return pattern.copy(
+            overrides = pattern.overrides - date,
+            phaseBreaks = pattern.phaseBreaks - derivedBreak
+        )
     }
+
+    // 翻转该天 + 次日插入断点重排
+    val current = pattern.kindAt(date) ?: return pattern
+    val newVal = if (current == ShiftKind.WORK) ShiftKind.OFF else ShiftKind.WORK
+    val tempPattern = pattern.copy(overrides = pattern.overrides - date)
+    val base = tempPattern.kindAt(date)
+    val newOverrides = if (newVal == base) pattern.overrides - date
+                       else pattern.overrides + (date to newVal)
+    return pattern.copy(
+        overrides = newOverrides,
+        phaseBreaks = pattern.phaseBreaks + PhaseBreak(nextDay, 0)
+    )
 }
 
 /**
@@ -182,16 +206,17 @@ private fun ShiftDayCell(
     modifier: Modifier = Modifier
 ) {
     val kind = pattern.kindAt(date)
-    val isBreak = pattern.phaseBreaks.any { it.date == date }
+    // 断点在"翻转日的次日",表示该天为重排起点
+    val isRephaseStart = pattern.phaseBreaks.any { it.date == date && it.cycleOffset == 0 }
 
     val badgeColor = when {
-        isBreak -> MaterialTheme.colorScheme.tertiary
+        isRephaseStart -> MaterialTheme.colorScheme.tertiary
         kind == ShiftKind.WORK -> MaterialTheme.colorScheme.primary
         kind == ShiftKind.OFF -> MaterialTheme.colorScheme.error
         else -> Color.Transparent
     }
     val badgeText = when {
-        isBreak -> "断"
+        isRephaseStart -> "起"
         kind == ShiftKind.WORK -> "班"
         kind == ShiftKind.OFF -> "休"
         else -> ""

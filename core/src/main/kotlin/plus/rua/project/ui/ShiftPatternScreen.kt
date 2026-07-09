@@ -59,7 +59,7 @@ import kotlin.time.Instant
  * 页面结构三段:
  * 1. 基础周期:锚点日期、当前周期展示;
  * 2. 预设方案:1班1休 / 2班2休 / 3班3休 / 4班4休 快捷切换;
- * 3. 调班设置:迷你月历(点=翻转班/休,长按=设/清相位断点)+ 恢复默认。
+ * 3. 调班设置:迷你月历(点=翻转班/休,长按=翻转并从次日起重排)+ 恢复默认。
  *
  * @param onBack 返回回调(由 Activity 触发 finishWithSlideBack)
  */
@@ -156,12 +156,12 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
             Text("调班设置", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
             ShiftCalendarGrid(pattern = pattern, onPatternChange = { pattern = it })
             Text(
-                text = "点某天 = 翻转班/休,长按某天 = 设/清相位断点",
+                text = "点某天 = 翻转班/休(仅当天),长按某天 = 翻转并从次日起重排",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Text(
-                text = "图例:班(蓝)/休(红)/断点(琥珀)",
+                text = "图例:班(蓝)/休(红)/重排起点(琥珀)",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
