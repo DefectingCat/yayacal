@@ -1,5 +1,6 @@
 package plus.rua.project.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -13,7 +14,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -25,6 +25,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -34,6 +38,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.coroutines.launch
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
 import plus.rua.project.CalendarViewModel
@@ -73,7 +79,8 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
     LaunchedEffect(pattern) { storage.save(pattern) }
 
     var showAnchorPicker by remember { mutableStateOf(false) }
-    var showResetDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
 
     Scaffold(
         topBar = {
@@ -85,14 +92,15 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("基础周期", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -110,9 +118,12 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("锚点日期", style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { showAnchorPicker = true }) {
-                            Text(pattern.anchorDate.toString())
-                        }
+                        Text(
+                            text = pattern.anchorDate.toString(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { showAnchorPicker = true }
+                        )
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -145,7 +156,7 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                             pattern = pattern.copy(
                                 cycle = cycle,
                                 overrides = emptyMap(),
-                                phaseBreaks = emptyList()
+                                rephaseFlips = emptyList()
                             )
                         },
                         label = { Text(label) }
@@ -167,7 +178,20 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
             )
 
             OutlinedButton(
-                onClick = { showResetDialog = true },
+                onClick = {
+                    val previous = pattern
+                    pattern = CalendarViewModel.DEFAULT_PATTERN
+                    scope.launch {
+                        val result = snackbarHostState.showSnackbar(
+                            message = "已恢复默认设置",
+                            actionLabel = "撤销",
+                            duration = SnackbarDuration.Short
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            pattern = previous
+                        }
+                    }
+                },
                 modifier = Modifier.fillMaxWidth()
             ) {
                 Text("恢复默认")
@@ -193,23 +217,6 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
         ) {
             DatePicker(state = state)
         }
-    }
-
-    if (showResetDialog) {
-        AlertDialog(
-            onDismissRequest = { showResetDialog = false },
-            title = { Text("恢复默认") },
-            text = { Text("将清空所有调班与断点设置,恢复为 2 班 2 休。确认?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    pattern = CalendarViewModel.DEFAULT_PATTERN
-                    showResetDialog = false
-                }) { Text("确定") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showResetDialog = false }) { Text("取消") }
-            }
-        )
     }
 }
 

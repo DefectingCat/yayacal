@@ -39,7 +39,7 @@ class ShiftPatternStorageTest {
                 LocalDate(2026, 7, 12) to ShiftKind.OFF,
                 LocalDate(2026, 7, 14) to ShiftKind.WORK
             ),
-            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 7, 18), 0))
+            rephaseFlips = listOf(RephaseFlip(LocalDate(2026, 7, 17), ShiftKind.OFF, LocalDate(2026, 7, 18)))
         )
         storage.save(pattern)
         val result = storage.load()
@@ -53,7 +53,7 @@ class ShiftPatternStorageTest {
             anchorDate = LocalDate(2026, 5, 15),
             cycle = listOf(ShiftKind.WORK, ShiftKind.OFF),
             overrides = emptyMap(),
-            phaseBreaks = emptyList()
+            rephaseFlips = emptyList()
         )
         storage.save(pattern)
         assertEquals(pattern, storage.load())

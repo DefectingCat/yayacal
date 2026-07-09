@@ -2,14 +2,19 @@ package plus.rua.project.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,33 +22,47 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
+import kotlin.math.abs
 import kotlin.time.Clock
-import plus.rua.project.PhaseBreak
+import kotlin.time.Instant
+import plus.rua.project.RephaseFlip
 import plus.rua.project.ShiftKind
 import plus.rua.project.ShiftPattern
 
@@ -58,7 +77,7 @@ import plus.rua.project.ShiftPattern
  * @param onPatternChange 修改后的新 pattern 回调
  * @param modifier 外部布局修饰符
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ShiftCalendarGrid(
     pattern: ShiftPattern,
@@ -66,12 +85,20 @@ fun ShiftCalendarGrid(
     modifier: Modifier = Modifier
 ) {
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
-    var viewYear by remember { mutableStateOf(today.year) }
-    var viewMonth by remember { mutableStateOf(today.month.number) }
+    val initialYear = remember { today.year }
+    val initialMonth = remember { today.month.number }
+    var showMonthPicker by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
-    val firstOfMonth = LocalDate(viewYear, Month(viewMonth), 1)
-    val daysInMonth = firstOfMonth.plus(DatePeriod(months = 1)).minus(DatePeriod(days = 1)).day
-    val firstWeekdayOffset = firstOfMonth.dayOfWeek.isoDayNumber - 1
+    // Pager 居中无限页,与主日历一致;viewYear/viewMonth 由当前页派生
+    val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
+    val viewYear by remember {
+        derivedStateOf { pageToYearMonth(pagerState.currentPage, initialYear, initialMonth).first }
+    }
+    val viewMonth by remember {
+        derivedStateOf { pageToYearMonth(pagerState.currentPage, initialYear, initialMonth).second }
+    }
+    val density = LocalDensity.current
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -86,17 +113,18 @@ fun ShiftCalendarGrid(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(onClick = {
-                    if (viewMonth == 1) { viewMonth = 12; viewYear -= 1 } else viewMonth -= 1
+                    coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
                 }) {
                     Icon(Icons.Filled.ChevronLeft, contentDescription = "上个月")
                 }
                 Text(
                     text = "${viewYear}年 ${viewMonth}月",
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { showMonthPicker = true }
                 )
                 IconButton(onClick = {
-                    if (viewMonth == 12) { viewMonth = 1; viewYear += 1 } else viewMonth += 1
+                    coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                 }) {
                     Icon(Icons.Filled.ChevronRight, contentDescription = "下个月")
                 }
@@ -115,23 +143,112 @@ fun ShiftCalendarGrid(
                 }
             }
 
-            (0 until 6).forEach { row ->
-                Row(Modifier.fillMaxWidth()) {
-                    (0 until 7).forEach { col ->
-                        val cellIndex = row * 7 + col
-                        val dayNum = cellIndex - firstWeekdayOffset + 1
-                        if (dayNum in 1..daysInMonth) {
-                            val date = LocalDate(viewYear, Month(viewMonth), dayNum)
-                            ShiftDayCell(
-                                date = date,
-                                pattern = pattern,
-                                onClick = { onPatternChange(toggleOverride(pattern, date)) },
-                                onLongClick = { onPatternChange(toggleFlipAndRephase(pattern, date)) },
-                                modifier = Modifier.weight(1f)
-                            )
+            // 用 BoxWithConstraints 拿宽度,推算行高(格宽=宽/7,aspectRatio(1f) 使行高=格宽)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val cellWidthPx = constraints.maxWidth / 7
+                val rowHeightPx = cellWidthPx
+
+                // 行数插值:滑动时在当前页与目标页行数间线性过渡,避免高度跳变
+                val interpolatedWeeks by remember {
+                    derivedStateOf {
+                        val fraction = pagerState.currentPageOffsetFraction
+                        if (abs(fraction) > OFFSET_FRACTION_THRESHOLD) {
+                            val cp = pagerState.currentPage
+                            val baseWeeks = calculateWeeksCountForPage(cp, today)
+                            val targetPage = cp + if (fraction > 0) 1 else -1
+                            val targetWeeks = calculateWeeksCountForPage(targetPage, today)
+                            lerp(baseWeeks.toFloat(), targetWeeks.toFloat(), abs(fraction))
                         } else {
-                            Box(Modifier.weight(1f).aspectRatio(1f))
+                            calculateWeeksCountForPage(pagerState.currentPage, today).toFloat()
                         }
+                    }
+                }
+                val gridHeightPx = (rowHeightPx * interpolatedWeeks).toInt()
+
+                HorizontalPager(
+                    state = pagerState,
+                    beyondViewportPageCount = 0,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(with(density) { gridHeightPx.toDp() })
+                        .clipToBounds()
+                ) { page ->
+                    val (year, month) = pageToYearMonth(page, initialYear, initialMonth)
+                    MonthGrid(
+                        year = year,
+                        month = month,
+                        pattern = pattern,
+                        onPatternChange = onPatternChange,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            }
+        }
+    }
+
+    if (showMonthPicker) {
+        val initialDate = LocalDate(viewYear, Month(viewMonth), 1)
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialDate.toEpochMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showMonthPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val picked = millis.toLocalDate()
+                        val targetPage = yearMonthToPage(
+                            picked.year, picked.month.number, initialYear, initialMonth
+                        )
+                        coroutineScope.launch { pagerState.animateScrollToPage(targetPage) }
+                    }
+                    showMonthPicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMonthPicker = false }) { Text("取消") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+}
+
+/**
+ * 迷你月历的单页网格。复用主日历 [getMonthGridInfo] 计算行数与偏移。
+ *
+ * @param year 年
+ * @param month 月(1-12)
+ * @param pattern 当前轮班配置(只读)
+ * @param onPatternChange 修改后的新 pattern 回调
+ * @param modifier 外部布局修饰符
+ */
+@Composable
+private fun MonthGrid(
+    year: Int,
+    month: Int,
+    pattern: ShiftPattern,
+    onPatternChange: (ShiftPattern) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val gridInfo = remember(year, month) { getMonthGridInfo(year, month) }
+    Column(modifier) {
+        (0 until gridInfo.rows).forEach { row ->
+            Row(Modifier.fillMaxWidth()) {
+                (0 until 7).forEach { col ->
+                    val cellIndex = row * 7 + col
+                    val dayNum = cellIndex - gridInfo.offset + 1
+                    if (dayNum in 1..gridInfo.daysInMonth) {
+                        val date = LocalDate(year, Month(month), dayNum)
+                        ShiftDayCell(
+                            date = date,
+                            pattern = pattern,
+                            onClick = { onPatternChange(toggleOverride(pattern, date)) },
+                            onLongClick = { onPatternChange(toggleFlipAndRephase(pattern, date)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Box(Modifier.weight(1f).aspectRatio(1f))
                     }
                 }
             }
@@ -140,9 +257,17 @@ fun ShiftCalendarGrid(
 }
 
 /**
- * 翻转某天的班/休 override。翻转后若与基础周期值一致,则移除 override。
+ * 翻转某天的班/休(单日 override)。翻转后若与基础周期值一致,则移除 override。
+ *
+ * 若该天存在 rephaseFlip(长按产生的翻转并重排),则移除整个 rephaseFlip,
+ * 避免留下孤立的"幽灵重排"(只清翻转但保留后续相位重排)。
  */
 private fun toggleOverride(pattern: ShiftPattern, date: LocalDate): ShiftPattern {
+    val existingFlip = pattern.rephaseFlips.find { it.date == date }
+    if (existingFlip != null) {
+        // 该天是 rephaseFlip 的翻转日:整体移除,避免幽灵重排
+        return pattern.copy(rephaseFlips = pattern.rephaseFlips - existingFlip)
+    }
     val current = pattern.kindAt(date) ?: return pattern
     val newVal = if (current == ShiftKind.WORK) ShiftKind.OFF else ShiftKind.WORK
     val tempPattern = pattern.copy(overrides = pattern.overrides - date)
@@ -155,35 +280,27 @@ private fun toggleOverride(pattern: ShiftPattern, date: LocalDate): ShiftPattern
 /**
  * 翻转某天的班/休,并从次日起重排周期(后续按 cycle 重新顺延)。
  *
- * 实现:翻转该天 override + 在 [date] 次日插入 PhaseBreak(offset=0)。
+ * 产出原子记录 [RephaseFlip]:翻转该天 + 从次日([rephaseFrom])起重排。
  * 次日成为新的 cycle[0],后续自动按周期顺延。
  *
- * 撤销:再次长按同一天,若存在由该天派生的断点(次日、offset=0),则移除 override 与该断点。
+ * 撤销:再次长按同一天,按 [RephaseFlip.date] 精确匹配并整体移除(不会误删其他记录)。
  *
  * @param date 被翻转并作为重排起点的日期
  */
 private fun toggleFlipAndRephase(pattern: ShiftPattern, date: LocalDate): ShiftPattern {
-    val nextDay = date.plus(DatePeriod(days = 1))
-    val derivedBreak = pattern.phaseBreaks.find { it.date == nextDay && it.cycleOffset == 0 }
-
-    if (derivedBreak != null) {
-        // 撤销:移除该天的 override 与关联断点
-        return pattern.copy(
-            overrides = pattern.overrides - date,
-            phaseBreaks = pattern.phaseBreaks - derivedBreak
-        )
+    val existing = pattern.rephaseFlips.find { it.date == date }
+    if (existing != null) {
+        // 撤销:整体移除该 rephaseFlip(原子删除)
+        return pattern.copy(rephaseFlips = pattern.rephaseFlips - existing)
     }
 
-    // 翻转该天 + 次日插入断点重排
+    // 翻转该天 + 次日重排
     val current = pattern.kindAt(date) ?: return pattern
     val newVal = if (current == ShiftKind.WORK) ShiftKind.OFF else ShiftKind.WORK
-    val tempPattern = pattern.copy(overrides = pattern.overrides - date)
-    val base = tempPattern.kindAt(date)
-    val newOverrides = if (newVal == base) pattern.overrides - date
-                       else pattern.overrides + (date to newVal)
+    val rephaseFrom = date.plus(DatePeriod(days = 1))
     return pattern.copy(
-        overrides = newOverrides,
-        phaseBreaks = pattern.phaseBreaks + PhaseBreak(nextDay, 0)
+        overrides = pattern.overrides - date,  // 该天改由 rephaseFlip 管辖,移除可能的旧 override
+        rephaseFlips = pattern.rephaseFlips + RephaseFlip(date, newVal, rephaseFrom)
     )
 }
 
@@ -206,13 +323,20 @@ private fun ShiftDayCell(
     modifier: Modifier = Modifier
 ) {
     val kind = pattern.kindAt(date)
-    // 断点在"翻转日的次日",表示该天为重排起点
-    val isRephaseStart = pattern.phaseBreaks.any { it.date == date && it.cycleOffset == 0 }
+    // rephaseFlip 的 rephaseFrom = 当天,表示该天为重排起点
+    val isRephaseStart = pattern.rephaseFlips.any { it.rephaseFrom == date }
 
+    // 背景色与文字色配对,保证对比度(对照 DayCell 的配色风格)
     val badgeColor = when {
         isRephaseStart -> MaterialTheme.colorScheme.tertiary
         kind == ShiftKind.WORK -> MaterialTheme.colorScheme.primary
         kind == ShiftKind.OFF -> MaterialTheme.colorScheme.error
+        else -> Color.Transparent
+    }
+    val badgeTextColor = when {
+        isRephaseStart -> MaterialTheme.colorScheme.onTertiary
+        kind == ShiftKind.WORK -> MaterialTheme.colorScheme.onPrimary
+        kind == ShiftKind.OFF -> MaterialTheme.colorScheme.onError
         else -> Color.Transparent
     }
     val badgeText = when {
@@ -243,7 +367,7 @@ private fun ShiftDayCell(
             ) {
                 Text(
                     text = badgeText,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = badgeTextColor,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
                     lineHeight = 8.sp
@@ -252,3 +376,9 @@ private fun ShiftDayCell(
         }
     }
 }
+
+private fun LocalDate.toEpochMillis(): Long =
+    this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+
+private fun Long.toLocalDate(): LocalDate =
+    Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date
