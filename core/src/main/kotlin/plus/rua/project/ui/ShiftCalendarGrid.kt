@@ -69,9 +69,10 @@ fun ShiftCalendarGrid(
     var viewYear by remember { mutableStateOf(today.year) }
     var viewMonth by remember { mutableStateOf(today.month.number) }
 
-    val firstOfMonth = LocalDate(viewYear, Month(viewMonth), 1)
-    val daysInMonth = firstOfMonth.plus(DatePeriod(months = 1)).minus(DatePeriod(days = 1)).day
-    val firstWeekdayOffset = firstOfMonth.dayOfWeek.isoDayNumber - 1
+    // 复用主日历的网格计算(周一为首日,动态行数 4/5/6)
+    val gridInfo = remember(viewYear, viewMonth) { getMonthGridInfo(viewYear, viewMonth) }
+    val firstWeekdayOffset = gridInfo.offset
+    val rows = gridInfo.rows
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -115,12 +116,12 @@ fun ShiftCalendarGrid(
                 }
             }
 
-            (0 until 6).forEach { row ->
+            (0 until rows).forEach { row ->
                 Row(Modifier.fillMaxWidth()) {
                     (0 until 7).forEach { col ->
                         val cellIndex = row * 7 + col
                         val dayNum = cellIndex - firstWeekdayOffset + 1
-                        if (dayNum in 1..daysInMonth) {
+                        if (dayNum in 1..gridInfo.daysInMonth) {
                             val date = LocalDate(viewYear, Month(viewMonth), dayNum)
                             ShiftDayCell(
                                 date = date,
@@ -209,10 +210,17 @@ private fun ShiftDayCell(
     // rephaseFlip 的 rephaseFrom = 当天,表示该天为重排起点
     val isRephaseStart = pattern.rephaseFlips.any { it.rephaseFrom == date }
 
+    // 背景色与文字色配对,保证对比度(对照 DayCell 的配色风格)
     val badgeColor = when {
         isRephaseStart -> MaterialTheme.colorScheme.tertiary
         kind == ShiftKind.WORK -> MaterialTheme.colorScheme.primary
         kind == ShiftKind.OFF -> MaterialTheme.colorScheme.error
+        else -> Color.Transparent
+    }
+    val badgeTextColor = when {
+        isRephaseStart -> MaterialTheme.colorScheme.onTertiary
+        kind == ShiftKind.WORK -> MaterialTheme.colorScheme.onPrimary
+        kind == ShiftKind.OFF -> MaterialTheme.colorScheme.onError
         else -> Color.Transparent
     }
     val badgeText = when {
@@ -243,7 +251,7 @@ private fun ShiftDayCell(
             ) {
                 Text(
                     text = badgeText,
-                    color = MaterialTheme.colorScheme.onPrimary,
+                    color = badgeTextColor,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
                     lineHeight = 8.sp
