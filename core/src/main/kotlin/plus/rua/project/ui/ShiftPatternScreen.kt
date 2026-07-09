@@ -1,5 +1,6 @@
 package plus.rua.project.ui
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -99,7 +100,7 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Text("基础周期", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
@@ -117,9 +118,12 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text("锚点日期", style = MaterialTheme.typography.bodyMedium)
-                        TextButton(onClick = { showAnchorPicker = true }) {
-                            Text(pattern.anchorDate.toString())
-                        }
+                        Text(
+                            text = pattern.anchorDate.toString(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.clickable { showAnchorPicker = true }
+                        )
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
