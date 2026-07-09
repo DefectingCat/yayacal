@@ -6,10 +6,12 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
@@ -38,6 +40,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -55,6 +59,7 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
+import kotlin.math.abs
 import kotlin.time.Clock
 import kotlin.time.Instant
 import plus.rua.project.RephaseFlip
@@ -93,6 +98,7 @@ fun ShiftCalendarGrid(
     val viewMonth by remember {
         derivedStateOf { pageToYearMonth(pagerState.currentPage, initialYear, initialMonth).second }
     }
+    val density = LocalDensity.current
 
     Card(
         modifier = modifier.fillMaxWidth(),
@@ -137,20 +143,45 @@ fun ShiftCalendarGrid(
                 }
             }
 
-            // 滑动翻页区域:每页一个月的网格
-            HorizontalPager(
-                state = pagerState,
-                beyondViewportPageCount = 0,
-                modifier = Modifier.fillMaxWidth()
-            ) { page ->
-                val (year, month) = pageToYearMonth(page, initialYear, initialMonth)
-                MonthGrid(
-                    year = year,
-                    month = month,
-                    pattern = pattern,
-                    onPatternChange = onPatternChange,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            // 用 BoxWithConstraints 拿宽度,推算行高(格宽=宽/7,aspectRatio(1f) 使行高=格宽)
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val cellWidthPx = constraints.maxWidth / 7
+                val rowHeightPx = cellWidthPx
+
+                // 行数插值:滑动时在当前页与目标页行数间线性过渡,避免高度跳变
+                val interpolatedWeeks by remember {
+                    derivedStateOf {
+                        val fraction = pagerState.currentPageOffsetFraction
+                        if (abs(fraction) > OFFSET_FRACTION_THRESHOLD) {
+                            val cp = pagerState.currentPage
+                            val baseWeeks = calculateWeeksCountForPage(cp, today)
+                            val targetPage = cp + if (fraction > 0) 1 else -1
+                            val targetWeeks = calculateWeeksCountForPage(targetPage, today)
+                            lerp(baseWeeks.toFloat(), targetWeeks.toFloat(), abs(fraction))
+                        } else {
+                            calculateWeeksCountForPage(pagerState.currentPage, today).toFloat()
+                        }
+                    }
+                }
+                val gridHeightPx = (rowHeightPx * interpolatedWeeks).toInt()
+
+                HorizontalPager(
+                    state = pagerState,
+                    beyondViewportPageCount = 0,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(with(density) { gridHeightPx.toDp() })
+                        .clipToBounds()
+                ) { page ->
+                    val (year, month) = pageToYearMonth(page, initialYear, initialMonth)
+                    MonthGrid(
+                        year = year,
+                        month = month,
+                        pattern = pattern,
+                        onPatternChange = onPatternChange,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
     }
