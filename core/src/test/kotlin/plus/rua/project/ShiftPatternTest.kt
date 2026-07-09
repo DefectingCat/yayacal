@@ -199,75 +199,66 @@ class ShiftPatternTest {
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 17)))
     }
 
-    // ---- kindAt: 相位断点 phaseBreak ----
+    // ---- kindAt: 翻转并重排 rephaseFlip ----
 
     @Test
-    fun kindAt_phaseBreak_restartsCycleFromBreakDate() {
-        // 断点设在 5/19,从这天起重新 cycle[0]
+    fun kindAt_rephaseFlip_restartsCycleFromRephaseDate() {
+        // 5/18 翻转为 OFF,5/19 起重排(rephaseFrom=5/19)
         val pattern = twoOnTwoOff.copy(
-            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 5, 19), 0))
+            rephaseFlips = listOf(RephaseFlip(LocalDate(2026, 5, 18), ShiftKind.OFF, LocalDate(2026, 5, 19)))
         )
-        // 5/19 = cycle[0] = WORK
+        // 5/18 = 翻转为 OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 18)))
+        // 5/19 = cycle[0] = WORK(重排起点)
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 19)))
         // 5/20 = cycle[1] = WORK
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 20)))
         // 5/21 = cycle[2] = OFF
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 21)))
-        // 断点之前保持原相位:5/18 = (18-15)%4=3 = OFF
-        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 18)))
     }
 
     @Test
-    fun kindAt_phaseBreakWithOffset_shiftsPhase() {
-        // 断点 5/19,cycleOffset=2:5/19 对应 cycle[2]=OFF(而非 cycle[0]=WORK)
+    fun kindAt_multipleRephaseFlips_usesLatestApplicable() {
+        // 两个 rephaseFlip:5/18→5/19 重排,5/24→5/25 重排
         val pattern = twoOnTwoOff.copy(
-            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 5, 19), 2))
-        )
-        // 5/19 = cycle[(0+2)%4] = cycle[2] = OFF
-        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 19)))
-        // 5/20 = cycle[(1+2)%4] = cycle[3] = OFF
-        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 20)))
-        // 5/21 = cycle[(2+2)%4] = cycle[0] = WORK
-        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 21)))
-    }
-
-    @Test
-    fun kindAt_multiplePhaseBreaks_usesLatestApplicable() {
-        // 两个断点:5/19(offset 0) 和 5/25(offset 1)
-        val pattern = twoOnTwoOff.copy(
-            phaseBreaks = listOf(
-                PhaseBreak(LocalDate(2026, 5, 19), 0),
-                PhaseBreak(LocalDate(2026, 5, 25), 1)
+            rephaseFlips = listOf(
+                RephaseFlip(LocalDate(2026, 5, 18), ShiftKind.OFF, LocalDate(2026, 5, 19)),
+                RephaseFlip(LocalDate(2026, 5, 24), ShiftKind.OFF, LocalDate(2026, 5, 25))
             )
         )
-        // 5/19-5/24 受第一个断点支配(offset 0)
+        // 5/19-5/23 受第一个重排支配(5/19 起锚)
         // 5/19 = cycle[0] = WORK
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 19)))
-        // 5/24 = cycle[(5)%4] = cycle[1] = WORK
-        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 24)))
-        // 5/25 起受第二个断点支配(offset 1)
-        // 5/25 = cycle[(0+1)%4] = cycle[1] = WORK
+        // 5/23 = cycle[(4)%4] = cycle[0] = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 23)))
+        // 5/24 = 第二个 rephaseFlip 的翻转日,翻转为 OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 24)))
+        // 5/25 起受第二个断点支配(5/25 起锚)
+        // 5/25 = cycle[0] = WORK
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 25)))
-        // 5/26 = cycle[(1+1)%4] = cycle[2] = OFF
-        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 26)))
+        // 5/26 = cycle[1] = WORK
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 5, 26)))
+        // 5/27 = cycle[2] = OFF
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 5, 27)))
     }
 
-    // ---- kindAt: override + phaseBreak 组合(用户原始例子)----
+    // ---- kindAt: override + rephaseFlip 组合(用户原始例子)----
 
     @Test
-    fun kindAt_userExample_combinedOverridesAndPhaseBreak() {
+    fun kindAt_userExample_combinedOverridesAndRephaseFlip() {
         // 基础锚点 7/8,周期 [WORK,WORK,OFF,OFF]
         val pattern = ShiftPattern(
             anchorDate = LocalDate(2026, 7, 8),
             cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
             overrides = mapOf(
-                LocalDate(2026, 7, 12) to ShiftKind.OFF,  // 班→休
-                LocalDate(2026, 7, 14) to ShiftKind.WORK, // 休→班
-                LocalDate(2026, 7, 15) to ShiftKind.WORK, // 休→班
-                LocalDate(2026, 7, 16) to ShiftKind.OFF,  // 班→休
-                LocalDate(2026, 7, 17) to ShiftKind.OFF   // 班→休
+                LocalDate(2026, 7, 12) to ShiftKind.OFF,  // 班→休(单日)
+                LocalDate(2026, 7, 14) to ShiftKind.WORK, // 休→班(单日)
+                LocalDate(2026, 7, 15) to ShiftKind.WORK, // 休→班(单日)
+                LocalDate(2026, 7, 16) to ShiftKind.OFF,  // 班→休(单日)
+                LocalDate(2026, 7, 17) to ShiftKind.OFF   // 班→休(单日)
             ),
-            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 7, 18), 0))
+            // 7/17 翻转为 OFF,7/18 起重排
+            rephaseFlips = listOf(RephaseFlip(LocalDate(2026, 7, 17), ShiftKind.OFF, LocalDate(2026, 7, 18)))
         )
         // 7/10,11 = 基础周期自动算 (idx 2,3) = OFF,OFF
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 10)))
@@ -279,19 +270,18 @@ class ShiftPatternTest {
         // 7/14,15 = override WORK
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 14)))
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 15)))
-        // 7/16,17 = override OFF
+        // 7/16 = override OFF
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 16)))
+        // 7/17 = rephaseFlip 翻转为 OFF
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 17)))
-        // 7/18 起 phaseBreak 重排:cycle[0,1,2,3] = WORK,WORK,OFF,OFF
+        // 7/18 起 rephase 重排:cycle[0,1,2,3] = WORK,WORK,OFF,OFF
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 18)))
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 19)))
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 20)))
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 21)))
     }
 
-    // ---- 长按"翻转并重排"场景(重构安全网)----
-    // 以下测试模拟当前 UI 长按产出:override[date] + PhaseBreak(date+1, 0)
-    // 重构为 RephaseFlip 后,这些场景的 kindAt 输出必须保持一致。
+    // ---- 长按"翻转并重排"场景(RephaseFlip 原子操作)----
 
     /**
      * 单次长按:锚点 7/10,2班2休。长按 7/10 把班翻转为休,7/11 起重排。
@@ -299,12 +289,10 @@ class ShiftPatternTest {
      */
     @Test
     fun longPress_singleFlip_dateFlippedAndRephased() {
-        // 锚点 7/10,7/10=班(基础)
         val pattern = ShiftPattern(
             anchorDate = LocalDate(2026, 7, 10),
             cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
-            overrides = mapOf(LocalDate(2026, 7, 10) to ShiftKind.OFF),
-            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 7, 11), 0))
+            rephaseFlips = listOf(RephaseFlip(LocalDate(2026, 7, 10), ShiftKind.OFF, LocalDate(2026, 7, 11)))
         )
         // 7/10 翻转为休
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 10)))
@@ -319,32 +307,28 @@ class ShiftPatternTest {
     }
 
     /**
-     * 连续两次长按:7/10 一次、7/14 一次。两个重排点共存。
-     * 期望:7/11-13 受第一个断点支配,7/14 起受第二个断点支配
+     * 连续两次长按:7/10 一次、7/14 一次。两个 rephaseFlip 共存。
+     * 期望:7/11-13 受第一个重排支配,7/15 起受第二个重排支配
      */
     @Test
     fun longPress_twoFlips_bothRephasesApplied() {
         val pattern = ShiftPattern(
             anchorDate = LocalDate(2026, 7, 10),
             cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
-            overrides = mapOf(
-                LocalDate(2026, 7, 10) to ShiftKind.OFF,
-                LocalDate(2026, 7, 14) to ShiftKind.OFF
-            ),
-            phaseBreaks = listOf(
-                PhaseBreak(LocalDate(2026, 7, 11), 0),
-                PhaseBreak(LocalDate(2026, 7, 15), 0)
+            rephaseFlips = listOf(
+                RephaseFlip(LocalDate(2026, 7, 10), ShiftKind.OFF, LocalDate(2026, 7, 11)),
+                RephaseFlip(LocalDate(2026, 7, 14), ShiftKind.OFF, LocalDate(2026, 7, 15))
             )
         )
         // 7/10 翻转为休
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 10)))
-        // 7/11-13 受第一个断点:班班休
+        // 7/11-13 受第一个重排(7/11 起):班班休
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 11)))
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 12)))
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 13)))
         // 7/14 翻转为休
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 14)))
-        // 7/15 起受第二个断点:班班休休
+        // 7/15 起受第二个重排:班班休休
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 15)))
         assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 16)))
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 17)))
@@ -352,21 +336,17 @@ class ShiftPatternTest {
     }
 
     /**
-     * 撤销长按:移除 7/10 的 override 和关联的 7/11 断点后,回到基础周期。
+     * 撤销长按:移除整个 RephaseFlip 后,回到基础周期。
      */
     @Test
     fun longPress_undo_returnsToBaseCycle() {
         val before = ShiftPattern(
             anchorDate = LocalDate(2026, 7, 10),
             cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
-            overrides = mapOf(LocalDate(2026, 7, 10) to ShiftKind.OFF),
-            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 7, 11), 0))
+            rephaseFlips = listOf(RephaseFlip(LocalDate(2026, 7, 10), ShiftKind.OFF, LocalDate(2026, 7, 11)))
         )
-        // 撤销:移除 override 和断点
-        val after = before.copy(
-            overrides = before.overrides - LocalDate(2026, 7, 10),
-            phaseBreaks = emptyList()
-        )
+        // 撤销:移除整个 rephaseFlip(原子删除,不会留孤立断点)
+        val after = before.copy(rephaseFlips = emptyList())
         // 回到基础:7/10=班(锚点),7/12=休
         assertEquals(ShiftKind.WORK, after.kindAt(LocalDate(2026, 7, 10)))
         assertEquals(ShiftKind.WORK, after.kindAt(LocalDate(2026, 7, 11)))

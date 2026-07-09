@@ -145,7 +145,7 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                             pattern = pattern.copy(
                                 cycle = cycle,
                                 overrides = emptyMap(),
-                                phaseBreaks = emptyList()
+                                rephaseFlips = emptyList()
                             )
                         },
                         label = { Text(label) }

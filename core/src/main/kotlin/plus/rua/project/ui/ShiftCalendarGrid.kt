@@ -43,7 +43,7 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
-import plus.rua.project.PhaseBreak
+import plus.rua.project.RephaseFlip
 import plus.rua.project.ShiftKind
 import plus.rua.project.ShiftPattern
 
@@ -140,9 +140,17 @@ fun ShiftCalendarGrid(
 }
 
 /**
- * 翻转某天的班/休 override。翻转后若与基础周期值一致,则移除 override。
+ * 翻转某天的班/休(单日 override)。翻转后若与基础周期值一致,则移除 override。
+ *
+ * 若该天存在 rephaseFlip(长按产生的翻转并重排),则移除整个 rephaseFlip,
+ * 避免留下孤立的"幽灵重排"(只清翻转但保留后续相位重排)。
  */
 private fun toggleOverride(pattern: ShiftPattern, date: LocalDate): ShiftPattern {
+    val existingFlip = pattern.rephaseFlips.find { it.date == date }
+    if (existingFlip != null) {
+        // 该天是 rephaseFlip 的翻转日:整体移除,避免幽灵重排
+        return pattern.copy(rephaseFlips = pattern.rephaseFlips - existingFlip)
+    }
     val current = pattern.kindAt(date) ?: return pattern
     val newVal = if (current == ShiftKind.WORK) ShiftKind.OFF else ShiftKind.WORK
     val tempPattern = pattern.copy(overrides = pattern.overrides - date)
@@ -155,35 +163,27 @@ private fun toggleOverride(pattern: ShiftPattern, date: LocalDate): ShiftPattern
 /**
  * 翻转某天的班/休,并从次日起重排周期(后续按 cycle 重新顺延)。
  *
- * 实现:翻转该天 override + 在 [date] 次日插入 PhaseBreak(offset=0)。
+ * 产出原子记录 [RephaseFlip]:翻转该天 + 从次日([rephaseFrom])起重排。
  * 次日成为新的 cycle[0],后续自动按周期顺延。
  *
- * 撤销:再次长按同一天,若存在由该天派生的断点(次日、offset=0),则移除 override 与该断点。
+ * 撤销:再次长按同一天,按 [RephaseFlip.date] 精确匹配并整体移除(不会误删其他记录)。
  *
  * @param date 被翻转并作为重排起点的日期
  */
 private fun toggleFlipAndRephase(pattern: ShiftPattern, date: LocalDate): ShiftPattern {
-    val nextDay = date.plus(DatePeriod(days = 1))
-    val derivedBreak = pattern.phaseBreaks.find { it.date == nextDay && it.cycleOffset == 0 }
-
-    if (derivedBreak != null) {
-        // 撤销:移除该天的 override 与关联断点
-        return pattern.copy(
-            overrides = pattern.overrides - date,
-            phaseBreaks = pattern.phaseBreaks - derivedBreak
-        )
+    val existing = pattern.rephaseFlips.find { it.date == date }
+    if (existing != null) {
+        // 撤销:整体移除该 rephaseFlip(原子删除)
+        return pattern.copy(rephaseFlips = pattern.rephaseFlips - existing)
     }
 
-    // 翻转该天 + 次日插入断点重排
+    // 翻转该天 + 次日重排
     val current = pattern.kindAt(date) ?: return pattern
     val newVal = if (current == ShiftKind.WORK) ShiftKind.OFF else ShiftKind.WORK
-    val tempPattern = pattern.copy(overrides = pattern.overrides - date)
-    val base = tempPattern.kindAt(date)
-    val newOverrides = if (newVal == base) pattern.overrides - date
-                       else pattern.overrides + (date to newVal)
+    val rephaseFrom = date.plus(DatePeriod(days = 1))
     return pattern.copy(
-        overrides = newOverrides,
-        phaseBreaks = pattern.phaseBreaks + PhaseBreak(nextDay, 0)
+        overrides = pattern.overrides - date,  // 该天改由 rephaseFlip 管辖,移除可能的旧 override
+        rephaseFlips = pattern.rephaseFlips + RephaseFlip(date, newVal, rephaseFrom)
     )
 }
 
@@ -206,8 +206,8 @@ private fun ShiftDayCell(
     modifier: Modifier = Modifier
 ) {
     val kind = pattern.kindAt(date)
-    // 断点在"翻转日的次日",表示该天为重排起点
-    val isRephaseStart = pattern.phaseBreaks.any { it.date == date && it.cycleOffset == 0 }
+    // rephaseFlip 的 rephaseFrom = 当天,表示该天为重排起点
+    val isRephaseStart = pattern.rephaseFlips.any { it.rephaseFrom == date }
 
     val badgeColor = when {
         isRephaseStart -> MaterialTheme.colorScheme.tertiary
