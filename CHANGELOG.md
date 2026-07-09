@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-07-09
+
+### Added
+
+- 班次设置页：新增独立设置页，支持编辑基础周期（锚点日期 + 预设方案 1班1休/2班2休/3班3休/4班4休）。
+- 班次设置页：迷你月历支持点击翻转班/休（单日）、长按翻转并从次日起重排后续周期。
+- 班次设置页：迷你月历支持左右滑动翻月，点击年月标题弹 DatePicker 快速跳转月份。
+- 班次设置页：滑动翻月时高度插值平滑过渡，复用主日历的行数插值机制。
+- 班次设置页：恢复默认改为 Snackbar 撤销模式，5 秒内可恢复。
+
+### Changed
+
+- 班次数据模型重构：`phaseBreaks` + `override` 两独立字段合并为原子结构 `RephaseFlip(date, flippedTo, rephaseFrom)`，解决撤销误删、幽灵重排、断点链不级联问题。
+- 个人轮班设置持久化到 SharedPreferences，设置返回主界面后 `onResume` 立即生效。
+- 迷你月历角标颜色按类别配对（班=onPrimary，休=onError，重排起点=onTertiary）。
+- 迷你月历动态计算行数（4/5/6 行自适应），不再固定 6 行。
+- 依赖升级：Compose BOM 2026.06.01、Lifecycle 2.11.0、UiAutomator 2.4.0、tyme4kt 1.5.0、Spotless 8.8.0。
+
+### Fixed
+
+- 班次设置页：修复 `shiftPattern` StateFlow 未被 `collectAsState` 订阅导致设置返回后日历不立即刷新。
+- 班次设置页：修复锚点日期 TextButton 内边距导致与周期行右侧不对齐。
+- 班次设置页：修复顶部内边距比四周偏大的叠加问题。
+
 ## [1.2.0] - 2026-06-18
 
 ### Added
@@ -268,6 +292,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.3.0]: https://github.com/xfy/yayacal/releases/tag/v1.3.0
 [1.2.0]: https://github.com/xfy/yayacal/releases/tag/v1.2.0
 [1.1.0]: https://github.com/xfy/yayacal/releases/tag/v1.1.0
 [1.0.0]: https://github.com/xfy/yayacal/releases/tag/v1.0.0
