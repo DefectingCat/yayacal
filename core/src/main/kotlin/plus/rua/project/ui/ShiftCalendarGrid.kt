@@ -2,6 +2,7 @@ package plus.rua.project.ui
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -17,10 +18,15 @@ import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,12 +43,15 @@ import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.minus
 import kotlinx.datetime.number
 import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 import kotlin.time.Clock
+import kotlin.time.Instant
 import plus.rua.project.RephaseFlip
 import plus.rua.project.ShiftKind
 import plus.rua.project.ShiftPattern
@@ -58,7 +67,7 @@ import plus.rua.project.ShiftPattern
  * @param onPatternChange 修改后的新 pattern 回调
  * @param modifier 外部布局修饰符
  */
-@OptIn(ExperimentalFoundationApi::class)
+@OptIn(ExperimentalFoundationApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun ShiftCalendarGrid(
     pattern: ShiftPattern,
@@ -68,6 +77,7 @@ fun ShiftCalendarGrid(
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
     var viewYear by remember { mutableStateOf(today.year) }
     var viewMonth by remember { mutableStateOf(today.month.number) }
+    var showMonthPicker by remember { mutableStateOf(false) }
 
     // 复用主日历的网格计算(周一为首日,动态行数 4/5/6)
     val gridInfo = remember(viewYear, viewMonth) { getMonthGridInfo(viewYear, viewMonth) }
@@ -94,7 +104,8 @@ fun ShiftCalendarGrid(
                 Text(
                     text = "${viewYear}年 ${viewMonth}月",
                     style = MaterialTheme.typography.titleSmall,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.clickable { showMonthPicker = true }
                 )
                 IconButton(onClick = {
                     if (viewMonth == 12) { viewMonth = 1; viewYear += 1 } else viewMonth += 1
@@ -136,6 +147,31 @@ fun ShiftCalendarGrid(
                     }
                 }
             }
+        }
+    }
+
+    if (showMonthPicker) {
+        val initialDate = LocalDate(viewYear, Month(viewMonth), 1)
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = initialDate.toEpochMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showMonthPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val picked = millis.toLocalDate()
+                        viewYear = picked.year
+                        viewMonth = picked.month.number
+                    }
+                    showMonthPicker = false
+                }) { Text("确定") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showMonthPicker = false }) { Text("取消") }
+            }
+        ) {
+            DatePicker(state = datePickerState)
         }
     }
 }
@@ -260,3 +296,9 @@ private fun ShiftDayCell(
         }
     }
 }
+
+private fun LocalDate.toEpochMillis(): Long =
+    this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+
+private fun Long.toLocalDate(): LocalDate =
+    Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date
