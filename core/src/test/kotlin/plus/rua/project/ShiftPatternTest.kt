@@ -288,4 +288,88 @@ class ShiftPatternTest {
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 20)))
         assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 21)))
     }
+
+    // ---- 长按"翻转并重排"场景(重构安全网)----
+    // 以下测试模拟当前 UI 长按产出:override[date] + PhaseBreak(date+1, 0)
+    // 重构为 RephaseFlip 后,这些场景的 kindAt 输出必须保持一致。
+
+    /**
+     * 单次长按:锚点 7/10,2班2休。长按 7/10 把班翻转为休,7/11 起重排。
+     * 期望:7/10=休,7/11-12=班,7/13-14=休(后续按 cycle 顺延)
+     */
+    @Test
+    fun longPress_singleFlip_dateFlippedAndRephased() {
+        // 锚点 7/10,7/10=班(基础)
+        val pattern = ShiftPattern(
+            anchorDate = LocalDate(2026, 7, 10),
+            cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
+            overrides = mapOf(LocalDate(2026, 7, 10) to ShiftKind.OFF),
+            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 7, 11), 0))
+        )
+        // 7/10 翻转为休
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 10)))
+        // 7/11 起重排:cycle[0,1]=班班
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 11)))
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 12)))
+        // cycle[2,3]=休休
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 13)))
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 14)))
+        // 继续循环:7/15=cycle[0]=班
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 15)))
+    }
+
+    /**
+     * 连续两次长按:7/10 一次、7/14 一次。两个重排点共存。
+     * 期望:7/11-13 受第一个断点支配,7/14 起受第二个断点支配
+     */
+    @Test
+    fun longPress_twoFlips_bothRephasesApplied() {
+        val pattern = ShiftPattern(
+            anchorDate = LocalDate(2026, 7, 10),
+            cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
+            overrides = mapOf(
+                LocalDate(2026, 7, 10) to ShiftKind.OFF,
+                LocalDate(2026, 7, 14) to ShiftKind.OFF
+            ),
+            phaseBreaks = listOf(
+                PhaseBreak(LocalDate(2026, 7, 11), 0),
+                PhaseBreak(LocalDate(2026, 7, 15), 0)
+            )
+        )
+        // 7/10 翻转为休
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 10)))
+        // 7/11-13 受第一个断点:班班休
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 11)))
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 12)))
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 13)))
+        // 7/14 翻转为休
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 14)))
+        // 7/15 起受第二个断点:班班休休
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 15)))
+        assertEquals(ShiftKind.WORK, pattern.kindAt(LocalDate(2026, 7, 16)))
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 17)))
+        assertEquals(ShiftKind.OFF, pattern.kindAt(LocalDate(2026, 7, 18)))
+    }
+
+    /**
+     * 撤销长按:移除 7/10 的 override 和关联的 7/11 断点后,回到基础周期。
+     */
+    @Test
+    fun longPress_undo_returnsToBaseCycle() {
+        val before = ShiftPattern(
+            anchorDate = LocalDate(2026, 7, 10),
+            cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
+            overrides = mapOf(LocalDate(2026, 7, 10) to ShiftKind.OFF),
+            phaseBreaks = listOf(PhaseBreak(LocalDate(2026, 7, 11), 0))
+        )
+        // 撤销:移除 override 和断点
+        val after = before.copy(
+            overrides = before.overrides - LocalDate(2026, 7, 10),
+            phaseBreaks = emptyList()
+        )
+        // 回到基础:7/10=班(锚点),7/12=休
+        assertEquals(ShiftKind.WORK, after.kindAt(LocalDate(2026, 7, 10)))
+        assertEquals(ShiftKind.WORK, after.kindAt(LocalDate(2026, 7, 11)))
+        assertEquals(ShiftKind.OFF, after.kindAt(LocalDate(2026, 7, 12)))
+    }
 }
