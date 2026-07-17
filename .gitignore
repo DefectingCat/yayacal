@@ -25,3 +25,4 @@ logs/
 docs/superpowers/*
 !docs/superpowers/specs/
 .worktrees/
+.zcode/
