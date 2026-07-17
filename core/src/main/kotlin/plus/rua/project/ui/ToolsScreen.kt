@@ -1,6 +1,7 @@
 package plus.rua.project.ui
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -29,6 +30,7 @@ import androidx.compose.ui.unit.dp
  *
  * @param onBack 返回回调
  * @param onNavigateToDateChecker 跳转到日期检查器回调
+ * @param onNavigateToDateRecorder 跳转到日期记录器回调
  * @param modifier 布局修饰符
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,6 +38,7 @@ import androidx.compose.ui.unit.dp
 fun ToolsScreen(
     onBack: () -> Unit,
     onNavigateToDateChecker: () -> Unit,
+    onNavigateToDateRecorder: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     Scaffold(
@@ -58,12 +61,18 @@ fun ToolsScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             ToolItem(
                 title = "日期检查器",
                 onClick = onNavigateToDateChecker,
                 modifier = Modifier.testTag("tool_date_checker")
+            )
+            ToolItem(
+                title = "日期记录器",
+                onClick = onNavigateToDateRecorder,
+                modifier = Modifier.testTag("tool_date_recorder")
             )
         }
     }

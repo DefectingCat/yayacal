@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- 日期记录器：照片存放在 filesDir/Pictures/date_recorder/ -->
+    <files-path
+        name="date_recorder"
+        path="Pictures/date_recorder/" />
+</paths>

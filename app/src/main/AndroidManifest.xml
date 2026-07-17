@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 日期记录器：相机拍摄；照片存 filesDir，minSdk 24 免存储权限 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
     <application
         android:allowBackup="true"
         android:enableOnBackInvokedCallback="true"
@@ -50,8 +53,40 @@
             android:exported="false" />
 
         <activity
+            android:name=".DateRecorderActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".CameraActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
+        <activity
+            android:name=".PhotoEditorActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".RecordEditActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".RecordDetailActivity"
+            android:exported="false" />
+
+        <activity
             android:name=".ShiftPatternActivity"
             android:exported="false" />
+
+        <!-- 日期记录器：FileProvider，用于相机临时文件 URI 共享 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>
