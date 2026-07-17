@@ -3,6 +3,7 @@ package plus.rua.project.ui
 import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
@@ -31,7 +32,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -98,17 +98,18 @@ fun CameraScreen(
             .background(Color.Black)
             .semantics { testTagsAsResourceId = true }
     ) {
-        when {
-            !hasCameraPermission -> PermissionDeniedContent(onBack = onBack)
-
-            isCapturing -> CircularProgressIndicator(
-                modifier = Modifier.align(Alignment.Center),
-                color = Color.White
-            )
-
-            else -> CameraPreview(
+        if (!hasCameraPermission) {
+            PermissionDeniedContent(onBack = onBack)
+        } else {
+            // 关键：CameraPreview 必须始终留在组合中，不能被 isCapturing 替换。
+            // 一旦 isCapturing=true 时移除 CameraPreview，其 remember 的 imageCapture、
+            // LaunchedEffect 绑定都会失效，相机 unbindAll + clearPipeline，
+            // 而此时 takePicture 的异步请求还在排队，导致拍照无法完成（第一下点击失效）。
+            // loading 指示改为叠加覆盖层。
+            CameraPreview(
                 context = context,
                 lifecycleOwner = lifecycleOwner,
+                isCapturing = isCapturing,
                 onBack = onBack,
                 onCaptured = { path ->
                     isCapturing = false
@@ -120,6 +121,18 @@ fun CameraScreen(
                 },
                 setCapturing = { isCapturing = it }
             )
+
+            if (isCapturing) {
+                // 半透明遮罩 + loading，覆盖在预览之上但不移除预览
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.4f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color.White)
+                }
+            }
         }
 
         captureError?.let { msg ->
@@ -138,45 +151,60 @@ fun CameraScreen(
 private fun CameraPreview(
     context: Context,
     lifecycleOwner: LifecycleOwner,
+    isCapturing: Boolean,
     onBack: () -> Unit,
     onCaptured: (String) -> Unit,
     onError: (String) -> Unit,
     setCapturing: (Boolean) -> Unit
 ) {
-    val imageCapture = remember { ImageCapture.Builder().build() }
+    val imageCapture = remember {
+        // 设置目标旋转角度，让 CameraX 写入正确的 EXIF orientation，
+        // 配合 PhotoProcessor 读取 EXIF 后即可得到正向图片。
+        ImageCapture.Builder()
+            .setTargetRotation(context.getDisplayRotation())
+            .build()
+    }
+    // 注意：不要在 onDispose 中 shutdown executor。
+    // CameraX 1.5 的 takePicture 在 onImageSaved 之后内部仍可能向 executor 提交收尾任务，
+    // 过早 shutdown 会导致 RejectedExecutionException 崩溃。应用进程结束时线程池自然回收。
     val executor = remember { Executors.newSingleThreadExecutor() }
+    // 主线程 Handler，用于把拍照回调从 executor 线程切回 UI 线程后再触发跳转/状态更新
+    val mainHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
     var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
 
-    DisposableEffect(Unit) {
-        onDispose { executor.shutdown() }
-    }
+    // 持有 PreviewView 引用：由 AndroidView.factory 创建后暴露给绑定逻辑。
+    // 不用 remember{PreviewView(context)} 自建 —— AndroidView 需要自己管理 View 生命周期
+    // （attach/detach/Surface 创建），外部 remember 的 View 与 AndroidView 内部生命周期冲突，
+    // 会导致 Surface 反复 abandon/recreate，进而相机反复 bind/unbind。
+    var previewView by remember { mutableStateOf<PreviewView?>(null) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
             modifier = Modifier.fillMaxSize(),
             factory = { ctx ->
-                val previewView = PreviewView(ctx).apply {
+                PreviewView(ctx).apply {
                     scaleType = PreviewView.ScaleType.FILL_CENTER
+                    // 等真正 attach 到窗口、Surface 就绪后再绑定相机
+                    post {
+                        previewView = this
+                    }
                 }
-                bindCameraUseCases(
-                    context = ctx,
-                    lifecycleOwner = lifecycleOwner,
-                    previewView = previewView,
-                    imageCapture = imageCapture,
-                    lensFacing = lensFacing
-                )
-                previewView
-            },
-            update = { previewView ->
-                bindCameraUseCases(
-                    context = context,
-                    lifecycleOwner = lifecycleOwner,
-                    previewView = previewView,
-                    imageCapture = imageCapture,
-                    lensFacing = lensFacing
-                )
             }
+            // 不在 update 里重新绑定相机，避免每次重组触发解绑重绑
         )
+
+        // 镜头切换时重新绑定。
+        // 注意：previewView 首次就绪也会触发（从 null → PreviewView），这是预期的首次绑定。
+        LaunchedEffect(lensFacing, previewView) {
+            val pv = previewView ?: return@LaunchedEffect
+            bindCameraUseCases(
+                context = context,
+                lifecycleOwner = lifecycleOwner,
+                previewView = pv,
+                imageCapture = imageCapture,
+                lensFacing = lensFacing
+            )
+        }
 
         // 顶部返回按钮
         IconButton(
@@ -220,8 +248,10 @@ private fun CameraPreview(
                 )
             }
 
-            // 快门按钮：外圈白色环 + 内圈白色实心
+            // 快门按钮：外圈白色环 + 内圈白色实心。
+            // 关键：拍照中（isCapturing=true）禁用，防止连点导致启动多个 PhotoEditor。
             IconButton(
+                enabled = !isCapturing,
                 onClick = {
                     val photoFile = createTempPhotoFile(context)
                     val outputOptions = ImageCapture.OutputFileOptions.Builder(photoFile).build()
@@ -231,11 +261,15 @@ private fun CameraPreview(
                         executor,
                         object : ImageCapture.OnImageSavedCallback {
                             override fun onImageSaved(output: ImageCapture.OutputFileResults) {
-                                onCaptured(photoFile.absolutePath)
+                                // 拍照回调运行在 executor 线程，必须切回主线程
+                                // 再触发 Activity 跳转与状态更新，避免线程安全问题
+                                mainHandler.post { onCaptured(photoFile.absolutePath) }
                             }
 
                             override fun onError(exception: ImageCaptureException) {
-                                onError("拍照失败：${exception.message}")
+                                Log.e(TAG, "onError: 拍照失败 code=${exception.imageCaptureError} msg=${exception.message}", exception)
+                                val msg = "拍照失败：${exception.message}"
+                                mainHandler.post { onError(msg) }
                             }
                         }
                     )
@@ -278,6 +312,23 @@ private fun PermissionDeniedContent(onBack: () -> Unit) {
         }
     }
 }
+
+private fun Context.getDisplayRotation(): Int {
+    val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+        display
+    } else {
+        @Suppress("DEPRECATION") //getDisplay 在 API30+ 弃用，旧版本必须用此 API
+        (getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay
+    }
+    return when (display?.rotation) {
+        android.view.Surface.ROTATION_90 -> 90
+        android.view.Surface.ROTATION_180 -> 180
+        android.view.Surface.ROTATION_270 -> 270
+        else -> 0
+    }
+}
+
+private const val TAG = "DateRecorder/Camera"
 
 private fun bindCameraUseCases(
     context: Context,

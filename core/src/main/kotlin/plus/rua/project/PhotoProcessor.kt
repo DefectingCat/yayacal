@@ -7,6 +7,7 @@ import android.graphics.Color as AndroidColor
 import android.graphics.Matrix
 import android.graphics.Paint
 import androidx.compose.ui.graphics.Color
+import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.io.FileOutputStream
 
@@ -18,19 +19,45 @@ import java.io.FileOutputStream
 object PhotoProcessor {
 
     /**
-     * 按目标显示宽度降采样加载 Bitmap，避免大图 OOM。
+     * 按目标显示宽度降采样加载 Bitmap，避免大图 OOM，并应用 EXIF 旋转方向。
+     *
+     * 相机拍摄的 JPEG 常带有 EXIF orientation 标记（如 90/180/270），
+     * BitmapFactory.decodeFile 默认忽略它，导致显示方向错误。
+     * 这里读取 EXIF 并在加载后旋转到位，返回的 Bitmap 即为视觉正向。
      *
      * @param path 图片绝对路径
      * @param reqWidth 期望显示宽度（像素），实际宽度会 >= reqWidth 的最小 2 次幂采样
-     * @return 降采样后的 Bitmap，加载失败抛异常
+     * @return 降采样并校正方向后的 Bitmap，加载失败抛异常
      */
     fun loadSampled(path: String, reqWidth: Int = 1080): Bitmap {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(path, options)
         options.inSampleSize = calculateInSampleSize(options.outWidth, reqWidth)
         options.inJustDecodeBounds = false
-        return BitmapFactory.decodeFile(path, options)
+        val bitmap = BitmapFactory.decodeFile(path, options)
             ?: error("无法加载图片: $path")
+        val rotation = readExifRotation(path)
+        return if (rotation == 0) bitmap else rotate(bitmap, rotation)
+    }
+
+    /**
+     * 读取 JPEG 的 EXIF orientation 标签，返回对应的顺时针旋转角度。
+     * 非 JPEG 或无 EXIF 时返回 0。
+     */
+    private fun readExifRotation(path: String): Int {
+        return runCatching {
+            val orientation = ExifInterface(path)
+                .getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL
+                )
+            when (orientation) {
+                ExifInterface.ORIENTATION_ROTATE_90 -> 90
+                ExifInterface.ORIENTATION_ROTATE_180 -> 180
+                ExifInterface.ORIENTATION_ROTATE_270 -> 270
+                else -> 0
+            }
+        }.getOrDefault(0)
     }
 
     private fun calculateInSampleSize(srcWidth: Int, reqWidth: Int): Int =
