@@ -20,6 +20,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Crop
+import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.RotateLeft
 import androidx.compose.material.icons.filled.RotateRight
@@ -430,7 +431,10 @@ private fun ToolBar(
             }
             EditTab.CROP -> {
                 FilledIconButton(onClick = onCropToggle) {
-                    Text(if (state.cropEnabled) "关闭裁剪" else "开启裁剪")
+                    Icon(
+                        if (state.cropEnabled) Icons.Filled.CropFree else Icons.Filled.Crop,
+                        contentDescription = if (state.cropEnabled) "关闭裁剪" else "开启裁剪"
+                    )
                 }
             }
             EditTab.HANDWRITE -> {
