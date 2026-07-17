@@ -105,22 +105,12 @@ class PhotoEditorViewModel(
 
     /** 追加一个手写笔触采样点。 */
     fun addStrokePoint(offset: Offset) {
-        update {
-            val current = it.strokeColor to it.strokeWidthPx
-            val newStrokes = if (it.strokes.isEmpty() || it.strokes.last().points.isEmpty()) {
-                it.strokes + HandStroke(current.first, current.second, listOf(offset))
-            } else {
-                val last = it.strokes.last()
-                it.strokes.dropLast(1) + last.copy(points = last.points + offset)
-            }
-            it.copy(strokes = newStrokes)
-        }
+        update { it.withAddedPoint(offset) }
     }
 
     /** 结束当前笔触（抬起手指）。 */
     fun endStroke() {
-        // 当前实现笔触在 addStrokePoint 中即时累积，无需额外处理；
-        // 保留方法以便未来区分笔触段（如双击结束）。
+        update { it.withEndedStroke() }
     }
 
     /** 撤销最近一条笔触。 */

@@ -14,11 +14,14 @@ import androidx.compose.ui.graphics.drawscope.Stroke
  * @param color 笔触颜色
  * @param widthPx 笔触线宽（像素）
  * @param points 采样点序列（基于图片显示坐标系）
+ * @param isFinished 该笔触是否已结束（手指已抬起）。下一条笔触必须另起新段，
+ * 不能再追加到 [points] 上；否则两次手写会被 [toPath] 用一条折线连在一起。
  */
 data class HandStroke(
     val color: Color,
     val widthPx: Float,
-    val points: List<Offset> = emptyList()
+    val points: List<Offset> = emptyList(),
+    val isFinished: Boolean = false
 )
 
 /**
@@ -79,4 +82,31 @@ fun HandStroke.toPath(): Path {
         path.lineTo(points[i].x, points[i].y)
     }
     return path
+}
+
+/**
+ * 在当前状态下追加一个手写采样点，返回新状态。
+ *
+ * 若上一条笔触不存在、为空、或已结束（[HandStroke.isFinished]），则另起新段；
+ * 否则把点追加到上一条笔触的末尾。
+ */
+fun PhotoEditorState.withAddedPoint(offset: Offset): PhotoEditorState {
+    val last = strokes.lastOrNull()
+    val newStrokes = if (last == null || last.points.isEmpty() || last.isFinished) {
+        strokes + HandStroke(strokeColor, strokeWidthPx, listOf(offset))
+    } else {
+        strokes.dropLast(1) + last.copy(points = last.points + offset)
+    }
+    return copy(strokes = newStrokes)
+}
+
+/**
+ * 结束当前正在绘制的笔触，返回新状态。若没有进行中的笔触则原样返回。
+ */
+fun PhotoEditorState.withEndedStroke(): PhotoEditorState {
+    val last = strokes.lastOrNull() ?: return this
+    if (!last.isFinished && last.points.isNotEmpty()) {
+        return copy(strokes = strokes.dropLast(1) + last.copy(isFinished = true))
+    }
+    return this
 }
