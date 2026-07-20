@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
+import kotlinx.datetime.number
 import kotlinx.datetime.todayIn
 import java.io.File
 import kotlin.time.Clock
@@ -58,6 +59,9 @@ class RecordEditViewModel(
     private val _uiState = MutableStateFlow(RecordEditUiState())
     val uiState: StateFlow<RecordEditUiState> = _uiState.asStateFlow()
 
+    /** 用户是否手动编辑过标题；为 false 时标题随拍摄日期联动 */
+    private var titleManuallyEdited = false
+
     init {
         if (recordId != null) {
             loadExistingRecord(recordId)
@@ -69,11 +73,14 @@ class RecordEditViewModel(
     private fun initNewRecord() {
         requireNotNull(photoPath) { "新建模式必须提供 photoPath" }
         val file = File(photoPath)
+        val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
         _uiState.value = RecordEditUiState(
             loading = false,
+            title = formatLocalDate(today),
+            shootDate = today,
             photoUri = "file://${file.absolutePath}",
             photoAbsolutePath = file.absolutePath,
-            canSave = false,
+            canSave = true,
             isExistingRecord = false
         )
     }
@@ -83,6 +90,7 @@ class RecordEditViewModel(
             val record = repository.observeById(id).first()
             if (record != null) {
                 val absFile = repository.absoluteFileOf(record.photoPath)
+                titleManuallyEdited = true
                 _uiState.value = RecordEditUiState(
                     loading = false,
                     title = record.title,
@@ -102,6 +110,7 @@ class RecordEditViewModel(
     }
 
     fun onTitleChange(value: String) {
+        titleManuallyEdited = true
         _uiState.update { it.copy(title = value, canSave = value.isNotBlank() && it.photoAbsolutePath != null) }
     }
 
@@ -110,7 +119,13 @@ class RecordEditViewModel(
     }
 
     fun onShootDateChange(date: LocalDate) {
-        _uiState.update { it.copy(shootDate = date) }
+        _uiState.update {
+            if (titleManuallyEdited) {
+                it.copy(shootDate = date)
+            } else {
+                it.copy(shootDate = date, title = formatLocalDate(date))
+            }
+        }
     }
 
     fun onLinkedDateChange(date: LocalDate) {
@@ -154,4 +169,13 @@ class RecordEditViewModel(
             _uiState.update { it.copy(finished = true) }
         }
     }
+}
+
+/**
+ * 将日期格式化为 `yyyy-MM-dd`，用于新建记录的默认标题和编辑页的日期显示。
+ *
+ * @param date 待格式化的日期
+ */
+internal fun formatLocalDate(date: LocalDate): String {
+    return "${date.year}-${date.month.number.toString().padStart(2, '0')}-${date.day.toString().padStart(2, '0')}"
 }
