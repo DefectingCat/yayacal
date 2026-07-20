@@ -52,11 +52,11 @@ import com.github.panpf.sketch.AsyncImage
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import plus.rua.project.DateRecorderRepository
 import plus.rua.project.RecordEditUiState
 import plus.rua.project.RecordEditViewModel
+import plus.rua.project.formatLocalDate
 import kotlin.time.Instant
 
 /**
@@ -310,8 +310,4 @@ private fun DatePickerModal(
     ) {
         DatePicker(state = datePickerState)
     }
-}
-
-private fun formatLocalDate(date: LocalDate): String {
-    return "${date.year}-${date.month.number.toString().padStart(2, '0')}-${date.day.toString().padStart(2, '0')}"
 }
