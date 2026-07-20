@@ -17,6 +17,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Checklist
 import androidx.compose.material.icons.filled.ChevronLeft
@@ -49,12 +51,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -73,7 +77,7 @@ import plus.rua.project.RecordSortOrder
  * 功能：
  * - 右下角浮动按钮拍摄新照片创建记录
  * - 点击单条记录进入详情页
- * - TopAppBar 右侧"排序"菜单：6 种排序组合
+ * - TopAppBar 右侧"排序"菜单：3 个排序字段，点击已选字段切换升降序
  * - TopAppBar 右侧"多选"按钮进入多选态，可批量删除
  *
  * @param onBack 返回回调
@@ -142,16 +146,39 @@ fun DateRecorderScreen(
                                 expanded = showSortMenu,
                                 onDismissRequest = { showSortMenu = false }
                             ) {
-                                sortMenuItems().forEach { item ->
+                                sortFields.forEach { (field, label) ->
+                                    val selected = uiState.sortOrder.field == field
                                     DropdownMenuItem(
-                                        text = { Text(item.label) },
+                                        text = { Text(label) },
                                         onClick = {
-                                            viewModel.setSortOrder(item.order)
+                                            viewModel.setSortOrder(
+                                                RecordSortOrder.nextAfter(uiState.sortOrder, field)
+                                            )
                                             showSortMenu = false
                                         },
-                                        leadingIcon = if (uiState.sortOrder == item.order) {
+                                        leadingIcon = if (selected) {
                                             { Icon(Icons.Filled.Check, contentDescription = null) }
-                                        } else null
+                                        } else {
+                                            null
+                                        },
+                                        trailingIcon = if (selected) {
+                                            {
+                                                Icon(
+                                                    imageVector = if (uiState.sortOrder.ascending) {
+                                                        Icons.Filled.ArrowUpward
+                                                    } else {
+                                                        Icons.Filled.ArrowDownward
+                                                    },
+                                                    contentDescription = if (uiState.sortOrder.ascending) {
+                                                        "旧→新"
+                                                    } else {
+                                                        "新→旧"
+                                                    }
+                                                )
+                                            }
+                                        } else {
+                                            null
+                                        }
                                     )
                                 }
                             }
@@ -248,15 +275,11 @@ fun DateRecorderScreen(
     }
 }
 
-private data class SortMenuItem(val order: RecordSortOrder, val label: String)
-
-private fun sortMenuItems(): List<SortMenuItem> = listOf(
-    SortMenuItem(RecordSortOrder(RecordSortField.SHOOT_DATE, false), "拍摄日期 · 新→旧"),
-    SortMenuItem(RecordSortOrder(RecordSortField.SHOOT_DATE, true), "拍摄日期 · 旧→新"),
-    SortMenuItem(RecordSortOrder(RecordSortField.LINKED_DATE, false), "关联日期 · 新→旧"),
-    SortMenuItem(RecordSortOrder(RecordSortField.LINKED_DATE, true), "关联日期 · 旧→新"),
-    SortMenuItem(RecordSortOrder(RecordSortField.CREATED_AT, false), "创建时间 · 新→旧"),
-    SortMenuItem(RecordSortOrder(RecordSortField.CREATED_AT, true), "创建时间 · 旧→新")
+/** 排序菜单展示的字段选项，点击已选字段时切换方向（见 [RecordSortOrder.nextAfter]）。 */
+private val sortFields = listOf(
+    RecordSortField.SHOOT_DATE to "拍摄日期",
+    RecordSortField.LINKED_DATE to "关联日期",
+    RecordSortField.CREATED_AT to "创建时间"
 )
 
 @Composable
@@ -269,11 +292,11 @@ private fun RecordGrid(
     onToggleSelection: (Long) -> Unit
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Fixed(2),
+        columns = GridCells.Adaptive(minSize = 100.dp),
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+        contentPadding = PaddingValues(8.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         items(records, key = { it.id }) { record ->
             RecordCard(
@@ -301,35 +324,46 @@ private fun RecordCard(
 ) {
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
-        ),
+        shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier.fillMaxWidth()
     ) {
         Box {
-            Column {
-                AsyncImage(
-                    uri = photoUri,
-                    contentDescription = record.title,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                        .clip(RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp))
+            AsyncImage(
+                uri = photoUri,
+                contentDescription = record.title,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+            )
+
+            // 底部渐变蒙层，保证叠加文字在各种照片上的可读性
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.65f)
+                            )
+                        )
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = record.title,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Column(modifier = Modifier.padding(12.dp)) {
-                    Text(
-                        text = record.title,
-                        style = MaterialTheme.typography.titleSmall,
-                        maxLines = 1
-                    )
-                    Text(
-                        text = "${record.shootDate}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Text(
+                    text = "${record.shootDate}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.White.copy(alpha = 0.85f)
+                )
             }
 
             // 多选态下的复选角标

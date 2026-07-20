@@ -22,6 +22,21 @@ data class RecordSortOrder(
     companion object {
         /** 默认按拍摄日期降序（最新的在前） */
         val DEFAULT = RecordSortOrder(RecordSortField.SHOOT_DATE, ascending = false)
+
+        /**
+         * 计算用户在排序菜单中点击某字段后的下一个排序方式。
+         *
+         * 点击当前已选字段时翻转方向，点击其他字段时切换字段并保持方向不变。
+         *
+         * @param current 当前排序方式
+         * @param field 用户点击的排序字段
+         */
+        fun nextAfter(current: RecordSortOrder, field: RecordSortField): RecordSortOrder =
+            if (current.field == field) {
+                current.copy(ascending = !current.ascending)
+            } else {
+                RecordSortOrder(field, current.ascending)
+            }
     }
 }
 
@@ -179,8 +194,9 @@ class DateRecorderViewModel(
                 RecordSortField.LINKED_DATE -> compareBy(nullsLast()) { it.linkedDate }
                 RecordSortField.CREATED_AT -> compareBy { it.createdAt }
             }
-            val ordered = if (order.ascending) comparator else comparator.reversed()
-            return records.sortedWith(ordered.then(compareBy { it.id }))
+            // id 兜底随主排序一起反转，保证降序时同值记录也是最新（id 最大）的在前
+            val ordered = comparator.then(compareBy { it.id })
+            return records.sortedWith(if (order.ascending) ordered else ordered.reversed())
         }
     }
 }

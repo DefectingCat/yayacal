@@ -77,6 +77,20 @@ class DateRecorderSortTest {
     }
 
     @Test
+    fun sortByShootDate_descending_sameDate_newestIdFirst() {
+        // 同一天拍摄多条记录，降序时最新拍摄（id 最大）应排在最前
+        val sameDay = listOf(
+            record(id = 1, shoot = LocalDate(2026, 7, 20), created = Instant.fromEpochSeconds(1000)),
+            record(id = 2, shoot = LocalDate(2026, 7, 20), created = Instant.fromEpochSeconds(2000))
+        )
+        val sorted = DateRecorderViewModel.sortDateRecords(
+            sameDay,
+            RecordSortOrder(RecordSortField.SHOOT_DATE, ascending = false)
+        )
+        assertEquals(listOf(2L, 1L), sorted.map { it.id })
+    }
+
+    @Test
     fun sort_emptyList_returnsEmpty() {
         val sorted = DateRecorderViewModel.sortDateRecords(
             emptyList(),
@@ -99,6 +113,24 @@ class DateRecorderSortTest {
         )
         // 主键 id 升序兜底
         assertEquals(listOf(2L, 5L, 8L), sorted.map { it.id })
+    }
+
+    @Test
+    fun nextAfter_sameField_togglesDirection() {
+        val current = RecordSortOrder(RecordSortField.SHOOT_DATE, ascending = false)
+        assertEquals(
+            RecordSortOrder(RecordSortField.SHOOT_DATE, ascending = true),
+            RecordSortOrder.nextAfter(current, RecordSortField.SHOOT_DATE)
+        )
+    }
+
+    @Test
+    fun nextAfter_otherField_switchesFieldKeepsDirection() {
+        val current = RecordSortOrder(RecordSortField.SHOOT_DATE, ascending = true)
+        assertEquals(
+            RecordSortOrder(RecordSortField.CREATED_AT, ascending = true),
+            RecordSortOrder.nextAfter(current, RecordSortField.CREATED_AT)
+        )
     }
 
     private fun record(
