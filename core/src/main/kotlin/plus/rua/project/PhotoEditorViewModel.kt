@@ -80,14 +80,43 @@ class PhotoEditorViewModel(
         update { it.copy(rotationDegrees = it.rotationDegrees + delta) }
     }
 
-    /** 开启/关闭裁剪。开启时使用默认居中 4:3 裁剪框。 */
-    fun toggleCrop() {
+    /** 进入裁剪模式：启用裁剪框并重置为默认居中区域。 */
+    fun enterCrop() {
         update {
-            if (it.cropEnabled) {
-                it.copy(cropLeft = null, cropRight = null, cropTop = 0f, cropBottom = 1f)
-            } else {
-                it.copy(cropLeft = 0.1f, cropTop = 0.1f, cropRight = 0.9f, cropBottom = 0.9f)
-            }
+            it.copy(cropLeft = 0.1f, cropTop = 0.1f, cropRight = 0.9f, cropBottom = 0.9f)
+        }
+    }
+
+    /** 退出裁剪模式：清空裁剪框（不应用裁剪）。 */
+    fun exitCrop() {
+        update {
+            it.copy(cropLeft = null, cropRight = null, cropTop = 0f, cropBottom = 1f)
+        }
+    }
+
+    /**
+     * 确认裁剪：将当前裁剪框烘焙到源图，用裁剪结果替换 [PhotoEditorState.sourceBitmap]，
+     * 重置旋转与裁剪框，清空手写笔触（坐标系已变化）。
+     */
+    fun applyCrop() {
+        update {
+            if (!it.cropEnabled) return@update it
+            val cropped = PhotoProcessor.crop(
+                bitmap = it.rotatedBitmap,
+                left = it.cropLeft!!,
+                top = it.cropTop,
+                right = it.cropRight!!,
+                bottom = it.cropBottom
+            )
+            it.copy(
+                sourceBitmap = cropped,
+                rotationDegrees = 0,
+                cropLeft = null,
+                cropTop = 0f,
+                cropRight = null,
+                cropBottom = 1f,
+                strokes = emptyList()
+            )
         }
     }
 
