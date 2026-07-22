@@ -1,85 +1,127 @@
-# YaYa
+# Repository Guidelines
 
-纯 Android + Jetpack Compose 日历应用。功能：农历/节气/节日、个人班次排期（WORK/OFF 循环）、月/周/年三视图。
+Guide for AI assistants working in **YaYa (鸭鸭日历)** — a pure-Android Jetpack Compose lunar/shift calendar app. Remote: `github.com/DefectingCat/yayacal` (+ `git.rua.plus` mirror). UI text is Chinese; date logic is `kotlinx-datetime` only (`java.util.Calendar` is banned).
 
-## 模块结构
+> Note: `CLAUDE.md` is a symlink to this file. `COMMENTS.md` is referenced from several docs but does not exist yet — treat the KDoc rules in [Code Conventions](#code-conventions--common-patterns) as authoritative until it is created.
 
-| 模块 | 类型 | 职责 |
-|------|------|------|
-| `:core` | `com.android.library` | 所有 Compose UI、ViewModel、业务逻辑 |
-| `:app` | `com.android.application` | 薄壳：MainActivity + Manifest + 主题 |
-| `:macrobenchmark` | `com.android.test` | Baseline Profile / Startup Profile 生成 |
+## Project Overview
 
-**铁律**：`:app` 不添加业务逻辑，所有代码写在 `:core`。
+YaYa is a single-app Android calendar focused on: Chinese lunar calendar, solar terms (节气) and traditional festivals (via **tyme4kt**), a personal WORK/OFF shift cycle, month/week/year views with infinite paging, and a photo-journal ("date recorder") feature with an in-app photo editor. Latest release `1.3.0` (see `CHANGELOG.md`); base version lives in `gradle.properties` (`app.version.base`).
 
-## 常用命令
+## Architecture & Data Flow
 
-```bash
-./gradlew :app:assembleDebug                          # 构建 debug APK
-./gradlew :app:installDebug                           # 安装到设备
-./gradlew :core:testDebugUnitTest                     # 运行全部单元测试
-./gradlew :core:testDebugUnitTest --tests "plus.rua.project.ui.CalendarUtilsTest"  # 单类
-./gradlew spotlessApply                               # 格式化（ktlint）
+**Three Gradle modules** (`settings.gradle.kts`, typesafe accessors on):
+
+| Module | Type | Responsibility |
+|--------|------|----------------|
+| `:core` | `com.android.library` | **All** Compose UI, ViewModels, business logic, Room data layer |
+| `:app` | `com.android.application` | Thin shell: Activities + Manifest + theme. **Iron rule: no business logic here.** |
+| `:macrobenchmark` | `com.android.test` | Baseline Profile / Startup Profile generation |
+
+Dependency chain: `:app` → `:core`; `:macrobenchmark` → `:app`.
+
+**Navigation is Activity + Intent, NOT Compose Navigation.** Each screen has a 1:1 Activity in `:app` that just does `setContent { YaYaTheme { SomeScreen() } }`. `core/.../ui/DateRecorderNav.kt` centralizes the Intent-extra contract (`EXTRA_TEMP_PHOTO_PATH`, `EXTRA_FINAL_PHOTO_PATH`, `EXTRA_RECORD_ID`). Slide/fade transitions come from `app/.../BaseActivity.kt`.
+
+**State pattern (all ViewModels):** private `MutableStateFlow` backing fields exposed as read-only `StateFlow` via `asStateFlow()`; many aggregate into a single `uiState: StateFlow<UiState>` through `combine(...).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), initial)`. The aggregation is an explicit design goal to minimize Compose recomposition. Tests read `stateFlow.value` directly (no Turbine).
+
+**Home-screen data flow:** `CalendarViewModel` owns `selectedDate`, `isCollapsed`, `collapseProgress` (0=month↔1=week), `isYearView`, `shiftPattern`. It pulls lunar data from `LunarCache` (LRU `LinkedHashMap` + coroutine `Mutex`) which builds `DayCellInfo` per cell from tyme4kt `SolarDay`. `CalendarMonthView` lifts the shared `PagerState` and renders `CalendarPager` → `CalendarMonthPage` → `DayCell`.
+
+**Persistence:** Room (`DateRecordDatabase` v1, `exportSchema = true` → `core/schemas/`). Repository stores relative photo paths under `filesDir/Pictures/date_recorder/` and deletes photos on record delete. Non-DB prefs (shift pattern, date checker) use SharedPreferences with **custom string encoding** (no JSON dependency) in `*Storage.kt`.
+
+## Key Directories
+
+```
+app/src/main/
+  kotlin/plus/rua/project/   # Activities (shell only): MainActivity, BaseActivity, *Activity
+  AndroidManifest.xml        # Activity registry; SplashActivity present but disabled
+  res/anim/, res/values/     # slide transitions, themes (Theme.Material.* NoActionBar)
+core/src/main/
+  kotlin/plus/rua/project/         # ViewModels, business logic, data, storage, tracing
+  kotlin/plus/rua/project/ui/      # All Composable screens + calendar grid + nav contract
+  kotlin/plus/rua/project/ui/theme/  # YaYaTheme
+  assets/animations/*.webp         # scanned at config time → BuildConfig.WEBP_FILES
+  baseline-prof.txt / baselineProfiles/startup-prof.txt  # generated profiles
+core/src/test/kotlin/plus/rua/project[/ui]/   # the only unit tests
+macrobenchmark/src/main/java/.../baseline/    # StartupBenchmark, BaselineProfileGenerator
+scripts/                          # profile.sh, analyze-trace.sh, resize_duck_icon.py
 ```
 
-Baseline Profile / Startup Profile 和性能追踪需连接设备：
+**Namespace quirk:** `:core`'s `android.namespace` is `plus.rua.project.shared`, so core's `R` and `BuildConfig` live there — but the code package is `plus.rua.project`.
+
+## Development Commands
+
 ```bash
-./gradlew :macrobenchmark:updateBaselineProfile       # 生成并复制两份 Profile 到 :core
-./scripts/profile.sh                                  # 默认 8 秒，输出到 logs/
+./gradlew :app:assembleDebug                  # build debug APK
+./gradlew :app:installDebug                   # install to device/emulator
+./gradlew :core:testDebugUnitTest             # all unit tests (JVM, no emulator)
+./gradlew :core:testDebugUnitTest --tests "plus.rua.project.ui.CalendarUtilsTest"  # one class
+./gradlew spotlessApply                       # format (ktlint) — run before committing
 ```
 
-## 构建配置
+Profiling & profiles (device required):
+```bash
+./gradlew :macrobenchmark:updateBaselineProfile        # generates + copies both profiles into :core
+./gradlew :macrobenchmark:connectedBenchmarkAndroidTest  # benchmarks only (no copy)
+./scripts/profile.sh                                   # Perfetto trace, default 8s → logs/
+./scripts/profile.sh --scenario month_browse --trace 15  # specific scenario, trace build
+./scripts/profile.sh --list-scenarios                  # list named scenarios
+./scripts/analyze-trace.sh [logs/trace_*.perfetto-trace]  # post-hoc SQL analysis
+```
 
-- **AGP** 9.2.1 · **Kotlin** 2.3.21 · **JVM target** 17
-- **compileSdk/targetSdk** 37 · **minSdk** 24
-- **版本目录**：`gradle/libs.versions.toml`
-- **构建类型**：`debug`（默认）、`release`（R8 混淆 + 资源压缩）、`trace`（release + trace 标记保留）、`benchmark`（macrobenchmark 专用）
-- **R8**：`android.enableR8.fullMode=true`（`gradle.properties`）
-- **缓存**：configuration cache + build cache 已启用
-- **版本号**：动态 `baseVersion_gitHash_buildDate`（例：`1.0.0_a1b2c_010626`）
-- **格式化**：Spotless + ktlint，覆盖 `src/**/*.kt` 和 `*.gradle.kts`（根 `build.gradle.kts`）
+## Code Conventions & Common Patterns
 
-## 包名
+- **KDoc required** on every public `@Composable`: document parameters and *when callbacks fire*. (This is the missing `COMMENTS.md` contract.)
+- **`Modifier` always last** in Composable signatures.
+- **Callbacks use `on` prefix** (`onDateClick`, `onDragEnd`).
+- **Clickable list items:** use `Card(onClick = …)` with `CardDefaults.cardElevation(defaultElevation = 0.dp)` — **not** bare `Modifier.clickable()`.
+- **`@Suppress("DEPRECATION")`** must carry an inline comment explaining why (currently used for `monthNumber`).
+- **Dates:** `kotlinx-datetime` everywhere. `java.util.Calendar` is forbidden.
+- **Testability seams:** `Clock` is constructor-injectable (tests pass a `FixedClock`); SharedPreferences are faked with in-memory impls written per-test-file (duplicated deliberately to avoid same-package private-class name clashes).
+- **Pagers:** `HorizontalPager` with `pageCount = { Int.MAX_VALUE }` centered at `START_PAGE = Int.MAX_VALUE/2`; page↔month via `pageToYearMonth`/`yearMonthToPage` in `ui/CalendarUtils.kt`; sync via `snapshotFlow { pagerState.settledPage }.drop(1)`.
+- **Trace markers:** `ComposeTrace.kt` wraps `android.os.Trace`, gated by `BuildConfig.ENABLE_TRACE` (on in `debug`/`trace`, off in `release`). Key markers: `MonthView:Compose`, `YearView:Compose`, `CalendarPager:Page:<year>-<month>`, `WeekPager:Page`, `VM:collapseProgress:*`, `YearGridView:*`. Full catalog in `DEVELOPMENT.md`.
+- **Formatting:** Spotless + ktlint cover `src/**/*.kt` and root `*.gradle.kts` (not `.toml`/`.md`/scripts). `.editorconfig` permits PascalCase `@Composable` function names.
 
-- `:core` 逻辑层：`plus.rua.project`
-- `:core` UI 层：`plus.rua.project.ui`
-- `:core` `android.namespace` 实际为 `plus.rua.project.shared`（build.gradle.kts），但代码包名用 `plus.rua.project`
-- `:app`：`plus.rua.project`
+## Important Files
 
-## 代码规范
+Central / load-bearing source (paths relative to repo root):
 
-- 公共 `@Composable` 函数必须有 KDoc（参数说明 + 回调触发时机），见 `COMMENTS.md`
-- `Modifier` 参数始终放签名最后
-- 回调参数用 `on` 前缀（`onDateClick`）
-- 可点击列表项用 `Card(onClick = ...)` + `CardDefaults.cardElevation(defaultElevation = 0.dp)`，不要用 `Modifier.clickable()` 裸包
-- `@Suppress("DEPRECATION")` 必须附带行内注释说明原因（当前主要用于 `monthNumber`）
-- UI 文本使用中文
-- **禁止** `java.util.Calendar`，日期逻辑全部用 `kotlinx-datetime`
+- `core/src/main/kotlin/plus/rua/project/CalendarViewModel.kt` — home-screen state: collapse math, shift resolution, ISO week, grid generation. The heart of the app.
+- `core/src/main/kotlin/plus/rua/project/ui/CalendarMonthView.kt` — home Composable: month↔year transition, FAB menu, pager wiring (largest UI file).
+- `core/src/main/kotlin/plus/rua/project/ui/CalendarUtils.kt` — all page↔date math + layout constants (`START_PAGE`, `COLLAPSE_THRESHOLD`).
+- `core/src/main/kotlin/plus/rua/project/LunarCache.kt` — tyme4kt integration; produces `DayCellInfo` (the per-cell render contract).
+- `core/src/main/kotlin/plus/rua/project/ShiftPattern.kt` — shift resolution (`kindAt`: overrides → rephaseFlips → active-anchor cycle). Most rigorously tested file.
+- `core/src/main/kotlin/plus/rua/project/ui/CalendarPager.kt`, `ui/WeekPager.kt` — the two infinite pagers.
+- `core/src/main/kotlin/plus/rua/project/ui/CalendarMonthPage.kt`, `ui/DayCell.kt` — per-page grid + cell rendering with collapse animation.
+- `core/src/main/kotlin/plus/rua/project/ui/YearGridView.kt` — year overview grid.
+- `core/src/main/kotlin/plus/rua/project/PhotoProcessor.kt` + `PhotoEditorState.kt` + `PhotoEditorViewModel.kt` — photo editor pipeline (load/rotate/crop/render with `HandStroke` overlay).
+- `core/src/main/kotlin/plus/rua/project/{DateRecord,DateRecordDao,DateRecordDatabase,DateRecordConverters,DateRecorderRepository}.kt` — Room data layer for the photo journal.
+- `core/src/main/kotlin/plus/rua/project/ComposeTrace.kt` — perf tracing shim.
+- `core/src/main/kotlin/plus/rua/project/ui/DateRecorderNav.kt` — Intent extra keys (cross-Activity contract).
+- `app/src/main/kotlin/plus/rua/project/{MainActivity,BaseActivity}.kt` — entry point + transition base.
+- `gradle/libs.versions.toml` — all dependency versions.
+- `app/build.gradle.kts` — build types, dynamic versioning (`baseVersion_gitHash_buildDate`).
 
-## 关键依赖
+Other docs: `DEVELOPMENT.md` (perf/profile workflow + trace marker catalog), `README.md` (user intro), `CHANGELOG.md` (Keep-a-Changelog; `[Unreleased]` + `[1.3.0] - 2026-07-09`). Module rules: `app/AGENTS.md`, `core/AGENTS.md`, `macrobenchmark/AGENTS.md`.
 
-- **Compose BOM** `2026.05.01` + **Material 3**
-- **`kotlinx-datetime`** 0.8.0 — 所有日期逻辑
-- **`tyme4kt`** 1.4.5 — 农历、节气、传统节日
-- **`sketch`** 4.4.0 — GIF 显示（`sketch-compose` + `sketch-animated-webp`）
+## Runtime/Tooling Preferences
 
-## 性能追踪标记
+- **JDK 17** (`VERSION_17` in all modules). Gradle wrapper **9.5.1**.
+- **AGP 9.2.1 · Kotlin 2.3.21 · KSP 2.3.10 · Compose BOM 2026.06.01.** compileSdk/targetSdk **37**, minSdk **24**.
+- Key libs: **kotlinx-datetime 0.8.0 · tyme4kt 1.5.0 · sketch 4.4.0 · zoomimage 1.6.0 · Room 2.8.4 · lifecycle 2.11.0 · activity-compose 1.13.0 · CameraX 1.5.3 · Media3 1.6.1.**
+- **Gradle caches on:** configuration cache + build cache + parallel (`gradle.properties`). R8 full mode enabled.
+- **Build types:** `debug` (default, trace on) · `release` (R8 + resource shrink, trace off, debug-signed) · `trace` (release + trace markers) · `benchmark` (release base, **no** minify — so generated profile names aren't obfuscated).
+- **Profiling needs a device/emulator** with GPU acceleration (software renderer can't produce `gfxinfo` framestats). Real benchmarks need a physical device on a release target.
+- No CI/CD exists — all builds, tests, profiling, and releases run locally.
 
-`ComposeTrace.kt` 提供自定义 Perfetto/Systrace 标记，关键标记名：
-- `MonthView:Compose` / `YearView:Compose`
-- `CalendarPager:Page:*` / `WeekPager:Page`
-- `VM:collapseProgress:*`
-- `YearGridView:*`
+## Testing & QA
 
-详见 `DEVELOPMENT.md`。
+- **All automated tests are pure-JVM unit tests** in `core/src/test/kotlin/plus/rua/project[/ui]/` — **no `androidTest` source set, no Compose UI tests, no Robolectric/Turbine/Mockk.** Run on JVM 17, no emulator.
+- **Frameworks:** `kotlin-test-junit` (+ JUnit 4 in a few classes) and `kotlinx-coroutines-test` (`runTest`). `androidx.room:room-testing` is declared but unused.
+- **Covered well:** date math (`CalendarUtilsTest`), the shift engine (`ShiftPatternTest` — cycle/override/`RephaseFlip`), `CalendarViewModel` observable state + grid generation, storage round-trips, record sorting, lunar birthday/rose-day flags, `PhotoProcessor.calculateInSampleSize`, `HandStroke` segmentation.
+- **Coverage gaps to be aware of:** no Compose UI/instrumented tests (UI exercised only via the macrobenchmark journey); Room DAO/Database/migration logic untested; `Flow` emission sequences untested (only synchronous `.value` snapshots); `DateRecordDetailViewModel`/`PhotoEditorViewModel` and the edit-record path of `RecordEditViewModel` have no dedicated tests.
+- **Test conventions:** classes `*Test.kt`; methods `method_condition_result`; in-memory SharedPreferences fakes written per file; fixtures inline (no shared helpers). Comments/KDoc are in Chinese and state scope explicitly.
+- **Macrobenchmark** (`macrobenchmark/src/main/.../baseline/`) provides the only on-device coverage — `StartupBenchmark` (cold start) and `BaselineProfileGenerator` (drives a 12-step user journey to emit `baseline-prof.txt` + `startup-prof.txt`).
 
-## 参考文档
+## Release Process
 
-| 文件 | 内容 |
-|------|------|
-| `CLAUDE.md` | 完整架构说明、组件树、动画机制、Pager 映射逻辑 |
-| `DEVELOPMENT.md` | 性能追踪、Baseline Profile / Startup Profile、模拟器启动参数 |
-| `COMMENTS.md` | KDoc 规范、注释原则、反模式清单 |
-| `app/AGENTS.md` | `:app` 模块细则 |
-| `core/AGENTS.md` | `:core` 模块细则 |
-| `macrobenchmark/AGENTS.md` | Baseline Profile / Startup Profile 模块细则 |
+Driven by the `yayacal-release` skill (`.agents/skills/yayacal-release/SKILL.md`). Flow: bump `app.version.base` in `gradle.properties` + `versionCode` in `app/build.gradle.kts` → update `CHANGELOG.md` from `git log <last-tag>..HEAD` → commit exactly `release: vx.y.z` → lightweight tag `vx.y.z` → push `main --tags` → `assembleRelease` → `gh release create` with extracted notes. Release only from clean `main`; keep debug signing (no release keystore). Note: the skill's doc links to `github.com/xfy/yayacal` — the actual remote is `DefectingCat/yayacal`.
