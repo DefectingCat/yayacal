@@ -1,5 +1,7 @@
 package plus.rua.project.ui
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -81,6 +83,7 @@ fun RecordDetailScreen(
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showLightbox by remember { mutableStateOf(false) }
 
     // 删除完成后自动返回
     if (state.deleted) {
@@ -142,6 +145,7 @@ fun RecordDetailScreen(
 
             else -> DetailContent(
                 state = state,
+                onPhotoClick = { showLightbox = true },
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
@@ -165,11 +169,20 @@ fun RecordDetailScreen(
             }
         )
     }
+
+    if (showLightbox) {
+        ImageLightbox(
+            photoUri = state.photoUri,
+            contentDescription = state.record?.title,
+            onDismiss = { showLightbox = false }
+        )
+    }
 }
 
 @Composable
 private fun DetailContent(
     state: DateRecordDetailUiState,
+    onPhotoClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val record = state.record ?: return
@@ -183,6 +196,11 @@ private fun DetailContent(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(12.dp))
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onPhotoClick
+                )
         )
 
         Column(modifier = Modifier.padding(horizontal = 16.dp)) {
