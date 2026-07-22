@@ -74,6 +74,7 @@ Profiling & profiles (device required):
 - **提交粒度与信息由 AI 自主决定**：自行判断该功能点属于 `feat` / `fix` / `refactor` / `docs` / `test` / `chore`，写清摘要；改动小则合并提交，改动跨多步则在每步落盘。
 - 只暂存本次功能点相关的文件，不要 `git add .` 把无关改动（如会话前遗留的脏文件）一并带入。提交前看一眼 `git status`。
 - 当前在 `main` 分支：按仓库惯例可以直接在 `main` 上提交常规改动；如改动涉及发布或需评审，先开分支。
+- **每写完一个功能后跑 `./gradlew :app:installDebug`** 做一次真机/模拟器冒烟安装，验证能编过、能装上。**允许失败**：无连接设备、无模拟器、签名/环境问题等导致失败属正常，不必阻塞后续工作——记下失败原因即可继续。这条是为了在能装上时尽早暴露问题，不是硬性 gate。
 
 ## Code Conventions & Common Patterns
 
