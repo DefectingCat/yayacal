@@ -1,5 +1,9 @@
 package plus.rua.project.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -46,7 +50,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
-import kotlin.math.absoluteValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -55,8 +58,10 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -66,8 +71,10 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlin.math.absoluteValue
 import plus.rua.project.PhotoEditorState
 import plus.rua.project.PhotoEditorViewModel
+import plus.rua.project.RotationGeometry
 import plus.rua.project.toPath
 
 /**
@@ -269,19 +276,61 @@ private fun EditableImage(
     onEndStroke: () -> Unit,
     onDisplaySizeChange: (Float, Float) -> Unit
 ) {
-    val rotatedBmp = remember(state.rotationDegrees, state.sourceBitmap) { state.rotatedBitmap }
+    // 视觉旋转角：从当前显示值平滑动画到数据层目标 rotationDegrees。
+    // rotationDegrees 是最终态（保存/裁剪用），这里只负责"看起来"的旋转过渡。
+    // 初值取当前 rotationDegrees，避免首次组合闪动。
+    val displayRotation = remember(state.sourceBitmap) {
+        Animatable(state.rotationDegrees.toFloat())
+    }
+    LaunchedEffect(state.rotationDegrees) {
+        displayRotation.animateTo(
+            targetValue = state.rotationDegrees.toFloat(),
+            animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing)
+        )
+    }
+
+    val srcAspect = state.sourceBitmap.width.toFloat() / state.sourceBitmap.height.toFloat()
+    // 容器宽高比 = 目标稳态比例（0/180°=原图比，90/270°=倒数），随 rotationDegrees 平滑过渡。
+    // 不随中间旋转角变形，避免旋转中容器尺寸抖动。
+    val containerAspect by animateFloatAsState(
+        targetValue = RotationGeometry.stableAspect(srcAspect, state.rotationDegrees),
+        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+        label = "rotateAspect"
+    )
 
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .aspectRatio(rotatedBmp.width.toFloat() / rotatedBmp.height.toFloat())
+            .aspectRatio(containerAspect)
             .background(Color.Black)
+            // 尺寸上报放布局阶段：仅在尺寸真正变化时回调一次，
+            // 避免在 draw 阶段每帧写 StateFlow 导致重组风暴。
+            .onSizeChanged { size ->
+                if (size.width > 0 && size.height > 0) {
+                    onDisplaySizeChange(size.width.toFloat(), size.height.toFloat())
+                }
+            }
     ) {
+        // 显示已旋转到目标态的 bitmap（比例 = 容器比例，稳态时填满无黑边无裁剪）。
+        // 动画中：图片相对目标态多转 (displayRotation - rotationDegrees)，
+        // 用 coverScale 放大使旋转后图片四角仍覆盖容器 → 零黑边（几何见 RotationGeometry）。
+        // 把动画值捕获到局部 val，确保组合算的 offset 与 draw 的 rotationZ 同帧。
+        val angle = displayRotation.value
+        val offset = angle - state.rotationDegrees
+        val scale = RotationGeometry.coverScale(offset, containerAspect)
+        val rotatedBmp = remember(state.rotationDegrees, state.sourceBitmap) {
+            state.rotatedBitmap
+        }
         Image(
             bitmap = rotatedBmp.asImageBitmap(),
             contentDescription = "编辑中的照片",
             modifier = Modifier
                 .fillMaxSize()
+                .graphicsLayer {
+                    rotationZ = angle
+                    scaleX = scale
+                    scaleY = scale
+                }
                 .pointerInput(mode) {
                     if (mode == EditTab.HANDWRITE) {
                         detectDragGestures(
@@ -295,10 +344,10 @@ private fun EditableImage(
                         )
                     }
                 },
-            contentScale = ContentScale.Fit
+            contentScale = ContentScale.Crop
         )
 
-        // 裁剪框覆盖层
+        // 裁剪框覆盖层（基于数据层 rotationDegrees 目标态坐标系）
         if (mode == EditTab.CROP && state.cropEnabled) {
             CropOverlay(
                 state = state,
@@ -307,9 +356,8 @@ private fun EditableImage(
             )
         }
 
-        // 手写笔触覆盖层 + 同步显示尺寸
+        // 手写笔触覆盖层
         Canvas(modifier = Modifier.fillMaxSize()) {
-            onDisplaySizeChange(size.width, size.height)
             state.strokes.forEach { stroke ->
                 drawPath(
                     path = stroke.toPath(),
