@@ -91,6 +91,32 @@ class PhotoEditorViewModel(
         }
     }
 
+    /**
+     * 确认裁剪：将当前裁剪框烘焙到源图，用裁剪结果替换 [PhotoEditorState.sourceBitmap]，
+     * 重置旋转与裁剪框，清空手写笔触（坐标系已变化）。
+     */
+    fun applyCrop() {
+        update {
+            if (!it.cropEnabled) return@update it
+            val cropped = PhotoProcessor.crop(
+                bitmap = it.rotatedBitmap,
+                left = it.cropLeft!!,
+                top = it.cropTop,
+                right = it.cropRight!!,
+                bottom = it.cropBottom
+            )
+            it.copy(
+                sourceBitmap = cropped,
+                rotationDegrees = 0,
+                cropLeft = null,
+                cropTop = 0f,
+                cropRight = null,
+                cropBottom = 1f,
+                strokes = emptyList()
+            )
+        }
+    }
+
     /** 更新裁剪框比例。 */
     fun updateCrop(left: Float, top: Float, right: Float, bottom: Float) {
         update {

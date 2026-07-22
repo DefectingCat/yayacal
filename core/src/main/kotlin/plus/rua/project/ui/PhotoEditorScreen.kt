@@ -20,7 +20,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Brush
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.CropFree
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.RotateLeft
 import androidx.compose.material.icons.filled.RotateRight
@@ -41,10 +40,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import kotlin.math.absoluteValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -158,6 +160,7 @@ fun PhotoEditorScreen(
                         onTabChange = { activeTab = it },
                         onRotate = viewModel::rotate,
                         onCropToggle = viewModel::toggleCrop,
+                        onApplyCrop = viewModel::applyCrop,
                         onCropChange = viewModel::updateCrop,
                         onAddPoint = viewModel::addStrokePoint,
                         onEndStroke = viewModel::endStroke,
@@ -182,6 +185,7 @@ private fun EditorBody(
     onTabChange: (EditTab) -> Unit,
     onRotate: (Int) -> Unit,
     onCropToggle: () -> Unit,
+    onApplyCrop: () -> Unit,
     onCropChange: (Float, Float, Float, Float) -> Unit,
     onAddPoint: (Offset) -> Unit,
     onEndStroke: () -> Unit,
@@ -246,6 +250,7 @@ private fun EditorBody(
             state = state,
             onRotate = onRotate,
             onCropToggle = onCropToggle,
+            onApplyCrop = onApplyCrop,
             onUndoStroke = onUndoStroke,
             onStrokeColorChange = onStrokeColorChange,
             modifier = Modifier
@@ -265,8 +270,6 @@ private fun EditableImage(
     onDisplaySizeChange: (Float, Float) -> Unit
 ) {
     val rotatedBmp = remember(state.rotationDegrees, state.sourceBitmap) { state.rotatedBitmap }
-    // 裁剪框拖动手柄（CROP 模式下使用）
-    var dragHandle by remember { mutableStateOf<CropHandle?>(null) }
 
     Box(
         modifier = Modifier
@@ -299,8 +302,6 @@ private fun EditableImage(
         if (mode == EditTab.CROP && state.cropEnabled) {
             CropOverlay(
                 state = state,
-                dragHandle = dragHandle,
-                onHandleChange = { dragHandle = it },
                 onCropChange = onCropChange,
                 modifier = Modifier.fillMaxSize()
             )
@@ -324,7 +325,7 @@ private fun EditableImage(
     }
 }
 
-private enum class CropHandle { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, NONE }
+private enum class CropHandle { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, BODY, NONE }
 
 /** 裁剪框四元组，支持解构以简化 onDrag 回传。 */
 private data class CropRect(
@@ -334,16 +335,120 @@ private data class CropRect(
     val bottom: Float
 )
 
+/**
+ * 判断触摸点落在裁剪框的哪个区域，用于决定拖动行为。
+ *
+ * - 落在四角阈值范围内 → 对应角手柄（缩放裁剪框）
+ * - 落在框内 → 整体平移
+ * - 落在框外 → [CropHandle.NONE]，不响应拖动
+ *
+ * @param ox 触摸点 x 比例坐标 [0,1]
+ * @param oy 触摸点 y 比例坐标 [0,1]
+ * @param l/t/r/b 当前裁剪框四边比例
+ */
+private fun hitHandle(
+    ox: Float,
+    oy: Float,
+    l: Float,
+    t: Float,
+    r: Float,
+    b: Float
+): CropHandle {
+    val corner = 0.1f
+    val atTopLeft = (ox - l).absoluteValue < corner && (oy - t).absoluteValue < corner
+    val atTopRight = (ox - r).absoluteValue < corner && (oy - t).absoluteValue < corner
+    val atBottomLeft = (ox - l).absoluteValue < corner && (oy - b).absoluteValue < corner
+    val atBottomRight = (ox - r).absoluteValue < corner && (oy - b).absoluteValue < corner
+    return when {
+        atTopLeft -> CropHandle.TOP_LEFT
+        atTopRight -> CropHandle.TOP_RIGHT
+        atBottomLeft -> CropHandle.BOTTOM_LEFT
+        atBottomRight -> CropHandle.BOTTOM_RIGHT
+        ox in l..r && oy in t..b -> CropHandle.BODY
+        else -> CropHandle.NONE
+    }
+}
+
+/**
+ * 将单次拖动增量应用到当前裁剪框，返回受边界约束的新四元组。
+ *
+ * - 角手柄：只移动对应角，并用 [minSize] 约束避免左右/上下交叉
+ * - [CropHandle.BODY]：整体平移，受 [0,1] 边界约束
+ *
+ * @param dx x 方向增量比例（已归一化）
+ * @param dy y 方向增量比例（已归一化）
+ * @param l/t/r/b 当前裁剪框四边比例
+ * @param handle 本次拖动的手柄
+ * @param minSize 裁剪框最小宽/高比例，防止四角交叉
+ */
+private fun moveCrop(
+    dx: Float,
+    dy: Float,
+    l: Float,
+    t: Float,
+    r: Float,
+    b: Float,
+    handle: CropHandle,
+    minSize: Float = 0.1f
+): CropRect {
+    val left = l.coerceIn(0f, 1f)
+    val top = t.coerceIn(0f, 1f)
+    val right = r.coerceIn(0f, 1f)
+    val bottom = b.coerceIn(0f, 1f)
+    return when (handle) {
+        CropHandle.TOP_LEFT -> {
+            val nl = (left + dx).coerceIn(0f, right - minSize)
+            val nt = (top + dy).coerceIn(0f, bottom - minSize)
+            CropRect(nl, nt, right, bottom)
+        }
+        CropHandle.TOP_RIGHT -> {
+            val nr = (right + dx).coerceIn(left + minSize, 1f)
+            val nt = (top + dy).coerceIn(0f, bottom - minSize)
+            CropRect(left, nt, nr, bottom)
+        }
+        CropHandle.BOTTOM_LEFT -> {
+            val nl = (left + dx).coerceIn(0f, right - minSize)
+            val nb = (bottom + dy).coerceIn(top + minSize, 1f)
+            CropRect(nl, top, right, nb)
+        }
+        CropHandle.BOTTOM_RIGHT -> {
+            val nr = (right + dx).coerceIn(left + minSize, 1f)
+            val nb = (bottom + dy).coerceIn(top + minSize, 1f)
+            CropRect(left, top, nr, nb)
+        }
+        CropHandle.BODY -> {
+            val w = right - left
+            val h = bottom - top
+            val nl = (left + dx).coerceIn(0f, 1f - w)
+            val nt = (top + dy).coerceIn(0f, 1f - h)
+            CropRect(nl, nt, nl + w, nt + h)
+        }
+        CropHandle.NONE -> CropRect(left, top, right, bottom)
+    }
+}
+
 @Composable
 private fun CropOverlay(
     state: PhotoEditorState,
-    dragHandle: CropHandle?,
-    onHandleChange: (CropHandle?) -> Unit,
     onCropChange: (Float, Float, Float, Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val left = state.cropLeft ?: 0.1f
-    val right = state.cropRight ?: 0.9f
+    var dragHandle by remember { mutableStateOf(CropHandle.NONE) }
+    // 拖动期间的本地累积值；非拖动时为 null，绘制回退到 state
+    var dragLeft by remember { mutableFloatStateOf(0f) }
+    var dragTop by remember { mutableFloatStateOf(0f) }
+    var dragRight by remember { mutableFloatStateOf(0f) }
+    var dragBottom by remember { mutableFloatStateOf(0f) }
+    // pointerInput(Unit) 只捕获一次 state，用 rememberUpdatedState 让
+    // 手势 lambda 内始终读到最新的 state（含上次拖动提交后的值）
+    val currentState by rememberUpdatedState(state)
+
+    // 绘制用值：拖动中取本地累积，否则取 state
+    val left = if (dragHandle != CropHandle.NONE) dragLeft else (state.cropLeft ?: 0.1f)
+    val top = if (dragHandle != CropHandle.NONE) dragTop else state.cropTop
+    val right = if (dragHandle != CropHandle.NONE) dragRight else (state.cropRight ?: 0.9f)
+    val bottom = if (dragHandle != CropHandle.NONE) dragBottom else state.cropBottom
+
     Canvas(
         modifier = modifier.pointerInput(Unit) {
             detectDragGestures(
@@ -351,45 +456,47 @@ private fun CropOverlay(
                     val size = this.size
                     val ox = offset.x / size.width
                     val oy = offset.y / size.height
-                    onHandleChange(
-                        when {
-                            ox < 0.2f && oy < 0.2f -> CropHandle.TOP_LEFT
-                            ox > 0.8f && oy < 0.2f -> CropHandle.TOP_RIGHT
-                            ox < 0.2f && oy > 0.8f -> CropHandle.BOTTOM_LEFT
-                            ox > 0.8f && oy > 0.8f -> CropHandle.BOTTOM_RIGHT
-                            else -> CropHandle.NONE
-                        }
-                    )
+                    val baseL = currentState.cropLeft ?: 0.1f
+                    val baseT = currentState.cropTop
+                    val baseR = currentState.cropRight ?: 0.9f
+                    val baseB = currentState.cropBottom
+                    // 进入拖动：把 state 当前值快照到本地累积
+                    dragLeft = baseL
+                    dragTop = baseT
+                    dragRight = baseR
+                    dragBottom = baseB
+                    dragHandle = hitHandle(ox, oy, baseL, baseT, baseR, baseB)
                 },
                 onDrag = { change, drag ->
+                    if (dragHandle == CropHandle.NONE) return@detectDragGestures
                     change.consume()
                     val size = this.size
                     val dx = drag.x / size.width
                     val dy = drag.y / size.height
-                    val (nL, nT, nR, nB) = when (dragHandle) {
-                        CropHandle.TOP_LEFT ->
-                            CropRect(left + dx, state.cropTop + dy, right, state.cropBottom)
-                        CropHandle.TOP_RIGHT ->
-                            CropRect(left, state.cropTop + dy, right + dx, state.cropBottom)
-                        CropHandle.BOTTOM_LEFT ->
-                            CropRect(left + dx, state.cropTop, right, state.cropBottom + dy)
-                        CropHandle.BOTTOM_RIGHT ->
-                            CropRect(left, state.cropTop, right + dx, state.cropBottom + dy)
-                        else -> return@detectDragGestures
-                    }
-                    onCropChange(nL, nT, nR, nB)
+                    // 在本地累积值上叠加增量，不触发 StateFlow 往返
+                    val cur = moveCrop(dx, dy, dragLeft, dragTop, dragRight, dragBottom, dragHandle)
+                    dragLeft = cur.left
+                    dragTop = cur.top
+                    dragRight = cur.right
+                    dragBottom = cur.bottom
                 },
-                onDragEnd = { onHandleChange(null) },
-                onDragCancel = { onHandleChange(null) }
+                onDragEnd = {
+                    // 拖动结束：一次性提交回 ViewModel
+                    if (dragHandle != CropHandle.NONE) {
+                        onCropChange(dragLeft, dragTop, dragRight, dragBottom)
+                    }
+                    dragHandle = CropHandle.NONE
+                },
+                onDragCancel = { dragHandle = CropHandle.NONE }
             )
         }
     ) {
         val w = size.width
         val h = size.height
         val l = left * w
-        val t = state.cropTop * h
+        val t = top * h
         val r = right * w
-        val b = state.cropBottom * h
+        val b = bottom * h
         // 四周遮罩
         drawRect(Color.Black.copy(alpha = 0.5f), topLeft = Offset(0f, 0f), size = Size(l, h))
         drawRect(Color.Black.copy(alpha = 0.5f), topLeft = Offset(r, 0f), size = Size(w - r, h))
@@ -411,6 +518,7 @@ private fun ToolBar(
     state: PhotoEditorState,
     onRotate: (Int) -> Unit,
     onCropToggle: () -> Unit,
+    onApplyCrop: () -> Unit,
     onUndoStroke: () -> Unit,
     onStrokeColorChange: (Color) -> Unit,
     modifier: Modifier = Modifier
@@ -429,12 +537,15 @@ private fun ToolBar(
                     Icon(Icons.Filled.RotateRight, contentDescription = "右转 90°")
                 }
             }
-            EditTab.CROP -> {
+            EditTab.CROP -> if (state.cropEnabled) {
+                // 已进入裁剪模式：✓ 确认裁剪（烘焙到源图）
+                FilledIconButton(onClick = onApplyCrop) {
+                    Icon(Icons.Filled.Done, contentDescription = "确认裁剪")
+                }
+            } else {
+                // 未进入：点击进入裁剪模式
                 FilledIconButton(onClick = onCropToggle) {
-                    Icon(
-                        if (state.cropEnabled) Icons.Filled.CropFree else Icons.Filled.Crop,
-                        contentDescription = if (state.cropEnabled) "关闭裁剪" else "开启裁剪"
-                    )
+                    Icon(Icons.Filled.Crop, contentDescription = "进入裁剪")
                 }
             }
             EditTab.HANDWRITE -> {

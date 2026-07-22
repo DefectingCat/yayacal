@@ -105,6 +105,9 @@ dependencies {
     implementation(libs.camera.view)
     implementation(libs.androidx.exifinterface)
 
+    // 日期记录器：详情页灯箱图片缩放/旋转（与 sketch 同作者 panpf，SketchZoomAsyncImage 是 AsyncImage 超集）
+    implementation(libs.zoomimage.compose.sketch4)
+
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:${libs.versions.kotlin.get()}")
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.room.testing)

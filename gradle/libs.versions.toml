@@ -22,6 +22,7 @@ sketch = "4.4.0"
 spotless = "8.8.0"
 tyme4kt = "1.5.0"
 versions = "0.54.0"
+zoomimage = "1.6.0"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
@@ -57,6 +58,7 @@ room-testing = { module = "androidx.room:room-testing", version.ref = "room" }
 sketch-animated-webp = { module = "io.github.panpf.sketch4:sketch-animated-webp", version.ref = "sketch" }
 sketch-compose = { module = "io.github.panpf.sketch4:sketch-compose", version.ref = "sketch" }
 tyme4kt = { module = "cn.6tail:tyme4kt", version.ref = "tyme4kt" }
+zoomimage-compose-sketch4 = { module = "io.github.panpf.zoomimage:zoomimage-compose-sketch4", version.ref = "zoomimage" }
 
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "agp" }
