@@ -80,10 +80,11 @@ class PhotoEditorViewModel(
         update { it.copy(rotationDegrees = it.rotationDegrees + delta) }
     }
 
-    /** 进入裁剪模式：启用裁剪框并重置为默认居中区域。 */
+    /** 进入裁剪模式：仅在尚未启用时初始化为默认居中区域，已启用则保留当前框。 */
     fun enterCrop() {
         update {
-            it.copy(cropLeft = 0.1f, cropTop = 0.1f, cropRight = 0.9f, cropBottom = 0.9f)
+            if (it.cropEnabled) it
+            else it.copy(cropLeft = 0.1f, cropTop = 0.1f, cropRight = 0.9f, cropBottom = 0.9f)
         }
     }
 

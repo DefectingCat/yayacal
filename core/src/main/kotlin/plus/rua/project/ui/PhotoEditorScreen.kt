@@ -40,8 +40,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import kotlin.math.absoluteValue
@@ -436,12 +438,22 @@ private fun CropOverlay(
     onCropChange: (Float, Float, Float, Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    // 拖动手柄内聚在此组件，避免跨重组延迟
     var dragHandle by remember { mutableStateOf(CropHandle.NONE) }
-    val left = state.cropLeft ?: 0.1f
-    val top = state.cropTop
-    val right = state.cropRight ?: 0.9f
-    val bottom = state.cropBottom
+    // 拖动期间的本地累积值；非拖动时为 null，绘制回退到 state
+    var dragLeft by remember { mutableFloatStateOf(0f) }
+    var dragTop by remember { mutableFloatStateOf(0f) }
+    var dragRight by remember { mutableFloatStateOf(0f) }
+    var dragBottom by remember { mutableFloatStateOf(0f) }
+    // pointerInput(Unit) 只捕获一次 state，用 rememberUpdatedState 让
+    // 手势 lambda 内始终读到最新的 state（含上次拖动提交后的值）
+    val currentState by rememberUpdatedState(state)
+
+    // 绘制用值：拖动中取本地累积，否则取 state
+    val left = if (dragHandle != CropHandle.NONE) dragLeft else (state.cropLeft ?: 0.1f)
+    val top = if (dragHandle != CropHandle.NONE) dragTop else state.cropTop
+    val right = if (dragHandle != CropHandle.NONE) dragRight else (state.cropRight ?: 0.9f)
+    val bottom = if (dragHandle != CropHandle.NONE) dragBottom else state.cropBottom
+
     Canvas(
         modifier = modifier.pointerInput(Unit) {
             detectDragGestures(
@@ -449,13 +461,16 @@ private fun CropOverlay(
                     val size = this.size
                     val ox = offset.x / size.width
                     val oy = offset.y / size.height
-                    dragHandle = hitHandle(
-                        ox, oy,
-                        state.cropLeft ?: 0.1f,
-                        state.cropTop,
-                        state.cropRight ?: 0.9f,
-                        state.cropBottom
-                    )
+                    val baseL = currentState.cropLeft ?: 0.1f
+                    val baseT = currentState.cropTop
+                    val baseR = currentState.cropRight ?: 0.9f
+                    val baseB = currentState.cropBottom
+                    // 进入拖动：把 state 当前值快照到本地累积
+                    dragLeft = baseL
+                    dragTop = baseT
+                    dragRight = baseR
+                    dragBottom = baseB
+                    dragHandle = hitHandle(ox, oy, baseL, baseT, baseR, baseB)
                 },
                 onDrag = { change, drag ->
                     if (dragHandle == CropHandle.NONE) return@detectDragGestures
@@ -463,18 +478,20 @@ private fun CropOverlay(
                     val size = this.size
                     val dx = drag.x / size.width
                     val dy = drag.y / size.height
-                    // 每帧从 state 读最新值，叠加增量
-                    val cur = moveCrop(
-                        dx, dy,
-                        state.cropLeft ?: 0.1f,
-                        state.cropTop,
-                        state.cropRight ?: 0.9f,
-                        state.cropBottom,
-                        dragHandle
-                    )
-                    onCropChange(cur.left, cur.top, cur.right, cur.bottom)
+                    // 在本地累积值上叠加增量，不触发 StateFlow 往返
+                    val cur = moveCrop(dx, dy, dragLeft, dragTop, dragRight, dragBottom, dragHandle)
+                    dragLeft = cur.left
+                    dragTop = cur.top
+                    dragRight = cur.right
+                    dragBottom = cur.bottom
                 },
-                onDragEnd = { dragHandle = CropHandle.NONE },
+                onDragEnd = {
+                    // 拖动结束：一次性提交回 ViewModel
+                    if (dragHandle != CropHandle.NONE) {
+                        onCropChange(dragLeft, dragTop, dragRight, dragBottom)
+                    }
+                    dragHandle = CropHandle.NONE
+                },
                 onDragCancel = { dragHandle = CropHandle.NONE }
             )
         }
