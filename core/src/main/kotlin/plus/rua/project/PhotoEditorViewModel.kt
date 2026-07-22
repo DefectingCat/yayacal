@@ -80,18 +80,14 @@ class PhotoEditorViewModel(
         update { it.copy(rotationDegrees = it.rotationDegrees + delta) }
     }
 
-    /** 进入裁剪模式：仅在尚未启用时初始化为默认居中区域，已启用则保留当前框。 */
-    fun enterCrop() {
+    /** 开启/关闭裁剪。开启时使用默认居中 4:3 裁剪框。 */
+    fun toggleCrop() {
         update {
-            if (it.cropEnabled) it
-            else it.copy(cropLeft = 0.1f, cropTop = 0.1f, cropRight = 0.9f, cropBottom = 0.9f)
-        }
-    }
-
-    /** 退出裁剪模式：清空裁剪框（不应用裁剪）。 */
-    fun exitCrop() {
-        update {
-            it.copy(cropLeft = null, cropRight = null, cropTop = 0f, cropBottom = 1f)
+            if (it.cropEnabled) {
+                it.copy(cropLeft = null, cropRight = null, cropTop = 0f, cropBottom = 1f)
+            } else {
+                it.copy(cropLeft = 0.1f, cropTop = 0.1f, cropRight = 0.9f, cropBottom = 0.9f)
+            }
         }
     }
 

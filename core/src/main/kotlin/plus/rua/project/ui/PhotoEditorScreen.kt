@@ -97,14 +97,6 @@ fun PhotoEditorScreen(
     var activeTab by remember { mutableStateOf(EditTab.ROTATE) }
     val savedPath = state.savedPath
 
-    // 切到裁剪 tab 自动进入裁剪模式；切走则退出（不应用裁剪）
-    LaunchedEffect(activeTab, state.editorState) {
-        when (activeTab) {
-            EditTab.CROP -> viewModel.enterCrop()
-            else -> viewModel.exitCrop()
-        }
-    }
-
     if (savedPath != null) {
         LaunchedEffect(savedPath) { onSaved(savedPath) }
     }
@@ -167,6 +159,7 @@ fun PhotoEditorScreen(
                         activeTab = activeTab,
                         onTabChange = { activeTab = it },
                         onRotate = viewModel::rotate,
+                        onCropToggle = viewModel::toggleCrop,
                         onApplyCrop = viewModel::applyCrop,
                         onCropChange = viewModel::updateCrop,
                         onAddPoint = viewModel::addStrokePoint,
@@ -191,6 +184,7 @@ private fun EditorBody(
     activeTab: EditTab,
     onTabChange: (EditTab) -> Unit,
     onRotate: (Int) -> Unit,
+    onCropToggle: () -> Unit,
     onApplyCrop: () -> Unit,
     onCropChange: (Float, Float, Float, Float) -> Unit,
     onAddPoint: (Offset) -> Unit,
@@ -255,6 +249,7 @@ private fun EditorBody(
             mode = activeTab,
             state = state,
             onRotate = onRotate,
+            onCropToggle = onCropToggle,
             onApplyCrop = onApplyCrop,
             onUndoStroke = onUndoStroke,
             onStrokeColorChange = onStrokeColorChange,
@@ -522,6 +517,7 @@ private fun ToolBar(
     mode: EditTab,
     state: PhotoEditorState,
     onRotate: (Int) -> Unit,
+    onCropToggle: () -> Unit,
     onApplyCrop: () -> Unit,
     onUndoStroke: () -> Unit,
     onStrokeColorChange: (Color) -> Unit,
@@ -541,9 +537,15 @@ private fun ToolBar(
                     Icon(Icons.Filled.RotateRight, contentDescription = "右转 90°")
                 }
             }
-            EditTab.CROP -> {
+            EditTab.CROP -> if (state.cropEnabled) {
+                // 已进入裁剪模式：✓ 确认裁剪（烘焙到源图）
                 FilledIconButton(onClick = onApplyCrop) {
                     Icon(Icons.Filled.Done, contentDescription = "确认裁剪")
+                }
+            } else {
+                // 未进入：点击进入裁剪模式
+                FilledIconButton(onClick = onCropToggle) {
+                    Icon(Icons.Filled.Crop, contentDescription = "进入裁剪")
                 }
             }
             EditTab.HANDWRITE -> {
