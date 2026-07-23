@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-07-23
+
+### Added
+
+- 日期记录器重构与时光画廊：全面重构 `DateRecorderScreen`，升级沉浸式时光画廊，支持瀑布流/网格/列表三态视图模式切换。
+- 日期记录手势与多选：新增长按记录进入多选模式、支持按住跨行滑动连续多选记录，并带有平滑过渡与网格删除平移动画。
+- 记录详情页图片灯箱：日期记录详情页图片支持点击全屏查看灯箱（Lightbox），支持双指缩放与平移手势。
+- 新建记录联动预填：新建日期记录时自动提取图片拍摄日期（EXIF）并预填联动记录标题与日期。
+- 年月视图穿梭动画：基于 `SharedTransitionLayout` 重新设计主日历月份与年份视图间的缩放穿梭动画。
+
+### Changed
+
+- 照片编辑与记录编辑重构：重新设计照片编辑界面 (`PhotoEditorScreen`) 与记录编辑页面 (`RecordEditScreen`)，优化全屏预览、平滑旋转裁剪与黑边自动填充。
+- 渲染与性能深度优化：优化日历翻页重组范围、农历 LRU 缓存与批量查询机制，减少 Canvas 绘制内存分配；更新 Baseline Profile 与 Startup Profile 规则。
+- 视图切换器样式调整：优化顶部视图切换器平滑弹簧滑动动画与几何胶囊同心对齐。
+
+### Fixed
+
+- 拖拽手势与多选响应：改用 `PointerEventPass.Initial` 监听底层手势，解决模拟器、鼠标及触摸屏长按滑动多选中断问题。
+- 照片编辑错位与黑边：修复照片旋转二次叠加、裁剪框闭包快照陷阱、外层 Card 自适应比例及照片 EXIF 方向错位引起的崩溃与黑边。
+- 日历视图联动错位：修复滑动切换年份后再进入年视图导致的页码联动错位，以及动画期间滑动导致的迷你月历错位问题。
+- 布局排版与 ProGuard：重构排序对话框防止水平溢出挤压错位，添加 Sketch 库 dontwarn 规则规避编译警告。
+
 ## [1.3.0] - 2026-07-09
 
 ### Added
@@ -292,6 +315,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.4.0]: https://github.com/xfy/yayacal/releases/tag/v1.4.0
 [1.3.0]: https://github.com/xfy/yayacal/releases/tag/v1.3.0
 [1.2.0]: https://github.com/xfy/yayacal/releases/tag/v1.2.0
 [1.1.0]: https://github.com/xfy/yayacal/releases/tag/v1.1.0
