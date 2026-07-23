@@ -141,6 +141,18 @@ class DateRecorderViewModel(
     }
 
     /**
+     * 批量设置选中的记录 ID 集合（响应按住滑动多选操作）。
+     *
+     * @param ids 选中的记录 ID 集合
+     */
+    fun setSelectedIds(ids: Set<Long>) {
+        if (!_selectionMode.value) {
+            _selectionMode.value = true
+        }
+        _selectedIds.value = ids
+    }
+
+    /**
      * 切换某条记录的选中状态。
      */
     fun toggleSelection(id: Long) {

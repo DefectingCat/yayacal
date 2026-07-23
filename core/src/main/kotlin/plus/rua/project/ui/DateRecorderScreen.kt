@@ -17,8 +17,10 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,8 +32,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -44,7 +48,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import kotlinx.coroutines.launch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Card
@@ -306,7 +314,8 @@ fun DateRecorderScreen(
                     photoRoot = repo,
                     onOpenRecord = onOpenRecord,
                     onToggleSelection = viewModel::toggleSelection,
-                    onStartSelectionWith = viewModel::startSelectionModeWith
+                    onStartSelectionWith = viewModel::startSelectionModeWith,
+                    onSetSelectedIds = viewModel::setSelectedIds
                 )
             }
         }
@@ -345,11 +354,58 @@ private fun RecordGrid(
     photoRoot: DateRecorderRepository,
     onOpenRecord: (Long) -> Unit,
     onToggleSelection: (Long) -> Unit,
-    onStartSelectionWith: (Long) -> Unit
+    onStartSelectionWith: (Long) -> Unit,
+    onSetSelectedIds: (Set<Long>) -> Unit
 ) {
+    val gridState = rememberLazyGridState()
+    val coroutineScope = rememberCoroutineScope()
+
+    var initialDragIndex by remember { mutableStateOf<Int?>(null) }
+    var initialSelectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+
     LazyVerticalGrid(
+        state = gridState,
         columns = GridCells.Adaptive(minSize = 100.dp),
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(records, selectionMode, selectedIds) {
+                detectDragGesturesAfterLongPress(
+                    onDragStart = { startOffset ->
+                        val index = findItemIndexAtOffset(gridState, startOffset)
+                        if (index != null) {
+                            initialDragIndex = index
+                            initialSelectedIds = if (selectionMode) selectedIds else emptySet()
+                            val startId = records[index].id
+                            onSetSelectedIds(initialSelectedIds + startId)
+                        }
+                    },
+                    onDrag = { change, _ ->
+                        change.consume()
+                        val startIndex = initialDragIndex ?: return@detectDragGesturesAfterLongPress
+                        val currentIndex = findItemIndexAtOffset(gridState, change.position)
+                            ?: return@detectDragGesturesAfterLongPress
+
+                        val minIdx = minOf(startIndex, currentIndex)
+                        val maxIdx = maxOf(startIndex, currentIndex)
+                        val draggedIds = (minIdx..maxIdx).mapNotNull { records.getOrNull(it)?.id }.toSet()
+                        onSetSelectedIds(initialSelectedIds + draggedIds)
+
+                        // 边界滑动自动滚屏
+                        val viewportHeight = gridState.layoutInfo.viewportSize.height
+                        if (change.position.y < 120f) {
+                            coroutineScope.launch { gridState.scrollBy(-25f) }
+                        } else if (change.position.y > viewportHeight - 120f) {
+                            coroutineScope.launch { gridState.scrollBy(25f) }
+                        }
+                    },
+                    onDragEnd = {
+                        initialDragIndex = null
+                    },
+                    onDragCancel = {
+                        initialDragIndex = null
+                    }
+                )
+            },
         contentPadding = PaddingValues(8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -382,6 +438,39 @@ private fun RecordGrid(
             )
         }
     }
+}
+
+/**
+ * 根据触控点 Offset 命中测试 LazyVerticalGrid 中的 VisibleItem 索引。
+ */
+private fun findItemIndexAtOffset(gridState: LazyGridState, offset: Offset): Int? {
+    val itemsInfo = gridState.layoutInfo.visibleItemsInfo
+    if (itemsInfo.isEmpty()) return null
+
+    val hit = itemsInfo.firstOrNull { item ->
+        val x = item.offset.x
+        val y = item.offset.y
+        offset.x >= x && offset.x <= x + item.size.width &&
+            offset.y >= y && offset.y <= y + item.size.height
+    }
+    if (hit != null) return hit.index
+
+    val firstVisible = itemsInfo.first()
+    if (offset.y < firstVisible.offset.y) {
+        return firstVisible.index
+    }
+
+    val lastVisible = itemsInfo.last()
+    val lastBottom = lastVisible.offset.y + lastVisible.size.height
+    if (offset.y > lastBottom) {
+        return lastVisible.index
+    }
+
+    val rowMatch = itemsInfo.minByOrNull { item ->
+        val itemCenterY = item.offset.y + item.size.height / 2f
+        kotlin.math.abs(offset.y - itemCenterY)
+    }
+    return rowMatch?.index
 }
 
 @OptIn(ExperimentalFoundationApi::class)
