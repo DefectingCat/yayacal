@@ -32,6 +32,13 @@ class RotationGeometryTest {
     }
 
     @Test
+    fun stableAspect_negativeAndMultipleRotations_invertsCorrectly() {
+        // -450° (即 270°) 应与 90° 一致，反转宽高比
+        assertEquals(0.75f, RotationGeometry.stableAspect(1.3333f, -450), 1e-3f)
+        assertEquals(1.3333f, RotationGeometry.stableAspect(1.3333f, -360), 1e-3f)
+    }
+
+    @Test
     fun coverScale_atStableOffset_isOne() {
         // 稳态（offset=0）零裁剪零黑边
         listOf(0.5f, 0.75f, 1.0f, 1.3333f, 2.0f).forEach { aspect ->

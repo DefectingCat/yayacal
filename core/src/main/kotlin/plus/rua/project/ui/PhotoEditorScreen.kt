@@ -79,6 +79,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -384,14 +386,23 @@ private fun EditableImage(
         val angle = displayRotation.value
         val offset = angle - state.rotationDegrees
         val scale = RotationGeometry.coverScale(offset, containerAspect)
-        val rotatedBmp = remember(state.rotationDegrees, state.sourceBitmap) {
-            state.rotatedBitmap
-        }
         Image(
-            bitmap = rotatedBmp.asImageBitmap(),
+            bitmap = state.sourceBitmap.asImageBitmap(),
             contentDescription = "编辑中的照片",
             modifier = Modifier
-                .fillMaxSize()
+                .layout { measurable, constraints ->
+                    val isSwapped = (state.rotationDegrees % 180 != 0)
+                    val targetWidth = if (isSwapped) constraints.maxHeight else constraints.maxWidth
+                    val targetHeight = if (isSwapped) constraints.maxWidth else constraints.maxHeight
+                    val placeable = measurable.measure(
+                        Constraints.fixed(targetWidth, targetHeight)
+                    )
+                    layout(constraints.maxWidth, constraints.maxHeight) {
+                        val x = (constraints.maxWidth - targetWidth) / 2
+                        val y = (constraints.maxHeight - targetHeight) / 2
+                        placeable.placeRelative(x, y)
+                    }
+                }
                 .graphicsLayer {
                     rotationZ = angle
                     scaleX = scale
@@ -410,7 +421,7 @@ private fun EditableImage(
                         )
                     }
                 },
-            contentScale = ContentScale.Crop
+            contentScale = ContentScale.Fit
         )
 
         if (mode == EditTab.CROP && state.cropEnabled) {
@@ -644,7 +655,7 @@ private fun ToolPanel(
                             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Text(
-                                text = "${state.rotationDegrees}°",
+                                text = "${(state.rotationDegrees % 360 + 360) % 360}°",
                                 style = MaterialTheme.typography.labelMedium,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
