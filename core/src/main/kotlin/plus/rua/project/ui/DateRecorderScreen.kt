@@ -420,13 +420,6 @@ private fun RecordGrid(
                     if (selectionMode) onToggleSelection(record.id)
                     else onOpenRecord(record.id)
                 },
-                onLongClick = {
-                    if (selectionMode) {
-                        onToggleSelection(record.id)
-                    } else {
-                        onStartSelectionWith(record.id)
-                    }
-                },
                 modifier = Modifier.animateItem(
                     fadeInSpec = tween(300),
                     fadeOutSpec = tween(300),
@@ -473,7 +466,6 @@ private fun findItemIndexAtOffset(gridState: LazyGridState, offset: Offset): Int
     return rowMatch?.index
 }
 
-@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecordCard(
     record: DateRecord,
@@ -481,7 +473,6 @@ private fun RecordCard(
     isSelected: Boolean,
     selectionMode: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val cardScale by animateFloatAsState(
@@ -501,6 +492,7 @@ private fun RecordCard(
     )
     val cardShape = RoundedCornerShape(8.dp)
     Card(
+        onClick = onClick,
         shape = cardShape,
         border = BorderStroke(borderWidth, borderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -510,11 +502,6 @@ private fun RecordCard(
                 scaleX = cardScale
                 scaleY = cardScale
             }
-            .clip(cardShape)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
     ) {
         Box {
             AsyncImage(
