@@ -21,6 +21,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import kotlinx.coroutines.withTimeoutOrNull
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -369,42 +373,73 @@ private fun RecordGrid(
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(records, selectionMode, selectedIds) {
-                detectDragGesturesAfterLongPress(
-                    onDragStart = { startOffset ->
-                        val index = findItemIndexAtOffset(gridState, startOffset)
-                        if (index != null) {
-                            initialDragIndex = index
-                            initialSelectedIds = if (selectionMode) selectedIds else emptySet()
-                            val startId = records[index].id
-                            onSetSelectedIds(initialSelectedIds + startId)
-                        }
-                    },
-                    onDrag = { change, _ ->
-                        change.consume()
-                        val startIndex = initialDragIndex ?: return@detectDragGesturesAfterLongPress
-                        val currentIndex = findItemIndexAtOffset(gridState, change.position)
-                            ?: return@detectDragGesturesAfterLongPress
+                awaitEachGesture {
+                    val down = awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
+                    val startOffset = down.position
+                    val startIndex = findItemIndexAtOffset(gridState, startOffset) ?: return@awaitEachGesture
 
-                        val minIdx = minOf(startIndex, currentIndex)
-                        val maxIdx = maxOf(startIndex, currentIndex)
-                        val draggedIds = (minIdx..maxIdx).mapNotNull { records.getOrNull(it)?.id }.toSet()
-                        onSetSelectedIds(initialSelectedIds + draggedIds)
+                    var isDragSelecting = false
+                    val initialSelected = if (selectionMode) selectedIds else emptySet()
 
-                        // 边界滑动自动滚屏
-                        val viewportHeight = gridState.layoutInfo.viewportSize.height
-                        if (change.position.y < 120f) {
-                            coroutineScope.launch { gridState.scrollBy(-25f) }
-                        } else if (change.position.y > viewportHeight - 120f) {
-                            coroutineScope.launch { gridState.scrollBy(25f) }
+                    if (!selectionMode) {
+                        // 普通模式下：等待 300ms 长按判定
+                        val longPressResult = withTimeoutOrNull(300L) {
+                            while (true) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!change.pressed) return@withTimeoutOrNull false
+                                if ((change.position - startOffset).getDistance() > 20f) {
+                                    // 移动距离大于 20px 判定为滚屏而非长按
+                                    return@withTimeoutOrNull false
+                                }
+                            }
+                            true
                         }
-                    },
-                    onDragEnd = {
-                        initialDragIndex = null
-                    },
-                    onDragCancel = {
-                        initialDragIndex = null
+                        if (longPressResult == null) {
+                            // 300ms 超时到达且未松手/未远移，触发长按多选
+                            isDragSelecting = true
+                            val startId = records[startIndex].id
+                            onSetSelectedIds(setOf(startId))
+                        }
                     }
-                )
+
+                    // 持续监听 Pointer 移动手势
+                    while (true) {
+                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                        val pointerChange = event.changes.firstOrNull { it.id == down.id } ?: break
+                        if (!pointerChange.pressed) break
+
+                        val currentOffset = pointerChange.position
+                        val distance = (currentOffset - startOffset).getDistance()
+
+                        if (!isDragSelecting) {
+                            if (selectionMode && distance > 10f) {
+                                isDragSelecting = true
+                                val startId = records[startIndex].id
+                                onSetSelectedIds(initialSelected + startId)
+                            }
+                        }
+
+                        if (isDragSelecting) {
+                            pointerChange.consume()
+                            val currentIndex = findItemIndexAtOffset(gridState, currentOffset)
+                            if (currentIndex != null) {
+                                val minIdx = minOf(startIndex, currentIndex)
+                                val maxIdx = maxOf(startIndex, currentIndex)
+                                val draggedIds = (minIdx..maxIdx).mapNotNull { records.getOrNull(it)?.id }.toSet()
+                                onSetSelectedIds(initialSelected + draggedIds)
+                            }
+
+                            // 边界滑动自动滚屏
+                            val viewportHeight = gridState.layoutInfo.viewportSize.height
+                            if (currentOffset.y < 120f) {
+                                coroutineScope.launch { gridState.scrollBy(-25f) }
+                            } else if (currentOffset.y > viewportHeight - 120f) {
+                                coroutineScope.launch { gridState.scrollBy(25f) }
+                            }
+                        }
+                    }
+                }
             },
         contentPadding = PaddingValues(8.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
