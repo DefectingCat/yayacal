@@ -14,7 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
@@ -69,12 +69,6 @@ fun CalendarPager(
         }
     }
 
-    val currentPageOffsetFraction by remember {
-        derivedStateOf { pagerState.currentPageOffsetFraction }
-    }
-    val currentPage by remember {
-        derivedStateOf { pagerState.currentPage }
-    }
 
     HorizontalPager(
         state = pagerState,
@@ -82,13 +76,6 @@ fun CalendarPager(
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
         modifier = modifier.testTag("calendar_pager")
     ) { page ->
-        val pageOffset = abs(currentPageOffsetFraction)
-        val isCurrentPage = page == currentPage
-        val alpha = if (isCurrentPage) {
-            1f - pageOffset
-        } else {
-            pageOffset
-        }
         val (year, month) = pageToYearMonth(page, initialYear, initialMonth)
         composeTraceBeginSection("CalendarPager:Page:$year-$month")
         CalendarMonthPage(
@@ -117,7 +104,11 @@ fun CalendarPager(
             shiftKindAt = shiftKindAt,
             showLegalHoliday = showLegalHoliday,
             onRowHeightMeasured = onRowHeightMeasured,
-            modifier = Modifier.alpha(alpha)
+            modifier = Modifier.graphicsLayer {
+                val pageOffset = abs(pagerState.currentPageOffsetFraction)
+                val isCurrentPage = page == pagerState.currentPage
+                alpha = if (isCurrentPage) 1f - pageOffset else pageOffset
+            }
         )
         composeTraceEndSection()
     }

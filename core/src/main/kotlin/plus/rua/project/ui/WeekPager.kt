@@ -15,7 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.flow.drop
 import kotlinx.datetime.DatePeriod
@@ -79,17 +79,14 @@ fun WeekPager(
         modifier = modifier
     ) { page ->
         composeTraceBeginSection("WeekPager:Page")
-        val pageOffset = abs(pagerState.currentPageOffsetFraction)
-        val isCurrentPage = page == pagerState.currentPage
-        val alpha = if (isCurrentPage) {
-            1f - pageOffset
-        } else {
-            pageOffset
-        }
         val weekMonday = pageToWeekMonday(page, initialWeekMonday)
         Row(
             modifier = Modifier
-                .alpha(alpha)
+                .graphicsLayer {
+                    val pageOffset = abs(pagerState.currentPageOffsetFraction)
+                    val isCurrentPage = page == pagerState.currentPage
+                    alpha = if (isCurrentPage) 1f - pageOffset else pageOffset
+                }
                 .fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
                 .padding(vertical = ROW_PADDING_DP.dp)

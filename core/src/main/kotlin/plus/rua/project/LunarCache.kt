@@ -31,6 +31,31 @@ class LunarCache(
         trimIfNeeded()
         computed
     }
+    /**
+     * 批量获取指定日期的信息，一次性加锁并返回 Map。
+     *
+     * @param dates 日期列表
+     * @return 日期 → DayCellInfo 的映射
+     */
+    suspend fun getOrComputeBatch(dates: List<LocalDate>): Map<LocalDate, DayCellInfo> = mutex.withLock {
+        val result = HashMap<LocalDate, DayCellInfo>(dates.size)
+        var modified = false
+        for (date in dates) {
+            val cached = cache[date]
+            if (cached != null) {
+                result[date] = cached
+            } else {
+                val computed = compute(date)
+                cache[date] = computed
+                result[date] = computed
+                modified = true
+            }
+        }
+        if (modified) {
+            trimIfNeeded()
+        }
+        result
+    }
 
     /**
      * 批量预计算并填充缓存。

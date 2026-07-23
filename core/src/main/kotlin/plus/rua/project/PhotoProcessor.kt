@@ -147,15 +147,29 @@ object PhotoProcessor {
         var result = rotate(source, rotationDegrees)
         // 2. 裁剪
         if (cropLeft != null && cropRight != null) {
-            result = crop(result, cropLeft, cropTop, cropRight, cropBottom)
+            val cropped = crop(result, cropLeft, cropTop, cropRight, cropBottom)
+            if (result != source && result != cropped) {
+                result.recycle()
+            }
+            result = cropped
         }
         // 3. 合成手写笔触
         if (strokes.isNotEmpty()) {
-            result = drawStrokes(result, strokes, displayWidth, displayHeight)
+            val withStrokes = drawStrokes(result, strokes, displayWidth, displayHeight)
+            if (result != source && result != withStrokes) {
+                result.recycle()
+            }
+            result = withStrokes
         }
         // 4. 落盘（JPEG 90% 质量）
-        FileOutputStream(destFile).use { out ->
-            result.compress(Bitmap.CompressFormat.JPEG, 90, out)
+        try {
+            FileOutputStream(destFile).use { out ->
+                result.compress(Bitmap.CompressFormat.JPEG, 90, out)
+            }
+        } finally {
+            if (result != source && !result.isRecycled) {
+                result.recycle()
+            }
         }
         return destFile.absolutePath
     }

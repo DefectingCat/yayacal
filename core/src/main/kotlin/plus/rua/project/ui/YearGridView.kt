@@ -106,30 +106,32 @@ fun YearGridView(
     val dayTextStyle = remember { TextStyle(fontSize = 8.sp, lineHeight = 12.sp) }
 
     // 延迟文本测量到下一帧，避免首帧阻塞
-    val dayLayouts by produceState<Map<Pair<Int, Color>, androidx.compose.ui.text.TextLayoutResult>?>(null, textMeasurer, dayTextStyle, colors) {
+    val dayLayouts by produceState<Map<Int, androidx.compose.ui.text.TextLayoutResult>?>(null, textMeasurer, dayTextStyle, colors) {
         val days = 1..31
-        val colorList = listOf(colors.day, colors.todayText, colors.otherMonth)
-        value = days.flatMap { d ->
-            colorList.map { c ->
-                (d to c) to textMeasurer.measure(d.toString(), dayTextStyle.copy(color = c))
+        val colorTypes = listOf(0 to colors.day, 1 to colors.todayText, 2 to colors.otherMonth)
+        val map = HashMap<Int, androidx.compose.ui.text.TextLayoutResult>(32 * 3)
+        days.forEach { d ->
+            colorTypes.forEach { (type, c) ->
+                map[d * 3 + type] = textMeasurer.measure(d.toString(), dayTextStyle.copy(color = c))
             }
-        }.toMap()
+        }
+        value = map
     }
 
-    val titleLayouts by produceState<Map<Pair<Int, Boolean>, androidx.compose.ui.text.TextLayoutResult>?>(null, textMeasurer, colors) {
-        value = (1..12).flatMap { month ->
+    val titleLayouts by produceState<Map<Int, androidx.compose.ui.text.TextLayoutResult>?>(null, textMeasurer, colors) {
+        val map = HashMap<Int, androidx.compose.ui.text.TextLayoutResult>(13 * 2)
+        (1..12).forEach { month ->
             val text = "${month}月"
-            listOf(
-                (month to true) to textMeasurer.measure(
-                    text,
-                    TextStyle(fontSize = 10.sp, color = colors.titleSelected, fontWeight = FontWeight.Bold)
-                ),
-                (month to false) to textMeasurer.measure(
-                    text,
-                    TextStyle(fontSize = 10.sp, color = colors.titleNormal)
-                )
+            map[month * 2 + 1] = textMeasurer.measure(
+                text,
+                TextStyle(fontSize = 10.sp, color = colors.titleSelected, fontWeight = FontWeight.Bold)
             )
-        }.toMap()
+            map[month * 2] = textMeasurer.measure(
+                text,
+                TextStyle(fontSize = 10.sp, color = colors.titleNormal)
+            )
+        }
+        value = map
     }
 
     val weekdayLayouts by produceState<Map<String, androidx.compose.ui.text.TextLayoutResult>?>(null, textMeasurer, colors) {
@@ -193,8 +195,8 @@ private fun MiniMonth(
     today: LocalDate,
     days: List<MiniDayData>,
     colors: MiniMonthColors,
-    dayLayouts: Map<Pair<Int, Color>, androidx.compose.ui.text.TextLayoutResult>?,
-    titleLayouts: Map<Pair<Int, Boolean>, androidx.compose.ui.text.TextLayoutResult>?,
+    dayLayouts: Map<Int, androidx.compose.ui.text.TextLayoutResult>?,
+    titleLayouts: Map<Int, androidx.compose.ui.text.TextLayoutResult>?,
     weekdayLayouts: Map<String, androidx.compose.ui.text.TextLayoutResult>?,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -226,7 +228,7 @@ private fun MiniMonth(
             val cellWidth = size.width / 7f
 
             // 1. 绘制标题
-            val titleLayout = tl[month to isSelected]!!
+            val titleLayout = tl[month * 2 + (if (isSelected) 1 else 0)]!!
             drawText(
                 textLayoutResult = titleLayout,
                 topLeft = Offset(
@@ -259,9 +261,14 @@ private fun MiniMonth(
 
                 val isToday = dayData.date == today && dayData.isCurrentMonth
                 val dayNum = if (dayData.isCurrentMonth) dayData.date.day else 0
-                val textColor: Color = when {
-                    !dayData.isCurrentMonth -> colors.otherMonth
-                    isToday -> colors.todayText
+                val colorType = when {
+                    !dayData.isCurrentMonth -> 2
+                    isToday -> 1
+                    else -> 0
+                }
+                val textColor: Color = when (colorType) {
+                    2 -> colors.otherMonth
+                    1 -> colors.todayText
                     else -> colors.day
                 }
 
@@ -275,7 +282,7 @@ private fun MiniMonth(
                 }
 
                 if (dayNum > 0) {
-                    dl[dayNum to textColor]?.let { layoutResult ->
+                    dl[dayNum * 3 + colorType]?.let { layoutResult ->
                         drawText(
                             textLayoutResult = layoutResult,
                             topLeft = Offset(

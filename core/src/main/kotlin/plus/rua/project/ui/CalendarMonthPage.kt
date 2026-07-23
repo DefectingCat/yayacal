@@ -80,11 +80,7 @@ fun CalendarMonthPage(
         key1 = year,
         key2 = month
     ) {
-        val map = mutableMapOf<LocalDate, DayCellInfo>()
-        for (dayData in days) {
-            map[dayData.date] = LunarCache.default.getOrCompute(dayData.date)
-        }
-        value = map
+        value = LunarCache.default.getOrComputeBatch(days.map { it.date })
     }
 
     val holidayEdges = remember(lunarDataMap, year, month) {

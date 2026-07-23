@@ -79,7 +79,13 @@ fun getMonthGridInfo(year: Int, month: Int): MonthGridInfo {
  * @return 网格行数
  */
 fun calculateWeeksCount(year: Int, month: Int): Int {
-    return getMonthGridInfo(year, month).rows
+    val offset = LocalDate(year, Month(month), 1).dayOfWeek.ordinal
+    val daysInMonth = when (month) {
+        2 -> if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) 29 else 28
+        4, 6, 9, 11 -> 30
+        else -> 31
+    }
+    return ((offset + daysInMonth - 1) / 7) + 1
 }
 
 /**

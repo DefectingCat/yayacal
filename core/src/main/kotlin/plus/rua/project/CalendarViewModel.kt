@@ -147,9 +147,12 @@ class CalendarViewModel(
 
     /** 聚合 UI 状态，减少 Compose 层分散订阅导致的重组。 */
     val uiState: StateFlow<CalendarUiState> = combine(
-        combine(_selectedDate, _isCollapsed, _isYearView) { s, c, y -> Triple(s, c, y) },
-        combine(_yearViewYear, _collapseProgress, _showLegalHoliday) { y, p, h -> Triple(y, p, h) }
-    ) { (selectedDate, isCollapsed, isYearView), (yearViewYear, collapseProgress, showLegalHoliday) ->
+        _selectedDate,
+        _isCollapsed,
+        _isYearView,
+        _yearViewYear,
+        combine(_collapseProgress, _showLegalHoliday) { cp, h -> cp to h }
+    ) { selectedDate, isCollapsed, isYearView, yearViewYear, (collapseProgress, showLegalHoliday) ->
         CalendarUiState(
             selectedDate = selectedDate,
             isCollapsed = isCollapsed,
