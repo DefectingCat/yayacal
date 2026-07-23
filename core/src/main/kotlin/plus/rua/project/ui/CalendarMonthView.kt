@@ -178,12 +178,9 @@ fun CalendarMonthView(
         pageCount = { Int.MAX_VALUE }
     )
 
-    // 视图切换时自动关闭菜单并重置年视图 Pager
+    // 视图切换时自动关闭菜单
     LaunchedEffect(isYearView) {
         isMenuExpanded = false
-        if (isYearView && yearPagerState.currentPage != START_PAGE) {
-            yearPagerState.scrollToPage(START_PAGE)
-        }
     }
 
     // 年视图翻页时同步 yearViewYear（跟踪 settled page 差值）
