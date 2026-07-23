@@ -562,65 +562,140 @@ private fun SortDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("排序方式", fontWeight = FontWeight.Bold) },
+        title = {
+            Text(
+                text = "排序方式",
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+            )
+        },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                sortFields.forEach { (field, label) ->
-                    val isCurrentField = currentSortOrder.field == field
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(
-                                if (isCurrentField) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                                else Color.Transparent
-                            )
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = label,
-                            style = MaterialTheme.typography.bodyLarge,
-                            fontWeight = if (isCurrentField) FontWeight.Bold else FontWeight.Normal
-                        )
-                        Row {
-                            FilterChip(
-                                selected = isCurrentField && !currentSortOrder.ascending,
-                                onClick = { onSelectSort(RecordSortOrder(field, ascending = false)) },
-                                label = { Text("最新优先") },
-                                leadingIcon = if (isCurrentField && !currentSortOrder.ascending) {
-                                    { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                                } else null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                // 1. 排序字段选择
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "排序依据",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    sortFields.forEach { (field, label) ->
+                        val isSelected = currentSortOrder.field == field
+                        Surface(
+                            onClick = {
+                                onSelectSort(currentSortOrder.copy(field = field))
+                            },
+                            shape = RoundedCornerShape(12.dp),
+                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                                    else MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                                            else MaterialTheme.colorScheme.onSurface
                                 )
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            FilterChip(
-                                selected = isCurrentField && currentSortOrder.ascending,
-                                onClick = { onSelectSort(RecordSortOrder(field, ascending = true)) },
-                                label = { Text("最早优先") },
-                                leadingIcon = if (isCurrentField && currentSortOrder.ascending) {
-                                    { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                                } else null,
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
-                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
-                                )
-                            )
+                                if (isSelected) {
+                                    Icon(
+                                        imageVector = Icons.Filled.Check,
+                                        contentDescription = "已选择",
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
                         }
+                    }
+                }
+
+                // 2. 排序方向选择
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        text = "排序顺序",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        SortOrderDirectionOption(
+                            text = "最新优先",
+                            subtitle = "从新到旧",
+                            icon = Icons.Filled.ArrowDownward,
+                            isSelected = !currentSortOrder.ascending,
+                            onClick = { onSelectSort(currentSortOrder.copy(ascending = false)) },
+                            modifier = Modifier.weight(1f)
+                        )
+                        SortOrderDirectionOption(
+                            text = "最早优先",
+                            subtitle = "从旧到新",
+                            icon = Icons.Filled.ArrowUpward,
+                            isSelected = currentSortOrder.ascending,
+                            onClick = { onSelectSort(currentSortOrder.copy(ascending = true)) },
+                            modifier = Modifier.weight(1f)
+                        )
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("关闭") }
+            TextButton(onClick = onDismiss) {
+                Text("完成", fontWeight = FontWeight.Bold)
+            }
         }
     )
 }
 
+/** 排序方向单选 Chip 卡片。 */
+@Composable
+private fun SortOrderDirectionOption(
+    text: String,
+    subtitle: String,
+    icon: ImageVector,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow,
+        contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+        border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        modifier = modifier
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = text,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                        else MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
 @Composable
 private fun RecordGrid(
     records: List<DateRecord>,
