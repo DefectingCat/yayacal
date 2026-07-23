@@ -370,7 +370,15 @@ private fun RecordGrid(
                     } else {
                         onStartSelectionWith(record.id)
                     }
-                }
+                },
+                modifier = Modifier.animateItem(
+                    fadeInSpec = tween(300),
+                    fadeOutSpec = tween(300),
+                    placementSpec = spring(
+                        stiffness = Spring.StiffnessMediumLow,
+                        dampingRatio = Spring.DampingRatioMediumBouncy
+                    )
+                )
             )
         }
     }
