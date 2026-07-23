@@ -42,15 +42,18 @@ class DateRecordDetailViewModel(
 
     private fun load() {
         viewModelScope.launch {
-            val record = repository.observeById(recordId).first()
-            if (record != null) {
-                _uiState.value = DateRecordDetailUiState(
-                    loading = false,
-                    record = record,
-                    photoUri = "file://${repository.absoluteFileOf(record.photoPath).absolutePath}"
-                )
-            } else {
-                _uiState.value = DateRecordDetailUiState(loading = false)
+            repository.observeById(recordId).collect { record ->
+                if (record != null) {
+                    _uiState.update {
+                        it.copy(
+                            loading = false,
+                            record = record,
+                            photoUri = "file://${repository.absoluteFileOf(record.photoPath).absolutePath}"
+                        )
+                    }
+                } else {
+                    _uiState.update { it.copy(loading = false, record = null) }
+                }
             }
         }
     }
