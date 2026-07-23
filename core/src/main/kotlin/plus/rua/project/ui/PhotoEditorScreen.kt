@@ -1,9 +1,15 @@
 package plus.rua.project.ui
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
@@ -14,6 +20,7 @@ import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -34,7 +41,6 @@ import androidx.compose.material.icons.outlined.RotateLeft
 import androidx.compose.material.icons.outlined.RotateRight
 import androidx.compose.material.icons.outlined.Undo
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -43,7 +49,7 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedIconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -119,9 +125,6 @@ fun PhotoEditorScreen(
         LaunchedEffect(savedPath) { onSaved(savedPath) }
     }
 
-    val darkBackground = Color(0xFF121316)
-    val topBarContainer = Color(0xFF1A1B1F)
-
     Scaffold(
         modifier = modifier.semantics { testTagsAsResourceId = true },
         topBar = {
@@ -129,16 +132,14 @@ fun PhotoEditorScreen(
                 title = {
                     Text(
                         text = "照片图层编辑",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
-                        color = Color.White
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
-                            tint = Color.White
+                            contentDescription = "返回"
                         )
                     }
                 },
@@ -158,10 +159,10 @@ fun PhotoEditorScreen(
                         Text("完成", fontWeight = FontWeight.Bold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = topBarContainer)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )
         },
-        containerColor = darkBackground
+        containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -172,7 +173,7 @@ fun PhotoEditorScreen(
                 state.loading -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
+                ) { CircularProgressIndicator() }
 
                 state.error != null -> Box(
                     modifier = Modifier.fillMaxSize(),
@@ -231,7 +232,6 @@ private fun EditorBody(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF1A1B1F))
                 .padding(horizontal = 16.dp, vertical = 8.dp)
         ) {
             SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
@@ -240,12 +240,6 @@ private fun EditorBody(
                         selected = activeTab == tab,
                         onClick = { onTabChange(tab) },
                         shape = SegmentedButtonDefaults.itemShape(index, EditTab.entries.size),
-                        colors = SegmentedButtonDefaults.colors(
-                            activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                            activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            inactiveContainerColor = Color(0xFF25262B),
-                            inactiveContentColor = Color.LightGray
-                        ),
                         icon = {
                             Icon(
                                 when (tab) {
@@ -283,8 +277,8 @@ private fun EditorBody(
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Black),
-                border = BorderStroke(1.dp, Color(0xFF2C2D32)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -303,7 +297,7 @@ private fun EditorBody(
 
             if (saving) {
                 Surface(
-                    color = Color.Black.copy(alpha = 0.6f),
+                    color = Color.Black.copy(alpha = 0.7f),
                     shape = RoundedCornerShape(16.dp),
                     modifier = Modifier.padding(16.dp)
                 ) {
@@ -326,17 +320,27 @@ private fun EditorBody(
             }
         }
 
-        // Tool Control Panel at Bottom
-        ToolPanel(
-            mode = activeTab,
-            state = state,
-            onRotate = onRotate,
-            onCropToggle = onCropToggle,
-            onApplyCrop = onApplyCrop,
-            onUndoStroke = onUndoStroke,
-            onStrokeColorChange = onStrokeColorChange,
+        // Tool Control Panel with Smooth Animated Transition
+        AnimatedContent(
+            targetState = activeTab,
+            transitionSpec = {
+                (slideInHorizontally { width -> if (targetState > initialState) width else -width } + fadeIn(tween(220)))
+                    .togetherWith(slideOutHorizontally { width -> if (targetState > initialState) -width else width } + fadeOut(tween(180)))
+            },
+            label = "tabTransition",
             modifier = Modifier.fillMaxWidth()
-        )
+        ) { targetMode ->
+            ToolPanel(
+                mode = targetMode,
+                state = state,
+                onRotate = onRotate,
+                onCropToggle = onCropToggle,
+                onApplyCrop = onApplyCrop,
+                onUndoStroke = onUndoStroke,
+                onStrokeColorChange = onStrokeColorChange,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
@@ -603,8 +607,9 @@ private fun ToolPanel(
     modifier: Modifier = Modifier
 ) {
     Surface(
-        color = Color(0xFF1A1B1F),
+        color = MaterialTheme.colorScheme.surfaceContainer,
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        tonalElevation = 3.dp,
         modifier = modifier
     ) {
         Column(
@@ -622,11 +627,7 @@ private fun ToolPanel(
                     ) {
                         FilledTonalButton(
                             onClick = { onRotate(-90) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = Color(0xFF2B2C32),
-                                contentColor = Color.White
-                            )
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.RotateLeft,
@@ -638,9 +639,9 @@ private fun ToolPanel(
                         }
 
                         Surface(
-                            color = Color(0xFF26272C),
+                            color = MaterialTheme.colorScheme.surfaceContainerHigh,
                             shape = CircleShape,
-                            border = BorderStroke(1.dp, Color(0xFF3A3B42))
+                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                         ) {
                             Text(
                                 text = "${state.rotationDegrees}°",
@@ -653,11 +654,7 @@ private fun ToolPanel(
 
                         FilledTonalButton(
                             onClick = { onRotate(90) },
-                            shape = RoundedCornerShape(12.dp),
-                            colors = ButtonDefaults.filledTonalButtonColors(
-                                containerColor = Color(0xFF2B2C32),
-                                contentColor = Color.White
-                            )
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.RotateRight,
@@ -679,7 +676,7 @@ private fun ToolPanel(
                         Text(
                             text = if (state.cropEnabled) "拖动四角或框架调整裁剪区域" else "点击开启自由裁剪",
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color.LightGray
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
 
                         Row(
@@ -730,32 +727,30 @@ private fun ToolPanel(
                             Text(
                                 text = "涂鸦画笔颜色",
                                 style = MaterialTheme.typography.labelMedium,
-                                color = Color.LightGray
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
 
-                            OutlinedIconButton(
+                            // 使用 OutlinedButton 避免数字/汉字在宽高度受限的 IconButtons 里错位换行
+                            OutlinedButton(
                                 onClick = onUndoStroke,
                                 enabled = state.strokes.isNotEmpty(),
-                                shape = RoundedCornerShape(10.dp),
-                                border = BorderStroke(1.dp, if (state.strokes.isNotEmpty()) Color.White else Color.Gray)
+                                shape = RoundedCornerShape(12.dp),
+                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                                border = BorderStroke(
+                                    1.dp,
+                                    if (state.strokes.isNotEmpty()) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                                )
                             ) {
-                                Row(
-                                    modifier = Modifier.padding(horizontal = 8.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Undo,
-                                        contentDescription = "撤销笔触",
-                                        tint = if (state.strokes.isNotEmpty()) Color.White else Color.Gray,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = "撤销",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = if (state.strokes.isNotEmpty()) Color.White else Color.Gray
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Outlined.Undo,
+                                    contentDescription = "撤销笔触",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "撤销",
+                                    style = MaterialTheme.typography.labelMedium
+                                )
                             }
                         }
 
@@ -765,8 +760,8 @@ private fun ToolPanel(
                             Color(0xFFFFD60A), // Yellow
                             Color(0xFF30D158), // Green
                             Color(0xFF64D2FF), // Cyan
-                            Color(0xFFFFFFFF), // White
-                            Color(0xFF000000)  // Black
+                            Color(0xFF007AFF), // Blue
+                            Color(0xFF1D1B20)  // Dark Gray / Black
                         )
 
                         Row(
@@ -782,7 +777,7 @@ private fun ToolPanel(
                                         .background(c, CircleShape)
                                         .border(
                                             width = if (selected) 2.5.dp else 1.dp,
-                                            color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray,
+                                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
                                             shape = CircleShape
                                         )
                                         .clickable { onStrokeColorChange(c) },
@@ -792,7 +787,7 @@ private fun ToolPanel(
                                         Icon(
                                             imageVector = Icons.Filled.Check,
                                             contentDescription = null,
-                                            tint = if (c == Color.White || c == Color(0xFFFFD60A)) Color.Black else Color.White,
+                                            tint = if (c == Color(0xFFFFD60A) || c == Color(0xFF64D2FF)) Color.Black else Color.White,
                                             modifier = Modifier.size(14.dp)
                                         )
                                     }
