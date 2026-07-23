@@ -53,6 +53,8 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -364,15 +366,17 @@ private fun RecordGrid(
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
 
-    var initialDragIndex by remember { mutableStateOf<Int?>(null) }
-    var initialSelectedIds by remember { mutableStateOf<Set<Long>>(emptySet()) }
+    val currentRecords by rememberUpdatedState(records)
+    val currentSelectionMode by rememberUpdatedState(selectionMode)
+    val currentSelectedIds by rememberUpdatedState(selectedIds)
+    val currentOnSetSelectedIds by rememberUpdatedState(onSetSelectedIds)
 
     LazyVerticalGrid(
         state = gridState,
         columns = GridCells.Adaptive(minSize = 100.dp),
         modifier = Modifier
             .fillMaxSize()
-            .pointerInput(records, selectionMode, selectedIds) {
+            .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
                     val startOffset = down.position
@@ -381,7 +385,7 @@ private fun RecordGrid(
 
                     var isDragSelecting = false
                     var isScrolling = false
-                    val initialSelected = if (selectionMode) selectedIds else emptySet()
+                    val initialSelected = if (currentSelectionMode) currentSelectedIds else emptySet()
 
                     while (true) {
                         val event = awaitPointerEvent(pass = PointerEventPass.Initial)
@@ -389,25 +393,32 @@ private fun RecordGrid(
                         if (!pointerChange.pressed) break
 
                         val currentOffset = pointerChange.position
-                        val distance = (currentOffset - startOffset).getDistance()
+                        val delta = currentOffset - startOffset
+                        val distance = delta.getDistance()
                         val elapsedTime = pointerChange.uptimeMillis - startTime
 
                         if (!isDragSelecting && !isScrolling) {
-                            if (selectionMode) {
-                                // 多选模式下：滑动超过 6px 立刻触发极速滑动多选
-                                if (distance >= 6f) {
+                            if (currentSelectionMode) {
+                                // 多选模式下：如果快速纵向滑动，判定为普通滚屏；否则在移动超过 16px 或按住超过 120ms 后触发拖拽多选
+                                if (distance > 20f && elapsedTime < 120L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 2f) {
+                                    isScrolling = true
+                                } else if (distance >= 16f || (elapsedTime >= 120L && distance >= 6f)) {
                                     isDragSelecting = true
-                                    val startId = records[startIndex].id
-                                    onSetSelectedIds(initialSelected + startId)
+                                    val startId = currentRecords.getOrNull(startIndex)?.id
+                                    if (startId != null) {
+                                        currentOnSetSelectedIds(initialSelected + startId)
+                                    }
                                 }
                             } else {
                                 // 普通模式下：按住满 250ms 或按住移动超过 10px（且未快滑滚屏）触发长按多选
-                                if (distance > 30f && elapsedTime < 200L) {
+                                if (distance > 30f && elapsedTime < 200L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 1.5f) {
                                     isScrolling = true // 快速划过判定为普通滚屏
                                 } else if (elapsedTime >= 250L || (elapsedTime >= 150L && distance >= 10f)) {
                                     isDragSelecting = true
-                                    val startId = records[startIndex].id
-                                    onSetSelectedIds(setOf(startId))
+                                    val startId = currentRecords.getOrNull(startIndex)?.id
+                                    if (startId != null) {
+                                        currentOnSetSelectedIds(setOf(startId))
+                                    }
                                 }
                             }
                         }
@@ -418,8 +429,8 @@ private fun RecordGrid(
                             if (currentIndex != null) {
                                 val minIdx = minOf(startIndex, currentIndex)
                                 val maxIdx = maxOf(startIndex, currentIndex)
-                                val draggedIds = (minIdx..maxIdx).mapNotNull { records.getOrNull(it)?.id }.toSet()
-                                onSetSelectedIds(initialSelected + draggedIds)
+                                val draggedIds = (minIdx..maxIdx).mapNotNull { currentRecords.getOrNull(it)?.id }.toSet()
+                                currentOnSetSelectedIds(initialSelected + draggedIds)
                             }
 
                             // 边界滑动自动滚屏
