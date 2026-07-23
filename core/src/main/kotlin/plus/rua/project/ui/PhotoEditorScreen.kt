@@ -4,40 +4,51 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Brush
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.Crop
-import androidx.compose.material.icons.filled.Done
-import androidx.compose.material.icons.filled.RotateLeft
-import androidx.compose.material.icons.filled.RotateRight
-import androidx.compose.material.icons.filled.Undo
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Brush
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Crop
+import androidx.compose.material.icons.outlined.RotateLeft
+import androidx.compose.material.icons.outlined.RotateRight
+import androidx.compose.material.icons.outlined.Undo
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -108,46 +119,60 @@ fun PhotoEditorScreen(
         LaunchedEffect(savedPath) { onSaved(savedPath) }
     }
 
+    val darkBackground = Color(0xFF121316)
+    val topBarContainer = Color(0xFF1A1B1F)
+
     Scaffold(
         modifier = modifier.semantics { testTagsAsResourceId = true },
         topBar = {
             TopAppBar(
                 title = {
                     Text(
-                        "编辑照片",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
+                        text = "照片图层编辑",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                        color = Color.White
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Filled.ChevronLeft, contentDescription = "返回")
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回",
+                            tint = Color.White
+                        )
                     }
                 },
                 actions = {
-                    IconButton(
+                    Button(
                         onClick = viewModel::save,
                         enabled = state.editorState != null && !state.saving,
+                        shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.testTag("editor_save")
                     ) {
-                        Icon(Icons.Filled.Done, contentDescription = "保存")
+                        Icon(
+                            imageVector = Icons.Outlined.Check,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("完成", fontWeight = FontWeight.Bold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = topBarContainer)
             )
         },
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = darkBackground
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp)
         ) {
             when {
                 state.loading -> Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center
-                ) { CircularProgressIndicator() }
+                ) { CircularProgressIndicator(color = MaterialTheme.colorScheme.primary) }
 
                 state.error != null -> Box(
                     modifier = Modifier.fillMaxSize(),
@@ -202,57 +227,107 @@ private fun EditorBody(
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            EditTab.entries.forEachIndexed { index, tab ->
-                SegmentedButton(
-                    selected = activeTab == tab,
-                    onClick = { onTabChange(tab) },
-                    shape = SegmentedButtonDefaults.itemShape(index, EditTab.entries.size),
-                    icon = {
-                        Icon(
-                            when (tab) {
-                                EditTab.ROTATE -> Icons.Filled.RotateRight
-                                EditTab.CROP -> Icons.Filled.Crop
-                                EditTab.HANDWRITE -> Icons.Filled.Brush
-                            },
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    },
-                    label = {
-                        Text(
-                            when (tab) {
-                                EditTab.ROTATE -> "旋转"
-                                EditTab.CROP -> "裁剪"
-                                EditTab.HANDWRITE -> "手写"
-                            }
-                        )
-                    }
-                )
+        // Mode Selector Tab Bar
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF1A1B1F))
+                .padding(horizontal = 16.dp, vertical = 8.dp)
+        ) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                EditTab.entries.forEachIndexed { index, tab ->
+                    SegmentedButton(
+                        selected = activeTab == tab,
+                        onClick = { onTabChange(tab) },
+                        shape = SegmentedButtonDefaults.itemShape(index, EditTab.entries.size),
+                        colors = SegmentedButtonDefaults.colors(
+                            activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                            activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            inactiveContainerColor = Color(0xFF25262B),
+                            inactiveContentColor = Color.LightGray
+                        ),
+                        icon = {
+                            Icon(
+                                when (tab) {
+                                    EditTab.ROTATE -> Icons.Outlined.RotateRight
+                                    EditTab.CROP -> Icons.Outlined.Crop
+                                    EditTab.HANDWRITE -> Icons.Outlined.Brush
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        label = {
+                            Text(
+                                when (tab) {
+                                    EditTab.ROTATE -> "旋转"
+                                    EditTab.CROP -> "裁剪"
+                                    EditTab.HANDWRITE -> "涂鸦"
+                                },
+                                fontWeight = if (activeTab == tab) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    )
+                }
             }
         }
 
+        // Photo Canvas viewport
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(top = 16.dp),
+                .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
-            EditableImage(
-                state = state,
-                mode = activeTab,
-                onCropChange = onCropChange,
-                onAddPoint = onAddPoint,
-                onEndStroke = onEndStroke,
-                onDisplaySizeChange = onDisplaySizeChange
-            )
+            Card(
+                shape = RoundedCornerShape(20.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.Black),
+                border = BorderStroke(1.dp, Color(0xFF2C2D32)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    EditableImage(
+                        state = state,
+                        mode = activeTab,
+                        onCropChange = onCropChange,
+                        onAddPoint = onAddPoint,
+                        onEndStroke = onEndStroke,
+                        onDisplaySizeChange = onDisplaySizeChange
+                    )
+                }
+            }
+
             if (saving) {
-                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                Surface(
+                    color = Color.Black.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White
+                        )
+                        Text(
+                            text = "正在处理照片...",
+                            color = Color.White,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
             }
         }
 
-        ToolBar(
+        // Tool Control Panel at Bottom
+        ToolPanel(
             mode = activeTab,
             state = state,
             onRotate = onRotate,
@@ -260,9 +335,7 @@ private fun EditorBody(
             onApplyCrop = onApplyCrop,
             onUndoStroke = onUndoStroke,
             onStrokeColorChange = onStrokeColorChange,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 16.dp)
+            modifier = Modifier.fillMaxWidth()
         )
     }
 }
@@ -276,9 +349,6 @@ private fun EditableImage(
     onEndStroke: () -> Unit,
     onDisplaySizeChange: (Float, Float) -> Unit
 ) {
-    // 视觉旋转角：从当前显示值平滑动画到数据层目标 rotationDegrees。
-    // rotationDegrees 是最终态（保存/裁剪用），这里只负责"看起来"的旋转过渡。
-    // 初值取当前 rotationDegrees，避免首次组合闪动。
     val displayRotation = remember(state.sourceBitmap) {
         Animatable(state.rotationDegrees.toFloat())
     }
@@ -290,8 +360,6 @@ private fun EditableImage(
     }
 
     val srcAspect = state.sourceBitmap.width.toFloat() / state.sourceBitmap.height.toFloat()
-    // 容器宽高比 = 目标稳态比例（0/180°=原图比，90/270°=倒数），随 rotationDegrees 平滑过渡。
-    // 不随中间旋转角变形，避免旋转中容器尺寸抖动。
     val containerAspect by animateFloatAsState(
         targetValue = RotationGeometry.stableAspect(srcAspect, state.rotationDegrees),
         animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
@@ -303,18 +371,12 @@ private fun EditableImage(
             .fillMaxWidth()
             .aspectRatio(containerAspect)
             .background(Color.Black)
-            // 尺寸上报放布局阶段：仅在尺寸真正变化时回调一次，
-            // 避免在 draw 阶段每帧写 StateFlow 导致重组风暴。
             .onSizeChanged { size ->
                 if (size.width > 0 && size.height > 0) {
                     onDisplaySizeChange(size.width.toFloat(), size.height.toFloat())
                 }
             }
     ) {
-        // 显示已旋转到目标态的 bitmap（比例 = 容器比例，稳态时填满无黑边无裁剪）。
-        // 动画中：图片相对目标态多转 (displayRotation - rotationDegrees)，
-        // 用 coverScale 放大使旋转后图片四角仍覆盖容器 → 零黑边（几何见 RotationGeometry）。
-        // 把动画值捕获到局部 val，确保组合算的 offset 与 draw 的 rotationZ 同帧。
         val angle = displayRotation.value
         val offset = angle - state.rotationDegrees
         val scale = RotationGeometry.coverScale(offset, containerAspect)
@@ -347,7 +409,6 @@ private fun EditableImage(
             contentScale = ContentScale.Crop
         )
 
-        // 裁剪框覆盖层（基于数据层 rotationDegrees 目标态坐标系）
         if (mode == EditTab.CROP && state.cropEnabled) {
             CropOverlay(
                 state = state,
@@ -356,7 +417,6 @@ private fun EditableImage(
             )
         }
 
-        // 手写笔触覆盖层
         Canvas(modifier = Modifier.fillMaxSize()) {
             state.strokes.forEach { stroke ->
                 drawPath(
@@ -375,7 +435,6 @@ private fun EditableImage(
 
 private enum class CropHandle { TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT, BODY, NONE }
 
-/** 裁剪框四元组，支持解构以简化 onDrag 回传。 */
 private data class CropRect(
     val left: Float,
     val top: Float,
@@ -383,17 +442,6 @@ private data class CropRect(
     val bottom: Float
 )
 
-/**
- * 判断触摸点落在裁剪框的哪个区域，用于决定拖动行为。
- *
- * - 落在四角阈值范围内 → 对应角手柄（缩放裁剪框）
- * - 落在框内 → 整体平移
- * - 落在框外 → [CropHandle.NONE]，不响应拖动
- *
- * @param ox 触摸点 x 比例坐标 [0,1]
- * @param oy 触摸点 y 比例坐标 [0,1]
- * @param l/t/r/b 当前裁剪框四边比例
- */
 private fun hitHandle(
     ox: Float,
     oy: Float,
@@ -417,18 +465,6 @@ private fun hitHandle(
     }
 }
 
-/**
- * 将单次拖动增量应用到当前裁剪框，返回受边界约束的新四元组。
- *
- * - 角手柄：只移动对应角，并用 [minSize] 约束避免左右/上下交叉
- * - [CropHandle.BODY]：整体平移，受 [0,1] 边界约束
- *
- * @param dx x 方向增量比例（已归一化）
- * @param dy y 方向增量比例（已归一化）
- * @param l/t/r/b 当前裁剪框四边比例
- * @param handle 本次拖动的手柄
- * @param minSize 裁剪框最小宽/高比例，防止四角交叉
- */
 private fun moveCrop(
     dx: Float,
     dy: Float,
@@ -482,16 +518,12 @@ private fun CropOverlay(
     modifier: Modifier = Modifier
 ) {
     var dragHandle by remember { mutableStateOf(CropHandle.NONE) }
-    // 拖动期间的本地累积值；非拖动时为 null，绘制回退到 state
     var dragLeft by remember { mutableFloatStateOf(0f) }
     var dragTop by remember { mutableFloatStateOf(0f) }
     var dragRight by remember { mutableFloatStateOf(0f) }
     var dragBottom by remember { mutableFloatStateOf(0f) }
-    // pointerInput(Unit) 只捕获一次 state，用 rememberUpdatedState 让
-    // 手势 lambda 内始终读到最新的 state（含上次拖动提交后的值）
     val currentState by rememberUpdatedState(state)
 
-    // 绘制用值：拖动中取本地累积，否则取 state
     val left = if (dragHandle != CropHandle.NONE) dragLeft else (state.cropLeft ?: 0.1f)
     val top = if (dragHandle != CropHandle.NONE) dragTop else state.cropTop
     val right = if (dragHandle != CropHandle.NONE) dragRight else (state.cropRight ?: 0.9f)
@@ -508,7 +540,6 @@ private fun CropOverlay(
                     val baseT = currentState.cropTop
                     val baseR = currentState.cropRight ?: 0.9f
                     val baseB = currentState.cropBottom
-                    // 进入拖动：把 state 当前值快照到本地累积
                     dragLeft = baseL
                     dragTop = baseT
                     dragRight = baseR
@@ -521,7 +552,6 @@ private fun CropOverlay(
                     val size = this.size
                     val dx = drag.x / size.width
                     val dy = drag.y / size.height
-                    // 在本地累积值上叠加增量，不触发 StateFlow 往返
                     val cur = moveCrop(dx, dy, dragLeft, dragTop, dragRight, dragBottom, dragHandle)
                     dragLeft = cur.left
                     dragTop = cur.top
@@ -529,7 +559,6 @@ private fun CropOverlay(
                     dragBottom = cur.bottom
                 },
                 onDragEnd = {
-                    // 拖动结束：一次性提交回 ViewModel
                     if (dragHandle != CropHandle.NONE) {
                         onCropChange(dragLeft, dragTop, dragRight, dragBottom)
                     }
@@ -545,23 +574,25 @@ private fun CropOverlay(
         val t = top * h
         val r = right * w
         val b = bottom * h
-        // 四周遮罩
-        drawRect(Color.Black.copy(alpha = 0.5f), topLeft = Offset(0f, 0f), size = Size(l, h))
-        drawRect(Color.Black.copy(alpha = 0.5f), topLeft = Offset(r, 0f), size = Size(w - r, h))
-        drawRect(Color.Black.copy(alpha = 0.5f), topLeft = Offset(l, 0f), size = Size(r - l, t))
-        drawRect(Color.Black.copy(alpha = 0.5f), topLeft = Offset(l, b), size = Size(r - l, h - b))
-        // 裁剪框白线
+        drawRect(Color.Black.copy(alpha = 0.55f), topLeft = Offset(0f, 0f), size = Size(l, h))
+        drawRect(Color.Black.copy(alpha = 0.55f), topLeft = Offset(r, 0f), size = Size(w - r, h))
+        drawRect(Color.Black.copy(alpha = 0.55f), topLeft = Offset(l, 0f), size = Size(r - l, t))
+        drawRect(Color.Black.copy(alpha = 0.55f), topLeft = Offset(l, b), size = Size(r - l, h - b))
+
         drawRect(
             color = Color.White,
             topLeft = Offset(l, t),
             size = Size(r - l, b - t),
-            style = Stroke(width = 2f)
+            style = Stroke(width = 2.5f)
         )
     }
 }
 
+/**
+ * 底部照片编辑面板，根据当前 EditTab 提供特定的操作工具。
+ */
 @Composable
-private fun ToolBar(
+private fun ToolPanel(
     mode: EditTab,
     state: PhotoEditorState,
     onRotate: (Int) -> Unit,
@@ -571,50 +602,204 @@ private fun ToolBar(
     onStrokeColorChange: (Color) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier,
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
+    Surface(
+        color = Color(0xFF1A1B1F),
+        shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
+        modifier = modifier
     ) {
-        when (mode) {
-            EditTab.ROTATE -> {
-                IconButton(onClick = { onRotate(-90) }) {
-                    Icon(Icons.Filled.RotateLeft, contentDescription = "左转 90°")
-                }
-                IconButton(onClick = { onRotate(90) }) {
-                    Icon(Icons.Filled.RotateRight, contentDescription = "右转 90°")
-                }
-            }
-            EditTab.CROP -> if (state.cropEnabled) {
-                // 已进入裁剪模式：✓ 确认裁剪（烘焙到源图）
-                FilledIconButton(onClick = onApplyCrop) {
-                    Icon(Icons.Filled.Done, contentDescription = "确认裁剪")
-                }
-            } else {
-                // 未进入：点击进入裁剪模式
-                FilledIconButton(onClick = onCropToggle) {
-                    Icon(Icons.Filled.Crop, contentDescription = "进入裁剪")
-                }
-            }
-            EditTab.HANDWRITE -> {
-                IconButton(onClick = onUndoStroke, enabled = state.strokes.isNotEmpty()) {
-                    Icon(Icons.Filled.Undo, contentDescription = "撤销笔触")
-                }
-                listOf(Color.Red, Color.Yellow, Color.White, Color.Black).forEach { c ->
-                    val selected = state.strokeColor == c
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .background(c, RoundedCornerShape(14.dp))
-                            .border(
-                                width = if (selected) 3.dp else 1.dp,
-                                color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray,
-                                shape = RoundedCornerShape(14.dp)
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            when (mode) {
+                EditTab.ROTATE -> {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        FilledTonalButton(
+                            onClick = { onRotate(-90) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFF2B2C32),
+                                contentColor = Color.White
                             )
-                            .pointerInput(c) {
-                                detectTapGestures { onStrokeColorChange(c) }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.RotateLeft,
+                                contentDescription = "左转 90°",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("左转 90°")
+                        }
+
+                        Surface(
+                            color = Color(0xFF26272C),
+                            shape = CircleShape,
+                            border = BorderStroke(1.dp, Color(0xFF3A3B42))
+                        ) {
+                            Text(
+                                text = "${state.rotationDegrees}°",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+                            )
+                        }
+
+                        FilledTonalButton(
+                            onClick = { onRotate(90) },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = ButtonDefaults.filledTonalButtonColors(
+                                containerColor = Color(0xFF2B2C32),
+                                contentColor = Color.White
+                            )
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.RotateRight,
+                                contentDescription = "右转 90°",
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("右转 90°")
+                        }
+                    }
+                }
+
+                EditTab.CROP -> {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = if (state.cropEnabled) "拖动四角或框架调整裁剪区域" else "点击开启自由裁剪",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.LightGray
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (state.cropEnabled) {
+                                Button(
+                                    onClick = onApplyCrop,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Check,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("确认裁剪区域")
+                                }
+                            } else {
+                                Button(
+                                    onClick = onCropToggle,
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Crop,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("开启裁剪")
+                                }
                             }
-                    )
+                        }
+                    }
+                }
+
+                EditTab.HANDWRITE -> {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "涂鸦画笔颜色",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.LightGray
+                            )
+
+                            OutlinedIconButton(
+                                onClick = onUndoStroke,
+                                enabled = state.strokes.isNotEmpty(),
+                                shape = RoundedCornerShape(10.dp),
+                                border = BorderStroke(1.dp, if (state.strokes.isNotEmpty()) Color.White else Color.Gray)
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Undo,
+                                        contentDescription = "撤销笔触",
+                                        tint = if (state.strokes.isNotEmpty()) Color.White else Color.Gray,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "撤销",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (state.strokes.isNotEmpty()) Color.White else Color.Gray
+                                    )
+                                }
+                            }
+                        }
+
+                        val palette = listOf(
+                            Color(0xFFFF453A), // Red
+                            Color(0xFFFF9F0A), // Orange
+                            Color(0xFFFFD60A), // Yellow
+                            Color(0xFF30D158), // Green
+                            Color(0xFF64D2FF), // Cyan
+                            Color(0xFFFFFFFF), // White
+                            Color(0xFF000000)  // Black
+                        )
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            palette.forEach { c ->
+                                val selected = state.strokeColor == c
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .background(c, CircleShape)
+                                        .border(
+                                            width = if (selected) 2.5.dp else 1.dp,
+                                            color = if (selected) MaterialTheme.colorScheme.primary else Color.Gray,
+                                            shape = CircleShape
+                                        )
+                                        .clickable { onStrokeColorChange(c) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (selected) {
+                                        Icon(
+                                            imageVector = Icons.Filled.Check,
+                                            contentDescription = null,
+                                            tint = if (c == Color.White || c == Color(0xFFFFD60A)) Color.Black else Color.White,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
