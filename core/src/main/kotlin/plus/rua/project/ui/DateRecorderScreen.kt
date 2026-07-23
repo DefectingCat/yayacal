@@ -1,5 +1,21 @@
 package plus.rua.project.ui
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -26,6 +42,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Sort
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
 import androidx.compose.material3.Card
@@ -110,81 +127,109 @@ fun DateRecorderScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Text(
-                        text = if (uiState.selectionMode) {
+                    AnimatedContent(
+                        targetState = if (uiState.selectionMode) {
                             "已选 ${uiState.selectedIds.size}"
                         } else {
                             "日期记录器"
                         },
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = {
-                        if (uiState.selectionMode) viewModel.toggleSelectionMode()
-                        else onBack()
-                    }) {
-                        Icon(
-                            imageVector = if (uiState.selectionMode) Icons.Filled.Close
-                            else Icons.Filled.ChevronLeft,
-                            contentDescription = if (uiState.selectionMode) "退出多选" else "返回"
+                        transitionSpec = {
+                            (fadeIn(tween(200)) + slideInVertically { height -> height / 2 }) togetherWith
+                                (fadeOut(tween(200)) + slideOutVertically { height -> -height / 2 })
+                        },
+                        label = "top_bar_title"
+                    ) { titleText ->
+                        Text(
+                            text = titleText,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
                         )
                     }
                 },
-                actions = {
-                    if (uiState.selectionMode) {
-                        IconButton(onClick = viewModel::toggleSelectAll) {
-                            Icon(Icons.Filled.Checklist, contentDescription = "全选")
+                navigationIcon = {
+                    AnimatedContent(
+                        targetState = uiState.selectionMode,
+                        transitionSpec = {
+                            (fadeIn(tween(200)) + scaleIn(initialScale = 0.8f)) togetherWith
+                                (fadeOut(tween(200)) + scaleOut(targetScale = 0.8f))
+                        },
+                        label = "top_bar_nav_icon"
+                    ) { isSelectionMode ->
+                        IconButton(onClick = {
+                            if (isSelectionMode) viewModel.toggleSelectionMode()
+                            else onBack()
+                        }) {
+                            Icon(
+                                imageVector = if (isSelectionMode) Icons.Filled.Close
+                                else Icons.Filled.ChevronLeft,
+                                contentDescription = if (isSelectionMode) "退出多选" else "返回"
+                            )
                         }
-                    } else if (!uiState.isLoading && uiState.records.isNotEmpty()) {
-                        // 排序菜单
-                        Box {
-                            IconButton(onClick = { showSortMenu = true }) {
-                                Icon(Icons.Filled.Sort, contentDescription = "排序")
-                            }
-                            DropdownMenu(
-                                expanded = showSortMenu,
-                                onDismissRequest = { showSortMenu = false }
-                            ) {
-                                sortFields.forEach { (field, label) ->
-                                    val selected = uiState.sortOrder.field == field
-                                    DropdownMenuItem(
-                                        text = { Text(label) },
-                                        onClick = {
-                                            viewModel.setSortOrder(
-                                                RecordSortOrder.nextAfter(uiState.sortOrder, field)
-                                            )
-                                            showSortMenu = false
-                                        },
-                                        leadingIcon = if (selected) {
-                                            { Icon(Icons.Filled.Check, contentDescription = null) }
-                                        } else {
-                                            null
-                                        },
-                                        trailingIcon = if (selected) {
-                                            {
-                                                Icon(
-                                                    imageVector = if (uiState.sortOrder.ascending) {
-                                                        Icons.Filled.ArrowUpward
-                                                    } else {
-                                                        Icons.Filled.ArrowDownward
-                                                    },
-                                                    contentDescription = if (uiState.sortOrder.ascending) {
-                                                        "旧→新"
-                                                    } else {
-                                                        "新→旧"
+                    }
+                },
+                actions = {
+                    AnimatedContent(
+                        targetState = uiState.selectionMode,
+                        transitionSpec = {
+                            fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+                        },
+                        label = "top_bar_actions"
+                    ) { isSelectionMode ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (isSelectionMode) {
+                                IconButton(onClick = viewModel::toggleSelectAll) {
+                                    Icon(Icons.Filled.Checklist, contentDescription = "全选")
+                                }
+                            } else if (!uiState.isLoading && uiState.records.isNotEmpty()) {
+                                // 排序菜单
+                                Box {
+                                    IconButton(onClick = { showSortMenu = true }) {
+                                        Icon(Icons.Filled.Sort, contentDescription = "排序")
+                                    }
+                                    DropdownMenu(
+                                        expanded = showSortMenu,
+                                        onDismissRequest = { showSortMenu = false }
+                                    ) {
+                                        sortFields.forEach { (field, label) ->
+                                            val selected = uiState.sortOrder.field == field
+                                            DropdownMenuItem(
+                                                text = { Text(label) },
+                                                onClick = {
+                                                    viewModel.setSortOrder(
+                                                        RecordSortOrder.nextAfter(uiState.sortOrder, field)
+                                                    )
+                                                    showSortMenu = false
+                                                },
+                                                leadingIcon = if (selected) {
+                                                    { Icon(Icons.Filled.Check, contentDescription = null) }
+                                                } else {
+                                                    null
+                                                },
+                                                trailingIcon = if (selected) {
+                                                    {
+                                                        Icon(
+                                                            imageVector = if (uiState.sortOrder.ascending) {
+                                                                Icons.Filled.ArrowUpward
+                                                            } else {
+                                                                Icons.Filled.ArrowDownward
+                                                            },
+                                                            contentDescription = if (uiState.sortOrder.ascending) {
+                                                                "旧→新"
+                                                            } else {
+                                                                "新→旧"
+                                                            }
+                                                        )
                                                     }
-                                                )
-                                            }
-                                        } else {
-                                            null
+                                                } else {
+                                                    null
+                                                }
+                                            )
                                         }
-                                    )
+                                    }
+                                }
+                                IconButton(onClick = viewModel::toggleSelectionMode) {
+                                    Icon(Icons.Filled.Checklist, contentDescription = "多选")
                                 }
                             }
-                        }
-                        IconButton(onClick = viewModel::toggleSelectionMode) {
-                            Icon(Icons.Filled.Checklist, contentDescription = "多选")
                         }
                     }
                 },
@@ -192,7 +237,11 @@ fun DateRecorderScreen(
             )
         },
         bottomBar = {
-            if (uiState.selectionMode) {
+            AnimatedVisibility(
+                visible = uiState.selectionMode,
+                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+            ) {
                 BottomAppBar {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -222,7 +271,11 @@ fun DateRecorderScreen(
             }
         },
         floatingActionButton = {
-            if (!uiState.selectionMode) {
+            AnimatedVisibility(
+                visible = !uiState.selectionMode,
+                enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                exit = scaleOut() + fadeOut()
+            ) {
                 FloatingActionButton(
                     onClick = onOpenCamera,
                     modifier = Modifier.testTag("date_recorder_fab"),
@@ -233,7 +286,6 @@ fun DateRecorderScreen(
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.surface
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -322,11 +374,32 @@ private fun RecordCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val cardScale by animateFloatAsState(
+        targetValue = if (selectionMode && isSelected) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "record_card_scale"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (selectionMode && isSelected) 2.dp else 0.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "record_card_border_width"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (selectionMode && isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
+        animationSpec = tween(200),
+        label = "record_card_border_color"
+    )
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(borderWidth, borderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
     ) {
         Box {
             AsyncImage(
@@ -366,14 +439,16 @@ private fun RecordCard(
                 )
             }
 
-            // 多选态下的复选角标
-            if (selectionMode) {
-                SelectionBadge(
-                    isSelected = isSelected,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(8.dp)
-                )
+            // 多选态下的复选角标（淡入淡出及缩放动画）
+            this@Card.AnimatedVisibility(
+                visible = selectionMode,
+                enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                exit = scaleOut() + fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                SelectionBadge(isSelected = isSelected)
             }
         }
     }
@@ -381,21 +456,40 @@ private fun RecordCard(
 
 @Composable
 private fun SelectionBadge(isSelected: Boolean, modifier: Modifier = Modifier) {
-    val bg = if (isSelected) MaterialTheme.colorScheme.primary
-    else Color.Black.copy(alpha = 0.3f)
+    val bg by animateColorAsState(
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.3f),
+        animationSpec = tween(200),
+        label = "selection_badge_bg"
+    )
+    val badgeScale by animateFloatAsState(
+        targetValue = if (isSelected) 1f else 0.85f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "selection_badge_scale"
+    )
     Box(
         modifier = modifier
+            .graphicsLayer {
+                scaleX = badgeScale
+                scaleY = badgeScale
+            }
             .clip(CircleShape)
             .background(bg)
-            .padding(4.dp)
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
     ) {
-        if (isSelected) {
-            Icon(
-                Icons.Filled.Check,
-                contentDescription = "已选中",
-                tint = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(16.dp)
-            )
+        Box(modifier = Modifier.size(16.dp), contentAlignment = Alignment.Center) {
+            androidx.compose.animation.AnimatedVisibility(
+                visible = isSelected,
+                enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                exit = scaleOut() + fadeOut()
+            ) {
+                Icon(
+                    Icons.Filled.Check,
+                    contentDescription = "已选中",
+                    tint = MaterialTheme.colorScheme.onPrimary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
         }
     }
 }
