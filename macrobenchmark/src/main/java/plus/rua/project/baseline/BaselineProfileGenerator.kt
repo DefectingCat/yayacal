@@ -51,9 +51,8 @@ import org.junit.runner.RunWith
  * 10. 拖拽 BottomCard 展开回月视图
  * 11. 切换"显示调休"OFF
  * 12. CalendarPager 左右翻页
- *
- * 注：年视图、关于/开源许可、工具/日期检查器等路径在部分模拟器上不稳定，
- * 暂时从生成流程中移除以保证 Profile 可稳定生成。后续可在真机上扩展覆盖。
+ * 13. 进入年视图（覆盖 SharedTransitionLayout 缩放与年视图网格 Pager）
+ * 14. 进入"工具" -> "日期记录器"界面（覆盖新增的工具页与日期记录器功能）
  */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
@@ -196,6 +195,71 @@ class BaselineProfileGenerator {
             device.waitForIdle()
             safeWaitCalendarPager(3000)?.swipe(Direction.RIGHT, 0.5f)
             device.waitForIdle()
+        }
+
+        // ── 13. 进入年视图与 SharedTransition 穿梭 ───────────────
+        val fabYear = safeFindFab()
+        if (fabYear != null) {
+            fabYear.click()
+            device.waitForIdle()
+            val yearViewMenu = device.wait(Until.findObject(By.text("年视图")), 3000)
+            if (yearViewMenu != null) {
+                yearViewMenu.click()
+                device.waitForIdle()
+
+                val yearGrid = device.wait(Until.findObject(By.res("year_grid")), 5000)
+                if (yearGrid != null) {
+                    // 年视图左右翻页
+                    yearGrid.swipe(Direction.LEFT, 0.5f)
+                    device.waitForIdle()
+                    yearGrid.swipe(Direction.RIGHT, 0.5f)
+                    device.waitForIdle()
+
+                    // 点击月份小网格切回月视图
+                    val bounds = yearGrid.visibleBounds
+                    device.click(bounds.centerX(), bounds.centerY())
+                    device.waitForIdle()
+                } else {
+                    // 备用：若未找到 year_grid，通过菜单切回月视图
+                    fabYear.click()
+                    device.waitForIdle()
+                    device.wait(Until.findObject(By.text("月视图")), 3000)?.click()
+                    device.waitForIdle()
+                }
+            }
+        }
+
+        // ── 14. 进入"工具" -> "日期记录器"界面 ─────────────────────
+        val fabTools = safeFindFab()
+        if (fabTools != null) {
+            fabTools.click()
+            device.waitForIdle()
+            val toolsMenu = device.wait(Until.findObject(By.text("工具")), 3000)
+            if (toolsMenu != null) {
+                toolsMenu.click()
+                device.waitForIdle()
+
+                val dateRecorderItem = device.wait(
+                    Until.findObject(By.res("tool_date_recorder")), 5000
+                ) ?: device.wait(Until.findObject(By.text("日期记录器")), 3000)
+
+                if (dateRecorderItem != null) {
+                    dateRecorderItem.click()
+                    device.waitForIdle()
+
+                    // 等待日期记录器页面加载
+                    device.wait(Until.findObject(By.res("date_recorder_fab")), 5000)
+                    device.waitForIdle()
+
+                    // 按返回键返回工具页
+                    device.pressBack()
+                    device.waitForIdle()
+                }
+
+                // 按返回键返回主日历
+                device.pressBack()
+                device.waitForIdle()
+            }
         }
 
         Log.d(TAG, "Baseline Profile / Startup Profile 生成完成，所有路径已覆盖")
