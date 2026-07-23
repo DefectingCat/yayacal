@@ -123,6 +123,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.number
 import plus.rua.project.DateRecord
 import plus.rua.project.DateRecorderRepository
 import plus.rua.project.DateRecorderViewModel
@@ -719,7 +720,7 @@ private fun RecordGrid(
     val groupedRecords = remember(records) {
         records.groupBy { record ->
             val date = record.shootDate
-            "${date.year}年${date.monthNumber.toString().padStart(2, '0')}月"
+            "${date.year}年${date.month.number.toString().padStart(2, '0')}月"
         }
     }
 

@@ -25,7 +25,7 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Title
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -68,8 +68,9 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
 import kotlinx.datetime.DayOfWeek
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.number
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
@@ -342,7 +343,7 @@ private fun RecordEditForm(
                     placeholder = { Text("记录当天的所思所想、天气或难忘瞬间...") },
                     leadingIcon = {
                         Icon(
-                            imageVector = Icons.Outlined.Notes,
+                            imageVector = Icons.AutoMirrored.Outlined.Notes,
                             contentDescription = null
                         )
                     },
@@ -568,5 +569,5 @@ private fun formatChineseDateWithWeek(date: LocalDate): String {
         DayOfWeek.SATURDAY -> "星期六"
         DayOfWeek.SUNDAY -> "星期日"
     }
-    return "${date.year}年${date.monthNumber}月${date.dayOfMonth}日 $weekStr"
+    return "${date.year}年${date.month.number}月${date.day}日 $weekStr"
 }

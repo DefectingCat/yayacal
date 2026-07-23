@@ -37,9 +37,9 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Brush
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Crop
-import androidx.compose.material.icons.outlined.RotateLeft
-import androidx.compose.material.icons.outlined.RotateRight
-import androidx.compose.material.icons.outlined.Undo
+import androidx.compose.material.icons.automirrored.outlined.RotateLeft
+import androidx.compose.material.icons.automirrored.outlined.RotateRight
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -245,7 +245,7 @@ private fun EditorBody(
                         icon = {
                             Icon(
                                 when (tab) {
-                                    EditTab.ROTATE -> Icons.Outlined.RotateRight
+                                    EditTab.ROTATE -> Icons.AutoMirrored.Outlined.RotateRight
                                     EditTab.CROP -> Icons.Outlined.Crop
                                     EditTab.HANDWRITE -> Icons.Outlined.Brush
                                 },
@@ -637,7 +637,7 @@ private fun ToolPanel(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.RotateLeft,
+                                imageVector = Icons.AutoMirrored.Outlined.RotateLeft,
                                 contentDescription = "左转 90°",
                                 modifier = Modifier.size(18.dp)
                             )
@@ -664,7 +664,7 @@ private fun ToolPanel(
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.RotateRight,
+                                imageVector = Icons.AutoMirrored.Outlined.RotateRight,
                                 contentDescription = "右转 90°",
                                 modifier = Modifier.size(18.dp)
                             )
@@ -749,7 +749,7 @@ private fun ToolPanel(
                                 )
                             ) {
                                 Icon(
-                                    imageVector = Icons.Outlined.Undo,
+                                    imageVector = Icons.AutoMirrored.Outlined.Undo,
                                     contentDescription = "撤销笔触",
                                     modifier = Modifier.size(16.dp)
                                 )

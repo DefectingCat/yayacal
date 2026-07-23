@@ -25,7 +25,7 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.outlined.Notes
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -69,6 +69,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
 import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.number
 import plus.rua.project.DateRecordDetailUiState
 import plus.rua.project.DateRecordDetailViewModel
 import plus.rua.project.DateRecorderRepository
@@ -536,7 +537,7 @@ private fun JournalNoteSection(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Outlined.Notes,
+                        imageVector = Icons.AutoMirrored.Outlined.Notes,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.size(20.dp)
@@ -660,7 +661,7 @@ private fun DetailBottomBar(
 }
 
 private fun formatChineseDate(date: LocalDate): String {
-    return "${date.year}年${date.monthNumber}月${date.dayOfMonth}日"
+    return "${date.year}年${date.month.number}月${date.day}日"
 }
 
 private fun getWeekdayName(date: LocalDate): String {

@@ -297,6 +297,7 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     val isBeingDeleted = row.id in pendingDeleteIds
 
                     key(row.id) {
+                        @Suppress("DEPRECATION") // confirmValueChange in SwipeToDismissBoxState is deprecated in Compose M3
                         val dismissState = rememberSwipeToDismissBoxState(
                             confirmValueChange = { newValue ->
                                 newValue == SwipeToDismissBoxValue.EndToStart
