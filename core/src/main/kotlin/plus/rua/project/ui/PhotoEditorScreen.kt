@@ -276,25 +276,29 @@ private fun EditorBody(
                 .padding(16.dp),
             contentAlignment = Alignment.Center
         ) {
+            val srcAspect = state.sourceBitmap.width.toFloat() / state.sourceBitmap.height.toFloat()
+            val containerAspect by animateFloatAsState(
+                targetValue = RotationGeometry.stableAspect(srcAspect, state.rotationDegrees),
+                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                label = "rotateAspect"
+            )
+
             Card(
                 shape = RoundedCornerShape(20.dp),
                 colors = CardDefaults.cardColors(containerColor = Color.Black),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                modifier = Modifier.aspectRatio(containerAspect)
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    EditableImage(
-                        state = state,
-                        mode = activeTab,
-                        onCropChange = onCropChange,
-                        onAddPoint = onAddPoint,
-                        onEndStroke = onEndStroke,
-                        onDisplaySizeChange = onDisplaySizeChange
-                    )
-                }
+                EditableImage(
+                    state = state,
+                    mode = activeTab,
+                    containerAspect = containerAspect,
+                    onCropChange = onCropChange,
+                    onAddPoint = onAddPoint,
+                    onEndStroke = onEndStroke,
+                    onDisplaySizeChange = onDisplaySizeChange
+                )
             }
 
             if (saving) {
@@ -345,11 +349,11 @@ private fun EditorBody(
         }
     }
 }
-
 @Composable
 private fun EditableImage(
     state: PhotoEditorState,
     mode: EditTab,
+    containerAspect: Float,
     onCropChange: (Float, Float, Float, Float) -> Unit,
     onAddPoint: (Offset) -> Unit,
     onEndStroke: () -> Unit,
@@ -365,17 +369,9 @@ private fun EditableImage(
         )
     }
 
-    val srcAspect = state.sourceBitmap.width.toFloat() / state.sourceBitmap.height.toFloat()
-    val containerAspect by animateFloatAsState(
-        targetValue = RotationGeometry.stableAspect(srcAspect, state.rotationDegrees),
-        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-        label = "rotateAspect"
-    )
-
     Box(
         modifier = Modifier
-            .fillMaxWidth()
-            .aspectRatio(containerAspect)
+            .fillMaxSize()
             .background(Color.Black)
             .onSizeChanged { size ->
                 if (size.width > 0 && size.height > 0) {
