@@ -377,33 +377,12 @@ private fun RecordGrid(
                     val down = awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
                     val startOffset = down.position
                     val startIndex = findItemIndexAtOffset(gridState, startOffset) ?: return@awaitEachGesture
+                    val startTime = down.uptimeMillis
 
                     var isDragSelecting = false
+                    var isScrolling = false
                     val initialSelected = if (selectionMode) selectedIds else emptySet()
 
-                    if (!selectionMode) {
-                        // 普通模式下：等待 300ms 长按判定
-                        val longPressResult = withTimeoutOrNull(300L) {
-                            while (true) {
-                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                                val change = event.changes.firstOrNull { it.id == down.id } ?: break
-                                if (!change.pressed) return@withTimeoutOrNull false
-                                if ((change.position - startOffset).getDistance() > 20f) {
-                                    // 移动距离大于 20px 判定为滚屏而非长按
-                                    return@withTimeoutOrNull false
-                                }
-                            }
-                            true
-                        }
-                        if (longPressResult == null) {
-                            // 300ms 超时到达且未松手/未远移，触发长按多选
-                            isDragSelecting = true
-                            val startId = records[startIndex].id
-                            onSetSelectedIds(setOf(startId))
-                        }
-                    }
-
-                    // 持续监听 Pointer 移动手势
                     while (true) {
                         val event = awaitPointerEvent(pass = PointerEventPass.Initial)
                         val pointerChange = event.changes.firstOrNull { it.id == down.id } ?: break
@@ -411,12 +390,25 @@ private fun RecordGrid(
 
                         val currentOffset = pointerChange.position
                         val distance = (currentOffset - startOffset).getDistance()
+                        val elapsedTime = pointerChange.uptimeMillis - startTime
 
-                        if (!isDragSelecting) {
-                            if (selectionMode && distance > 10f) {
-                                isDragSelecting = true
-                                val startId = records[startIndex].id
-                                onSetSelectedIds(initialSelected + startId)
+                        if (!isDragSelecting && !isScrolling) {
+                            if (selectionMode) {
+                                // 多选模式下：滑动超过 6px 立刻触发极速滑动多选
+                                if (distance >= 6f) {
+                                    isDragSelecting = true
+                                    val startId = records[startIndex].id
+                                    onSetSelectedIds(initialSelected + startId)
+                                }
+                            } else {
+                                // 普通模式下：按住满 250ms 或按住移动超过 10px（且未快滑滚屏）触发长按多选
+                                if (distance > 30f && elapsedTime < 200L) {
+                                    isScrolling = true // 快速划过判定为普通滚屏
+                                } else if (elapsedTime >= 250L || (elapsedTime >= 150L && distance >= 10f)) {
+                                    isDragSelecting = true
+                                    val startId = records[startIndex].id
+                                    onSetSelectedIds(setOf(startId))
+                                }
                             }
                         }
 
@@ -433,7 +425,7 @@ private fun RecordGrid(
                             // 边界滑动自动滚屏
                             val viewportHeight = gridState.layoutInfo.viewportSize.height
                             if (currentOffset.y < 120f) {
-                                coroutineScope.launch { gridState.scrollBy(-25f) }
+                                coroutineScope.launch { gridState.scrollBy(-30f) }
                             } else if (currentOffset.y > viewportHeight - 120f) {
                                 coroutineScope.launch { gridState.scrollBy(25f) }
                             }
