@@ -178,7 +178,7 @@ fun DateRecorderScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val repo = remember { DateRecorderRepository.fromContext(context) }
 
-    var viewMode by rememberSaveable { mutableStateOf(DateRecorderViewMode.TIMELINE) }
+    var viewMode by rememberSaveable { mutableStateOf(DateRecorderViewMode.GRID) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
 
