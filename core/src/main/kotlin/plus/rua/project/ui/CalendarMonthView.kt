@@ -170,11 +170,6 @@ fun CalendarMonthView(
     var isMenuExpanded by remember { mutableStateOf(false) }
     var showDatePicker by remember { mutableStateOf(false) }
 
-    // 视图切换时自动关闭菜单
-    LaunchedEffect(isYearView) {
-        isMenuExpanded = false
-    }
-
     val pagerState = rememberPagerState(initialPage = START_PAGE, pageCount = { Int.MAX_VALUE })
 
     // 年视图分页器
@@ -182,6 +177,14 @@ fun CalendarMonthView(
         initialPage = START_PAGE,
         pageCount = { Int.MAX_VALUE }
     )
+
+    // 视图切换时自动关闭菜单并重置年视图 Pager
+    LaunchedEffect(isYearView) {
+        isMenuExpanded = false
+        if (isYearView && yearPagerState.currentPage != START_PAGE) {
+            yearPagerState.scrollToPage(START_PAGE)
+        }
+    }
 
     // 年视图翻页时同步 yearViewYear（跟踪 settled page 差值）
     LaunchedEffect(yearPagerState) {
@@ -299,7 +302,7 @@ fun CalendarMonthView(
                                 modifier = Modifier
                                     .clipToBounds()
                                     .sharedBounds(
-                                        sharedContentState = rememberSharedContentState(key = "month_grid_$currentMonth"),
+                                        sharedContentState = rememberSharedContentState(key = "month_grid_${currentYear}_$currentMonth"),
                                         animatedVisibilityScope = this@AnimatedContent,
                                         boundsTransform = { _, _ ->
                                             spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
@@ -338,6 +341,7 @@ fun CalendarMonthView(
                         )
                         HorizontalPager(
                             state = yearPagerState,
+                            userScrollEnabled = (this@AnimatedContent.transition.currentState == this@AnimatedContent.transition.targetState),
                             beyondViewportPageCount = 0,
                             flingBehavior = PagerDefaults.flingBehavior(state = yearPagerState),
                             modifier = Modifier
@@ -366,7 +370,7 @@ fun CalendarMonthView(
                                 },
                                 monthModifier = { month ->
                                     Modifier.sharedBounds(
-                                        sharedContentState = rememberSharedContentState(key = "month_grid_$month"),
+                                        sharedContentState = rememberSharedContentState(key = "month_grid_${pageYear}_$month"),
                                         animatedVisibilityScope = this@AnimatedContent,
                                         boundsTransform = { _, _ ->
                                             spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
