@@ -16,26 +16,28 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
-import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.ui.input.pointer.PointerEventPass
-import kotlinx.coroutines.withTimeoutOrNull
+import androidx.compose.foundation.gestures.scrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -52,26 +54,34 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.Sort
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.pointerInput
-import kotlinx.coroutines.launch
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.PhotoLibrary
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.ViewComfy
+import androidx.compose.material.icons.outlined.ViewStream
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.BottomAppBar
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -80,12 +90,22 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
@@ -93,25 +113,45 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
+import kotlinx.coroutines.launch
+import kotlinx.datetime.LocalDate
+import plus.rua.project.DateRecord
 import plus.rua.project.DateRecorderRepository
 import plus.rua.project.DateRecorderViewModel
-import plus.rua.project.DateRecord
 import plus.rua.project.RecordSortField
 import plus.rua.project.RecordSortOrder
 
+/** 视图模式：时光画廊、相册网格、紧凑矩阵。 */
+enum class DateRecorderViewMode(
+    val label: String,
+    val icon: ImageVector
+) {
+    TIMELINE("时光流", Icons.Outlined.ViewStream),
+    GRID("网格", Icons.Outlined.GridView),
+    COMPACT("紧凑", Icons.Outlined.ViewComfy)
+}
+
+/** 排序菜单展示的字段选项。 */
+private val sortFields = listOf(
+    RecordSortField.SHOOT_DATE to "拍摄日期",
+    RecordSortField.LINKED_DATE to "关联日期",
+    RecordSortField.CREATED_AT to "创建时间"
+)
+
 /**
- * 日期记录器主界面，以相册形式展示所有记录。
+ * 日期记录器主界面，以沉浸式照片日记与时光画廊形式展示所有记录。
  *
  * 功能：
- * - 右下角浮动按钮拍摄新照片创建记录
- * - 点击单条记录进入详情页
- * - TopAppBar 右侧"排序"菜单：3 个排序字段，点击已选字段切换升降序
- * - TopAppBar 右侧"多选"按钮进入多选态，可批量删除
+ * - 顶部控制栏：记录总数统计、三态视图模式切换（时光流 / 相册网格 / 紧凑矩阵）、排序菜单
+ * - 时光流模式下按年月 Header 分组，沉浸展示卡片与详细关联信息
+ * - 右下角 FloatingActionButton 拍照新建记录
+ * - 支持长按与触控滑动多选、全选与批量删除
  *
  * @param onBack 返回回调
  * @param onOpenCamera 打开相机新建记录回调
@@ -135,6 +175,7 @@ fun DateRecorderScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val repo = remember { DateRecorderRepository.fromContext(context) }
 
+    var viewMode by rememberSaveable { mutableStateOf(DateRecorderViewMode.TIMELINE) }
     var showSortMenu by remember { mutableStateOf(false) }
     var showBatchDeleteDialog by remember { mutableStateOf(false) }
 
@@ -145,7 +186,7 @@ fun DateRecorderScreen(
                 title = {
                     AnimatedContent(
                         targetState = if (uiState.selectionMode) {
-                            "已选 ${uiState.selectedIds.size}"
+                            "已选中 ${uiState.selectedIds.size} 项"
                         } else {
                             "日期记录器"
                         },
@@ -157,7 +198,7 @@ fun DateRecorderScreen(
                     ) { titleText ->
                         Text(
                             text = titleText,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                         )
                     }
                 },
@@ -175,8 +216,7 @@ fun DateRecorderScreen(
                             else onBack()
                         }) {
                             Icon(
-                                imageVector = if (isSelectionMode) Icons.Filled.Close
-                                else Icons.Filled.ChevronLeft,
+                                imageVector = if (isSelectionMode) Icons.Filled.Close else Icons.Filled.ChevronLeft,
                                 contentDescription = if (isSelectionMode) "退出多选" else "返回"
                             )
                         }
@@ -185,9 +225,7 @@ fun DateRecorderScreen(
                 actions = {
                     AnimatedContent(
                         targetState = uiState.selectionMode,
-                        transitionSpec = {
-                            fadeIn(tween(200)) togetherWith fadeOut(tween(200))
-                        },
+                        transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
                         label = "top_bar_actions"
                     ) { isSelectionMode ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -196,52 +234,6 @@ fun DateRecorderScreen(
                                     Icon(Icons.Filled.Checklist, contentDescription = "全选")
                                 }
                             } else if (!uiState.isLoading && uiState.records.isNotEmpty()) {
-                                // 排序菜单
-                                Box {
-                                    IconButton(onClick = { showSortMenu = true }) {
-                                        Icon(Icons.Filled.Sort, contentDescription = "排序")
-                                    }
-                                    DropdownMenu(
-                                        expanded = showSortMenu,
-                                        onDismissRequest = { showSortMenu = false }
-                                    ) {
-                                        sortFields.forEach { (field, label) ->
-                                            val selected = uiState.sortOrder.field == field
-                                            DropdownMenuItem(
-                                                text = { Text(label) },
-                                                onClick = {
-                                                    viewModel.setSortOrder(
-                                                        RecordSortOrder.nextAfter(uiState.sortOrder, field)
-                                                    )
-                                                    showSortMenu = false
-                                                },
-                                                leadingIcon = if (selected) {
-                                                    { Icon(Icons.Filled.Check, contentDescription = null) }
-                                                } else {
-                                                    null
-                                                },
-                                                trailingIcon = if (selected) {
-                                                    {
-                                                        Icon(
-                                                            imageVector = if (uiState.sortOrder.ascending) {
-                                                                Icons.Filled.ArrowUpward
-                                                            } else {
-                                                                Icons.Filled.ArrowDownward
-                                                            },
-                                                            contentDescription = if (uiState.sortOrder.ascending) {
-                                                                "旧→新"
-                                                            } else {
-                                                                "新→旧"
-                                                            }
-                                                        )
-                                                    }
-                                                } else {
-                                                    null
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
                                 IconButton(onClick = viewModel::toggleSelectionMode) {
                                     Icon(Icons.Filled.Checklist, contentDescription = "多选")
                                 }
@@ -258,29 +250,35 @@ fun DateRecorderScreen(
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
-                BottomAppBar {
+                BottomAppBar(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                ) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(onClick = viewModel::toggleSelectAll) {
                             Text(if (uiState.allSelected) "取消全选" else "全选")
                         }
-                        TextButton(
+                        Button(
                             onClick = { showBatchDeleteDialog = true },
-                            enabled = uiState.selectedIds.isNotEmpty()
+                            enabled = uiState.selectedIds.isNotEmpty(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error,
+                                contentColor = MaterialTheme.colorScheme.onError
+                            )
                         ) {
                             Icon(
                                 Icons.Filled.Delete,
                                 contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
+                                modifier = Modifier.size(18.dp)
                             )
-                            Text(
-                                "删除(${uiState.selectedIds.size})",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(start = 8.dp)
-                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("删除 (${uiState.selectedIds.size})")
                         }
                     }
                 }
@@ -296,71 +294,285 @@ fun DateRecorderScreen(
                     onClick = onOpenCamera,
                     modifier = Modifier.testTag("date_recorder_fab"),
                     containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = RoundedCornerShape(16.dp)
                 ) {
-                    Icon(Icons.Filled.PhotoCamera, contentDescription = "拍照记录")
+                    Icon(Icons.Outlined.PhotoCamera, contentDescription = "拍照记录")
                 }
             }
-        },
+        }
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            when {
-                uiState.isLoading -> CircularProgressIndicator(
-                    modifier = Modifier.align(Alignment.Center)
-                )
-                uiState.records.isEmpty() -> EmptyState()
-                else -> RecordGrid(
-                    records = uiState.records,
-                    selectedIds = uiState.selectedIds,
-                    selectionMode = uiState.selectionMode,
-                    photoRoot = repo,
-                    onOpenRecord = onOpenRecord,
-                    onToggleSelection = viewModel::toggleSelection,
-                    onStartSelectionWith = viewModel::startSelectionModeWith,
-                    onSetSelectedIds = viewModel::setSelectedIds
+            if (!uiState.isLoading && uiState.records.isNotEmpty()) {
+                HeaderControlBar(
+                    totalCount = uiState.records.size,
+                    currentViewMode = viewMode,
+                    sortOrder = uiState.sortOrder,
+                    onViewModeChange = { viewMode = it },
+                    onOpenSortMenu = { showSortMenu = true }
                 )
             }
+
+            Box(modifier = Modifier.fillMaxSize()) {
+                when {
+                    uiState.isLoading -> {
+                        CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+                    }
+                    uiState.records.isEmpty() -> {
+                        EmptyState(onOpenCamera = onOpenCamera)
+                    }
+                    else -> {
+                        RecordGrid(
+                            records = uiState.records,
+                            selectedIds = uiState.selectedIds,
+                            selectionMode = uiState.selectionMode,
+                            viewMode = viewMode,
+                            photoRoot = repo,
+                            onOpenRecord = onOpenRecord,
+                            onToggleSelection = viewModel::toggleSelection,
+                            onSetSelectedIds = viewModel::setSelectedIds
+                        )
+                    }
+                }
+            }
         }
+    }
+
+    if (showSortMenu) {
+        SortDialog(
+            currentSortOrder = uiState.sortOrder,
+            onDismiss = { showSortMenu = false },
+            onSelectSort = { newSortOrder ->
+                viewModel.setSortOrder(newSortOrder)
+                showSortMenu = false
+            }
+        )
     }
 
     if (showBatchDeleteDialog) {
         AlertDialog(
             onDismissRequest = { showBatchDeleteDialog = false },
-            title = { Text("删除记录") },
-            text = { Text("确定删除选中的 ${uiState.selectedIds.size} 条记录吗？此操作不可撤销。") },
+            title = { Text("删除记录", fontWeight = FontWeight.Bold) },
+            text = { Text("确定要删除选中的 ${uiState.selectedIds.size} 条日期记录吗？相关照片文件也将被一并清理，此操作不可撤销。") },
             confirmButton = {
                 TextButton(onClick = {
                     showBatchDeleteDialog = false
                     viewModel.deleteSelected()
-                }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                }) {
+                    Text("彻底删除", color = MaterialTheme.colorScheme.error, fontWeight = FontWeight.Bold)
+                }
             },
             dismissButton = {
-                TextButton(onClick = { showBatchDeleteDialog = false }) { Text("取消") }
+                TextButton(onClick = { showBatchDeleteDialog = false }) {
+                    Text("取消")
+                }
             }
         )
     }
 }
 
-/** 排序菜单展示的字段选项，点击已选字段时切换方向（见 [RecordSortOrder.nextAfter]）。 */
-private val sortFields = listOf(
-    RecordSortField.SHOOT_DATE to "拍摄日期",
-    RecordSortField.LINKED_DATE to "关联日期",
-    RecordSortField.CREATED_AT to "创建时间"
-)
+/** 顶部的控制工具栏：统计数据、视图切换 segmented control、排序 Pill。 */
+@Composable
+private fun HeaderControlBar(
+    totalCount: Int,
+    currentViewMode: DateRecorderViewMode,
+    sortOrder: RecordSortOrder,
+    onViewModeChange: (DateRecorderViewMode) -> Unit,
+    onOpenSortMenu: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        color = Color.Transparent,
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // 左侧：统计 Pill 与 排序入口
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Surface(
+                    color = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AutoAwesome,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "$totalCount 篇记录",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+
+                Surface(
+                    onClick = onOpenSortMenu,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        val fieldName = when (sortOrder.field) {
+                            RecordSortField.SHOOT_DATE -> "拍摄日期"
+                            RecordSortField.LINKED_DATE -> "关联日期"
+                            RecordSortField.CREATED_AT -> "创建时间"
+                        }
+                        Icon(
+                            imageVector = if (sortOrder.ascending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = fieldName,
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
+
+            // 右侧：视图切换按钮组 Segmented Button
+            Surface(
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                shape = RoundedCornerShape(12.dp),
+                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+            ) {
+                Row(
+                    modifier = Modifier.padding(2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    DateRecorderViewMode.entries.forEach { mode ->
+                        val isSelected = mode == currentViewMode
+                        val bgColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                            animationSpec = tween(200),
+                            label = "view_mode_bg"
+                        )
+                        val iconColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                            animationSpec = tween(200),
+                            label = "view_mode_icon"
+                        )
+                        IconButton(
+                            onClick = { onViewModeChange(mode) },
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(bgColor),
+                            colors = IconButtonDefaults.iconButtonColors(contentColor = iconColor)
+                        ) {
+                            Icon(
+                                imageVector = mode.icon,
+                                contentDescription = mode.label,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 排序方式选择对话框。 */
+@Composable
+private fun SortDialog(
+    currentSortOrder: RecordSortOrder,
+    onDismiss: () -> Unit,
+    onSelectSort: (RecordSortOrder) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("排序方式", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                sortFields.forEach { (field, label) ->
+                    val isCurrentField = currentSortOrder.field == field
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(
+                                if (isCurrentField) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
+                                else Color.Transparent
+                            )
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = if (isCurrentField) FontWeight.Bold else FontWeight.Normal
+                        )
+                        Row {
+                            FilterChip(
+                                selected = isCurrentField && !currentSortOrder.ascending,
+                                onClick = { onSelectSort(RecordSortOrder(field, ascending = false)) },
+                                label = { Text("最新优先") },
+                                leadingIcon = if (isCurrentField && !currentSortOrder.ascending) {
+                                    { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                                } else null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            FilterChip(
+                                selected = isCurrentField && currentSortOrder.ascending,
+                                onClick = { onSelectSort(RecordSortOrder(field, ascending = true)) },
+                                label = { Text("最早优先") },
+                                leadingIcon = if (isCurrentField && currentSortOrder.ascending) {
+                                    { Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                                } else null,
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = MaterialTheme.colorScheme.primary,
+                                    selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text("关闭") }
+        }
+    )
+}
 
 @Composable
 private fun RecordGrid(
     records: List<DateRecord>,
     selectedIds: Set<Long>,
     selectionMode: Boolean,
+    viewMode: DateRecorderViewMode,
     photoRoot: DateRecorderRepository,
     onOpenRecord: (Long) -> Unit,
     onToggleSelection: (Long) -> Unit,
-    onStartSelectionWith: (Long) -> Unit,
     onSetSelectedIds: (Set<Long>) -> Unit
 ) {
     val gridState = rememberLazyGridState()
@@ -371,16 +583,30 @@ private fun RecordGrid(
     val currentSelectedIds by rememberUpdatedState(selectedIds)
     val currentOnSetSelectedIds by rememberUpdatedState(onSetSelectedIds)
 
+    // 按年月（例如 "2026年07月"）分组
+    val groupedRecords = remember(records) {
+        records.groupBy { record ->
+            val date = record.shootDate
+            "${date.year}年${date.monthNumber.toString().padStart(2, '0')}月"
+        }
+    }
+
+    val columns = when (viewMode) {
+        DateRecorderViewMode.TIMELINE -> GridCells.Fixed(1)
+        DateRecorderViewMode.GRID -> GridCells.Fixed(2)
+        DateRecorderViewMode.COMPACT -> GridCells.Adaptive(minSize = 100.dp)
+    }
+
     LazyVerticalGrid(
         state = gridState,
-        columns = GridCells.Adaptive(minSize = 100.dp),
+        columns = columns,
         modifier = Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
                 awaitEachGesture {
                     val down = awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
                     val startOffset = down.position
-                    val startIndex = findItemIndexAtOffset(gridState, startOffset) ?: return@awaitEachGesture
+                    val startRecordId = findRecordIdAtOffset(gridState, startOffset) ?: return@awaitEachGesture
                     val startTime = down.uptimeMillis
 
                     var isDragSelecting = false
@@ -399,41 +625,36 @@ private fun RecordGrid(
 
                         if (!isDragSelecting && !isScrolling) {
                             if (currentSelectionMode) {
-                                // 多选模式下：如果快速纵向滑动，判定为普通滚屏；否则在移动超过 16px 或按住超过 120ms 后触发拖拽多选
                                 if (distance > 20f && elapsedTime < 120L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 2f) {
                                     isScrolling = true
                                 } else if (distance >= 16f || (elapsedTime >= 120L && distance >= 6f)) {
                                     isDragSelecting = true
-                                    val startId = currentRecords.getOrNull(startIndex)?.id
-                                    if (startId != null) {
-                                        currentOnSetSelectedIds(initialSelected + startId)
-                                    }
+                                    currentOnSetSelectedIds(initialSelected + startRecordId)
                                 }
                             } else {
-                                // 普通模式下：按住满 250ms 或按住移动超过 10px（且未快滑滚屏）触发长按多选
                                 if (distance > 30f && elapsedTime < 200L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 1.5f) {
-                                    isScrolling = true // 快速划过判定为普通滚屏
+                                    isScrolling = true
                                 } else if (elapsedTime >= 250L || (elapsedTime >= 150L && distance >= 10f)) {
                                     isDragSelecting = true
-                                    val startId = currentRecords.getOrNull(startIndex)?.id
-                                    if (startId != null) {
-                                        currentOnSetSelectedIds(setOf(startId))
-                                    }
+                                    currentOnSetSelectedIds(setOf(startRecordId))
                                 }
                             }
                         }
 
                         if (isDragSelecting) {
                             pointerChange.consume()
-                            val currentIndex = findItemIndexAtOffset(gridState, currentOffset)
-                            if (currentIndex != null) {
-                                val minIdx = minOf(startIndex, currentIndex)
-                                val maxIdx = maxOf(startIndex, currentIndex)
-                                val draggedIds = (minIdx..maxIdx).mapNotNull { currentRecords.getOrNull(it)?.id }.toSet()
-                                currentOnSetSelectedIds(initialSelected + draggedIds)
+                            val currentRecordId = findRecordIdAtOffset(gridState, currentOffset)
+                            if (currentRecordId != null) {
+                                val startIdx = currentRecords.indexOfFirst { it.id == startRecordId }
+                                val currentIdx = currentRecords.indexOfFirst { it.id == currentRecordId }
+                                if (startIdx != -1 && currentIdx != -1) {
+                                    val minIdx = minOf(startIdx, currentIdx)
+                                    val maxIdx = maxOf(startIdx, currentIdx)
+                                    val draggedIds = (minIdx..maxIdx).map { currentRecords[it].id }.toSet()
+                                    currentOnSetSelectedIds(initialSelected + draggedIds)
+                                }
                             }
 
-                            // 边界滑动自动滚屏
                             val viewportHeight = gridState.layoutInfo.viewportSize.height
                             if (currentOffset.y < 120f) {
                                 coroutineScope.launch { gridState.scrollBy(-30f) }
@@ -444,21 +665,27 @@ private fun RecordGrid(
                     }
                 }
             },
-        contentPadding = PaddingValues(8.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
+        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 80.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        items(records, key = { it.id }) { record ->
-            RecordCard(
-                record = record,
-                photoUri = "file://${photoRoot.absoluteFileOf(record.photoPath).absolutePath}",
-                isSelected = record.id in selectedIds,
-                selectionMode = selectionMode,
-                onClick = {
-                    if (selectionMode) onToggleSelection(record.id)
-                    else onOpenRecord(record.id)
-                },
-                modifier = Modifier.animateItem(
+        groupedRecords.forEach { (monthTitle, monthRecords) ->
+            // 月份分组 Header (跨满整行)
+            item(
+                key = "header_$monthTitle",
+                span = { GridItemSpan(maxLineSpan) }
+            ) {
+                MonthHeaderItem(title = monthTitle, count = monthRecords.size)
+            }
+
+            items(
+                items = monthRecords,
+                key = { it.id }
+            ) { record ->
+                val photoUri = "file://${photoRoot.absoluteFileOf(record.photoPath).absolutePath}"
+                val isSelected = record.id in selectedIds
+
+                val cardModifier = Modifier.animateItem(
                     fadeInSpec = tween(300),
                     fadeOutSpec = tween(300),
                     placementSpec = spring(
@@ -466,15 +693,55 @@ private fun RecordGrid(
                         dampingRatio = Spring.DampingRatioMediumBouncy
                     )
                 )
-            )
+
+                when (viewMode) {
+                    DateRecorderViewMode.TIMELINE -> {
+                        TimelineRecordCard(
+                            record = record,
+                            photoUri = photoUri,
+                            isSelected = isSelected,
+                            selectionMode = selectionMode,
+                            onClick = {
+                                if (selectionMode) onToggleSelection(record.id)
+                                else onOpenRecord(record.id)
+                            },
+                            modifier = cardModifier
+                        )
+                    }
+                    DateRecorderViewMode.GRID -> {
+                        GridRecordCard(
+                            record = record,
+                            photoUri = photoUri,
+                            isSelected = isSelected,
+                            selectionMode = selectionMode,
+                            onClick = {
+                                if (selectionMode) onToggleSelection(record.id)
+                                else onOpenRecord(record.id)
+                            },
+                            modifier = cardModifier
+                        )
+                    }
+                    DateRecorderViewMode.COMPACT -> {
+                        CompactRecordCard(
+                            record = record,
+                            photoUri = photoUri,
+                            isSelected = isSelected,
+                            selectionMode = selectionMode,
+                            onClick = {
+                                if (selectionMode) onToggleSelection(record.id)
+                                else onOpenRecord(record.id)
+                            },
+                            modifier = cardModifier
+                        )
+                    }
+                }
+            }
         }
     }
 }
 
-/**
- * 根据触控点 Offset 命中测试 LazyVerticalGrid 中的 VisibleItem 索引。
- */
-private fun findItemIndexAtOffset(gridState: LazyGridState, offset: Offset): Int? {
+/** 寻找触控位置命中的 DateRecord ID。 */
+private fun findRecordIdAtOffset(gridState: LazyGridState, offset: Offset): Long? {
     val itemsInfo = gridState.layoutInfo.visibleItemsInfo
     if (itemsInfo.isEmpty()) return null
 
@@ -484,28 +751,155 @@ private fun findItemIndexAtOffset(gridState: LazyGridState, offset: Offset): Int
         offset.x >= x && offset.x <= x + item.size.width &&
             offset.y >= y && offset.y <= y + item.size.height
     }
-    if (hit != null) return hit.index
-
-    val firstVisible = itemsInfo.first()
-    if (offset.y < firstVisible.offset.y) {
-        return firstVisible.index
-    }
-
-    val lastVisible = itemsInfo.last()
-    val lastBottom = lastVisible.offset.y + lastVisible.size.height
-    if (offset.y > lastBottom) {
-        return lastVisible.index
-    }
-
-    val rowMatch = itemsInfo.minByOrNull { item ->
-        val itemCenterY = item.offset.y + item.size.height / 2f
-        kotlin.math.abs(offset.y - itemCenterY)
-    }
-    return rowMatch?.index
+    return hit?.key as? Long
 }
 
+/** 按月分组的时光 Header。 */
 @Composable
-private fun RecordCard(
+private fun MonthHeaderItem(title: String, count: Int) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp, bottom = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.primary)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "· $count 条记录",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+/** 时光流模式 (TIMELINE) 卡片：宽幅展图、标题手记摘要、拍摄与关联日期 Badge。 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TimelineRecordCard(
+    record: DateRecord,
+    photoUri: String,
+    isSelected: Boolean,
+    selectionMode: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardScale by animateFloatAsState(
+        targetValue = if (selectionMode && isSelected) 0.96f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "timeline_card_scale"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (selectionMode && isSelected) 2.5.dp else 0.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "timeline_card_border"
+    )
+
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        ),
+        border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
+    ) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Box {
+                AsyncImage(
+                    uri = photoUri,
+                    contentDescription = record.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                )
+
+                // 顶端多选 Badge
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = selectionMode,
+                    enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                    exit = scaleOut() + fadeOut(),
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(10.dp)
+                ) {
+                    SelectionBadge(isSelected = isSelected)
+                }
+            }
+
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = record.title.ifBlank { "无标题记录" },
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (record.note.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = record.note,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // 日期标签行
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // 拍摄日期 Pill
+                    DateTag(
+                        icon = Icons.Outlined.PhotoCamera,
+                        text = "拍摄 ${record.shootDate}",
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // 关联日期 Pill
+                    if (record.linkedDate != null) {
+                        val relativeDays = computeRelativeDaysDescription(record.shootDate, record.linkedDate)
+                        DateTag(
+                            icon = Icons.Outlined.CalendarToday,
+                            text = "关联 ${record.linkedDate}" + if (relativeDays.isNotBlank()) " ($relativeDays)" else "",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 相册网格模式 (GRID) 卡片：双列拍立得相框与沉浸阴影。 */
+@Composable
+private fun GridRecordCard(
     record: DateRecord,
     photoUri: String,
     isSelected: Boolean,
@@ -516,24 +910,20 @@ private fun RecordCard(
     val cardScale by animateFloatAsState(
         targetValue = if (selectionMode && isSelected) 0.95f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "record_card_scale"
+        label = "grid_card_scale"
     )
     val borderWidth by animateDpAsState(
-        targetValue = if (selectionMode && isSelected) 2.dp else 0.dp,
+        targetValue = if (selectionMode && isSelected) 2.5.dp else 0.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "record_card_border_width"
+        label = "grid_card_border"
     )
-    val borderColor by animateColorAsState(
-        targetValue = if (selectionMode && isSelected) MaterialTheme.colorScheme.primary else Color.Transparent,
-        animationSpec = tween(200),
-        label = "record_card_border_color"
-    )
-    val cardShape = RoundedCornerShape(8.dp)
+
     Card(
         onClick = onClick,
-        shape = cardShape,
-        border = BorderStroke(borderWidth, borderColor),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier
             .fillMaxWidth()
             .graphicsLayer {
@@ -545,12 +935,13 @@ private fun RecordCard(
             AsyncImage(
                 uri = photoUri,
                 contentDescription = record.title,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
             )
 
-            // 底部渐变蒙层，保证叠加文字在各种照片上的可读性
+            // 底部蒙层与文字信息
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -559,28 +950,40 @@ private fun RecordCard(
                         Brush.verticalGradient(
                             colors = listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.65f)
+                                Color.Black.copy(alpha = 0.75f)
                             )
                         )
                     )
                     .padding(horizontal = 8.dp, vertical = 6.dp)
             ) {
                 Text(
-                    text = record.title,
-                    style = MaterialTheme.typography.titleSmall,
+                    text = record.title.ifBlank { "记录" },
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = Color.White,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(
-                    text = "${record.shootDate}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.White.copy(alpha = 0.85f)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "${record.shootDate}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.85f)
+                    )
+                    if (record.linkedDate != null) {
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarToday,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
             }
 
-            // 多选态下的复选角标（淡入淡出及缩放动画）
-            this@Card.AnimatedVisibility(
+            androidx.compose.animation.AnimatedVisibility(
                 visible = selectionMode,
                 enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
                 exit = scaleOut() + fadeOut(),
@@ -594,10 +997,108 @@ private fun RecordCard(
     }
 }
 
+/** 紧凑矩阵模式 (COMPACT) 卡片：高效高密度。 */
+@Composable
+private fun CompactRecordCard(
+    record: DateRecord,
+    photoUri: String,
+    isSelected: Boolean,
+    selectionMode: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardScale by animateFloatAsState(
+        targetValue = if (selectionMode && isSelected) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "compact_card_scale"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (selectionMode && isSelected) 2.dp else 0.dp,
+        label = "compact_card_border"
+    )
+
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
+    ) {
+        Box {
+            AsyncImage(
+                uri = photoUri,
+                contentDescription = record.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+            )
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = selectionMode,
+                enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                exit = scaleOut() + fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+            ) {
+                SelectionBadge(isSelected = isSelected)
+            }
+        }
+    }
+}
+
+/** 日期标签 Chip。 */
+@Composable
+private fun DateTag(
+    icon: ImageVector,
+    text: String,
+    containerColor: Color,
+    contentColor: Color
+) {
+    Surface(
+        color = containerColor,
+        contentColor = contentColor,
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(12.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelSmall
+            )
+        }
+    }
+}
+
+/** 计算拍摄日期与关联日期之间的天数关联描述。 */
+private fun computeRelativeDaysDescription(shootDate: LocalDate, linkedDate: LocalDate): String {
+    val diff = linkedDate.toEpochDays() - shootDate.toEpochDays()
+    return when {
+        diff == 0L -> "当日"
+        diff > 0L -> "+${diff}天"
+        else -> "${diff}天"
+    }
+}
+
+/** 选择标识角标。 */
 @Composable
 private fun SelectionBadge(isSelected: Boolean, modifier: Modifier = Modifier) {
     val bg by animateColorAsState(
-        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.3f),
+        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.45f),
         animationSpec = tween(200),
         label = "selection_badge_bg"
     )
@@ -617,8 +1118,8 @@ private fun SelectionBadge(isSelected: Boolean, modifier: Modifier = Modifier) {
             .padding(4.dp),
         contentAlignment = Alignment.Center
     ) {
-        Box(modifier = Modifier.size(16.dp), contentAlignment = Alignment.Center) {
-            androidx.compose.animation.AnimatedVisibility(
+        Box(modifier = Modifier.size(18.dp), contentAlignment = Alignment.Center) {
+            AnimatedVisibility(
                 visible = isSelected,
                 enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
                 exit = scaleOut() + fadeOut()
@@ -634,23 +1135,63 @@ private fun SelectionBadge(isSelected: Boolean, modifier: Modifier = Modifier) {
     }
 }
 
+/** 全新升级的空状态设计。 */
 @Composable
-private fun EmptyState() {
+private fun EmptyState(onOpenCamera: () -> Unit) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(32.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Surface(
+            modifier = Modifier.size(96.dp),
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    imageVector = Icons.Outlined.PhotoLibrary,
+                    contentDescription = null,
+                    modifier = Modifier.size(44.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
         Text(
-            text = "还没有记录",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            text = "还没有时光记录",
+            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+            color = MaterialTheme.colorScheme.onSurface
         )
+
+        Spacer(modifier = Modifier.height(8.dp))
+
         Text(
-            text = "点击右下角按钮拍摄第一条记录",
+            text = "拍摄照片留下美好瞬间，并将其固定在特定的日历日子上，打造属于你的相册日记。",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = 8.dp)
+            modifier = Modifier.padding(horizontal = 16.dp),
+            lineHeight = 22.sp
         )
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Button(
+            onClick = onOpenCamera,
+            shape = RoundedCornerShape(14.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.PhotoCamera,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("立即拍摄第一条记录")
+        }
     }
 }
