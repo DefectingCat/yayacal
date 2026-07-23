@@ -16,6 +16,8 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -303,7 +305,8 @@ fun DateRecorderScreen(
                     selectionMode = uiState.selectionMode,
                     photoRoot = repo,
                     onOpenRecord = onOpenRecord,
-                    onToggleSelection = viewModel::toggleSelection
+                    onToggleSelection = viewModel::toggleSelection,
+                    onStartSelectionWith = viewModel::startSelectionModeWith
                 )
             }
         }
@@ -341,7 +344,8 @@ private fun RecordGrid(
     selectionMode: Boolean,
     photoRoot: DateRecorderRepository,
     onOpenRecord: (Long) -> Unit,
-    onToggleSelection: (Long) -> Unit
+    onToggleSelection: (Long) -> Unit,
+    onStartSelectionWith: (Long) -> Unit
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 100.dp),
@@ -359,12 +363,20 @@ private fun RecordGrid(
                 onClick = {
                     if (selectionMode) onToggleSelection(record.id)
                     else onOpenRecord(record.id)
+                },
+                onLongClick = {
+                    if (selectionMode) {
+                        onToggleSelection(record.id)
+                    } else {
+                        onStartSelectionWith(record.id)
+                    }
                 }
             )
         }
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun RecordCard(
     record: DateRecord,
@@ -372,6 +384,7 @@ private fun RecordCard(
     isSelected: Boolean,
     selectionMode: Boolean,
     onClick: () -> Unit,
+    onLongClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val cardScale by animateFloatAsState(
@@ -389,9 +402,9 @@ private fun RecordCard(
         animationSpec = tween(200),
         label = "record_card_border_color"
     )
+    val cardShape = RoundedCornerShape(8.dp)
     Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
+        shape = cardShape,
         border = BorderStroke(borderWidth, borderColor),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
@@ -400,6 +413,11 @@ private fun RecordCard(
                 scaleX = cardScale
                 scaleY = cardScale
             }
+            .clip(cardShape)
+            .combinedClickable(
+                onClick = onClick,
+                onLongClick = onLongClick
+            )
     ) {
         Box {
             AsyncImage(

@@ -131,6 +131,16 @@ class DateRecorderViewModel(
     }
 
     /**
+     * 开启多选模式并选中指定的记录 ID（响应长按操作）。
+     *
+     * @param id 长按选中的记录 ID
+     */
+    fun startSelectionModeWith(id: Long) {
+        _selectionMode.value = true
+        _selectedIds.value = setOf(id)
+    }
+
+    /**
      * 切换某条记录的选中状态。
      */
     fun toggleSelection(id: Long) {
