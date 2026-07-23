@@ -95,7 +95,7 @@ class DateRecordDetailViewModelTest {
 
         var retries = 0
         while (!vm.uiState.value.deleted && retries < 50) {
-            kotlinx.coroutines.delay(10)
+            Thread.sleep(20)
             retries++
         }
 
