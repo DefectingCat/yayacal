@@ -77,7 +77,8 @@ fun YearGridView(
     selectedMonth: Int,
     today: LocalDate,
     onMonthClick: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    monthModifier: @Composable (Int) -> Modifier = { Modifier }
 ) {
     composeTraceBeginSection("YearGridView:$year")
 
@@ -169,7 +170,7 @@ fun YearGridView(
                             titleLayouts = titleLayouts,
                             weekdayLayouts = weekdayLayouts,
                             onClick = { onMonthClick(month) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f).then(monthModifier(month))
                         )
                     }
                 }

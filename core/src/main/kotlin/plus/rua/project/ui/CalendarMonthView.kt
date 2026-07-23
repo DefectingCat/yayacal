@@ -6,10 +6,13 @@ import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -213,18 +216,22 @@ fun CalendarMonthView(
                 screenWidthPx = size.width
             }
     ) {
+        SharedTransitionLayout(
+            modifier = Modifier.fillMaxSize()
+        ) {
             AnimatedContent(
                 targetState = isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
+                    val spatialEasing = FastOutSlowInEasing
                     val enter = scaleIn(
-                        initialScale = 0.85f,
-                        animationSpec = tween(350, easing = FastOutSlowInEasing)
-                    ) + fadeIn(tween(350, easing = LinearOutSlowInEasing))
+                        initialScale = 0.92f,
+                        animationSpec = tween(380, easing = spatialEasing)
+                    ) + fadeIn(tween(380, easing = spatialEasing))
                     val exit = scaleOut(
-                        targetScale = 0.85f,
-                        animationSpec = tween(350, easing = FastOutSlowInEasing)
-                    ) + fadeOut(tween(350, easing = FastOutSlowInEasing))
+                        targetScale = 0.92f,
+                        animationSpec = tween(380, easing = spatialEasing)
+                    ) + fadeOut(tween(380, easing = spatialEasing))
                     enter togetherWith exit
                 },
                 modifier = Modifier.fillMaxSize()
@@ -289,7 +296,15 @@ fun CalendarMonthView(
                                 shiftKindAt = shiftKindAt,
                                 onRowHeightMeasured = onRowHeightMeasured,
                                 pagerState = pagerState,
-                                modifier = Modifier.clipToBounds()
+                                modifier = Modifier
+                                    .clipToBounds()
+                                    .sharedBounds(
+                                        sharedContentState = rememberSharedContentState(key = "month_grid_$currentMonth"),
+                                        animatedVisibilityScope = this@AnimatedContent,
+                                        boundsTransform = { _, _ ->
+                                            spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
+                                        }
+                                    )
                             )
                             BottomCardArea(
                                 viewModel = viewModel,
@@ -349,6 +364,15 @@ fun CalendarMonthView(
                                     }
                                     composeTraceEndSection()
                                 },
+                                monthModifier = { month ->
+                                    Modifier.sharedBounds(
+                                        sharedContentState = rememberSharedContentState(key = "month_grid_$month"),
+                                        animatedVisibilityScope = this@AnimatedContent,
+                                        boundsTransform = { _, _ ->
+                                            spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
+                                        }
+                                    )
+                                },
                                 modifier = Modifier
                             )
                         }
@@ -356,7 +380,7 @@ fun CalendarMonthView(
                     composeTraceEndSection()
                 }
             }
-
+        }
         // FAB 浮动按钮
     FloatingActionButton(
             onClick = { isMenuExpanded = !isMenuExpanded },
