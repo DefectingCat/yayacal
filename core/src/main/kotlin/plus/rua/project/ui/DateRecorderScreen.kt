@@ -17,6 +17,8 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -453,42 +455,97 @@ private fun HeaderControlBar(
                 }
             }
 
-            // 右侧：视图切换按钮组 Segmented Button
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                shape = RoundedCornerShape(12.dp),
-                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant)
+            // 右侧：视图切换按钮组 Segmented Control
+            SegmentedViewModeSwitcher(
+                currentViewMode = currentViewMode,
+                onViewModeChange = onViewModeChange
+            )
+        }
+    }
+}
+
+/** 视图模式分段切换器，带平滑弹簧滑动指示器与精准同心胶囊形状切角。 */
+@Composable
+private fun SegmentedViewModeSwitcher(
+    currentViewMode: DateRecorderViewMode,
+    onViewModeChange: (DateRecorderViewMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val modes = DateRecorderViewMode.entries
+    val selectedIndex = modes.indexOf(currentViewMode).coerceAtLeast(0)
+
+    val itemWidth = 36.dp
+    val itemHeight = 32.dp
+    val outerPadding = 3.dp
+
+    val indicatorOffset by animateDpAsState(
+        targetValue = outerPadding + (itemWidth * selectedIndex),
+        animationSpec = spring(
+            stiffness = Spring.StiffnessMediumLow,
+            dampingRatio = Spring.DampingRatioMediumBouncy
+        ),
+        label = "mode_switcher_indicator_offset"
+    )
+
+    Surface(
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = CircleShape,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        modifier = modifier
+    ) {
+        Box(
+            modifier = Modifier.padding(outerPadding)
+        ) {
+            // 滑动指示器 (Sliding Indicator Background)
+            Box(
+                modifier = Modifier
+                    .graphicsLayer {
+                        translationX = indicatorOffset.toPx() - outerPadding.toPx()
+                    }
+                    .size(width = itemWidth, height = itemHeight)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+            )
+
+            // 图标按键（带柔和手感及颜色渐变）
+            Row(
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    modifier = Modifier.padding(2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(2.dp)
-                ) {
-                    DateRecorderViewMode.entries.forEach { mode ->
-                        val isSelected = mode == currentViewMode
-                        val bgColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                            animationSpec = tween(200),
-                            label = "view_mode_bg"
-                        )
-                        val iconColor by animateColorAsState(
-                            targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                            animationSpec = tween(200),
-                            label = "view_mode_icon"
-                        )
-                        IconButton(
-                            onClick = { onViewModeChange(mode) },
+                modes.forEachIndexed { index, mode ->
+                    val isSelected = index == selectedIndex
+                    val iconColor by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        animationSpec = tween(200),
+                        label = "mode_switcher_icon_color"
+                    )
+                    val iconScale by animateFloatAsState(
+                        targetValue = if (isSelected) 1.15f else 1f,
+                        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+                        label = "mode_switcher_icon_scale"
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .size(width = itemWidth, height = itemHeight)
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = { onViewModeChange(mode) }
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = mode.icon,
+                            contentDescription = mode.label,
+                            tint = iconColor,
                             modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(bgColor),
-                            colors = IconButtonDefaults.iconButtonColors(contentColor = iconColor)
-                        ) {
-                            Icon(
-                                imageVector = mode.icon,
-                                contentDescription = mode.label,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
+                                .size(16.dp)
+                                .graphicsLayer {
+                                    scaleX = iconScale
+                                    scaleY = iconScale
+                                }
+                        )
                     }
                 }
             }
