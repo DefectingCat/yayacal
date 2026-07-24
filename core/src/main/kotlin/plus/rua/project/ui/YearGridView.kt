@@ -446,25 +446,6 @@ fun YearHeader(
                 style = MaterialTheme.typography.bodySmall
             )
         }
-        AnimatedContent(
-            targetState = year,
-            transitionSpec = {
-                if (targetState > initialState) {
-                    slideInVertically(tween(250)) { -it } togetherWith
-                            slideOutVertically(tween(250)) { it }
-                } else {
-                    slideInVertically(tween(250)) { it } togetherWith
-                            slideOutVertically(tween(250)) { -it }
-                }
-            },
-            modifier = Modifier.padding(top = 4.dp)
-        ) { y ->
-            Text(
-                text = lunarYearLabel(y),
-                color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
     }
 }
 
