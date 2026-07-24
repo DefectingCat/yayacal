@@ -26,6 +26,26 @@ object RotationGeometry {
         if (rotationDegrees % 180 == 0) srcAspect else 1f / srcAspect
 
     /**
+     * 计算当前动画角度 [angle] 对应的最近 90° 倍数基准角度。
+     *
+     * 动态基准角度避免了在动画刚开始时以终点角度直接切换转置状态导致的错位黑边。
+     */
+    fun baseRotation(angle: Float): Int =
+        kotlin.math.round(angle / 90f).toInt() * 90
+
+    /**
+     * 当前动画角度 [angle] 相对最近基准角度 [baseRotation] 的偏移角度 [-45°, 45°]。
+     */
+    fun offsetDegrees(angle: Float): Float =
+        angle - baseRotation(angle)
+
+    /**
+     * 判断在给定的 90° 倍数基准角度下，宽高尺寸是否转置。
+     */
+    fun isSwapped(baseRotation: Int): Boolean =
+        baseRotation % 180 != 0
+
+    /**
      * 让「与容器同比例的图片矩形旋转 [offsetDegrees] 后仍完整覆盖容器」所需的最小缩放因子。
      *
      * 推导：图片 base 矩形 = 容器尺寸（宽 [aspect]、高 1，归一化）。绕中心旋转 θ 后，

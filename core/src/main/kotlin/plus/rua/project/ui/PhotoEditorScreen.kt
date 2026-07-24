@@ -380,14 +380,15 @@ private fun EditableImage(
             }
     ) {
         val angle = displayRotation.value
-        val offset = angle - state.rotationDegrees
+        val baseRotation = RotationGeometry.baseRotation(angle)
+        val isSwapped = RotationGeometry.isSwapped(baseRotation)
+        val offset = RotationGeometry.offsetDegrees(angle)
         val scale = RotationGeometry.coverScale(offset, containerAspect)
         Image(
             bitmap = state.sourceBitmap.asImageBitmap(),
             contentDescription = "编辑中的照片",
             modifier = Modifier
                 .layout { measurable, constraints ->
-                    val isSwapped = (state.rotationDegrees % 180 != 0)
                     val targetWidth = if (isSwapped) constraints.maxHeight else constraints.maxWidth
                     val targetHeight = if (isSwapped) constraints.maxWidth else constraints.maxHeight
                     val placeable = measurable.measure(

@@ -7,6 +7,7 @@ import kotlin.math.sin
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.test.assertFalse
 
 /**
  * [RotationGeometry] 单元测试。
@@ -100,5 +101,34 @@ class RotationGeometryTest {
                 1e-5f
             )
         }
+    }
+    @Test
+    fun baseRotation_and_isSwapped_dynamicAngleTransition() {
+        assertEquals(0, RotationGeometry.baseRotation(0f))
+        assertEquals(0, RotationGeometry.baseRotation(20f))
+        assertEquals(0, RotationGeometry.baseRotation(44.9f))
+
+        assertEquals(90, RotationGeometry.baseRotation(45.1f))
+        assertEquals(90, RotationGeometry.baseRotation(80f))
+        assertEquals(90, RotationGeometry.baseRotation(134f))
+
+        assertEquals(180, RotationGeometry.baseRotation(135.1f))
+        assertEquals(270, RotationGeometry.baseRotation(270f))
+
+        assertEquals(-90, RotationGeometry.baseRotation(-45.1f))
+        assertEquals(-180, RotationGeometry.baseRotation(-135.1f))
+
+        assertFalse(RotationGeometry.isSwapped(0))
+        assertTrue(RotationGeometry.isSwapped(90))
+        assertFalse(RotationGeometry.isSwapped(180))
+        assertTrue(RotationGeometry.isSwapped(270))
+        assertTrue(RotationGeometry.isSwapped(-90))
+        assertFalse(RotationGeometry.isSwapped(-180))
+
+        assertEquals(0f, RotationGeometry.offsetDegrees(0f), 1e-5f)
+        assertEquals(20f, RotationGeometry.offsetDegrees(20f), 1e-5f)
+        assertEquals(-44.9f, RotationGeometry.offsetDegrees(45.1f), 1e-3f)
+        assertEquals(-10f, RotationGeometry.offsetDegrees(80f), 1e-5f)
+        assertEquals(0f, RotationGeometry.offsetDegrees(90f), 1e-5f)
     }
 }
