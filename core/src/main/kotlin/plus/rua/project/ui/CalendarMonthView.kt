@@ -25,7 +25,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -413,18 +412,12 @@ fun CalendarMonthView(
             )
         }
 
-        // FAB 浮动按钮（年视图下自动上移 110.dp 避免遮挡 10 月网格）
-        val fabBottomPadding by animateDpAsState(
-            targetValue = if (isYearView) 110.dp else 32.dp,
-            animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
-            label = "fab_bottom_padding"
-        )
-
+        // FAB 浮动按钮
         FloatingActionButton(
             onClick = { isMenuExpanded = !isMenuExpanded },
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 24.dp, bottom = fabBottomPadding)
+                .padding(start = 24.dp, bottom = 32.dp)
                 .testTag("fab_menu"),
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primaryContainer,
@@ -472,7 +465,7 @@ fun CalendarMonthView(
             ) + fadeOut(tween(120)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 24.dp, bottom = fabBottomPadding + 56.dp + 8.dp)
+                .padding(start = 24.dp, bottom = 32.dp + 56.dp + 8.dp)
         ) {
             Card(
                 shape = RoundedCornerShape(16.dp),

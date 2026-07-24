@@ -171,7 +171,7 @@ fun YearGridView(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(horizontal = 4.dp),
+                .padding(start = 4.dp, end = 4.dp, bottom = 44.dp),
             verticalArrangement = Arrangement.SpaceEvenly
         ) {
             (0 until gridRows).forEach { row ->
