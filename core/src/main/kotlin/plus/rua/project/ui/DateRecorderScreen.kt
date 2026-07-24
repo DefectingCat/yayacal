@@ -959,15 +959,16 @@ private fun SharedTransitionScope.TimelineRecordCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+                clip = true
+                shape = RoundedCornerShape(16.dp)
+            }
             .sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
                 animatedVisibilityScope = animatedVisibilityScope
             )
-            .graphicsLayer {
-                scaleX = cardScale
-                scaleY = cardScale
-            }
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Box {
@@ -979,10 +980,6 @@ private fun SharedTransitionScope.TimelineRecordCard(
                         .fillMaxWidth()
                         .height(180.dp)
                         .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
-                        .sharedElement(
-                            sharedContentState = rememberSharedContentState(key = "photo_${record.id}"),
-                            animatedVisibilityScope = animatedVisibilityScope
-                        )
                 )
 
                 // 顶端多选 Badge
@@ -1080,15 +1077,16 @@ private fun SharedTransitionScope.GridRecordCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+                clip = true
+                shape = RoundedCornerShape(14.dp)
+            }
             .sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
                 animatedVisibilityScope = animatedVisibilityScope
             )
-            .graphicsLayer {
-                scaleX = cardScale
-                scaleY = cardScale
-            }
     ) {
         Box {
             AsyncImage(
@@ -1099,10 +1097,6 @@ private fun SharedTransitionScope.GridRecordCard(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(14.dp))
-                    .sharedElement(
-                        sharedContentState = rememberSharedContentState(key = "photo_${record.id}"),
-                        animatedVisibilityScope = animatedVisibilityScope
-                    )
             )
 
             // 底部蒙层与文字信息
@@ -1185,19 +1179,18 @@ private fun SharedTransitionScope.CompactRecordCard(
 
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+                clip = true
+                shape = RoundedCornerShape(8.dp)
+            }
             .sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
                 animatedVisibilityScope = animatedVisibilityScope
             )
-            .graphicsLayer {
-                scaleX = cardScale
-                scaleY = cardScale
-            }
     ) {
         Box {
             AsyncImage(
@@ -1208,10 +1201,6 @@ private fun SharedTransitionScope.CompactRecordCard(
                     .fillMaxWidth()
                     .aspectRatio(1f)
                     .clip(RoundedCornerShape(8.dp))
-                    .sharedElement(
-                        sharedContentState = rememberSharedContentState(key = "photo_${record.id}"),
-                        animatedVisibilityScope = animatedVisibilityScope
-                    )
             )
 
             androidx.compose.animation.AnimatedVisibility(
