@@ -235,16 +235,11 @@ fun CalendarMonthView(
                 targetState = isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
-                    val spatialEasing = FastOutSlowInEasing
-                    val enter = scaleIn(
-                        initialScale = 0.92f,
-                        animationSpec = tween(380, easing = spatialEasing)
-                    ) + fadeIn(tween(380, easing = spatialEasing))
-                    val exit = scaleOut(
-                        targetScale = 0.92f,
-                        animationSpec = tween(380, easing = spatialEasing)
-                    ) + fadeOut(tween(380, easing = spatialEasing))
-                    enter togetherWith exit
+                    fadeIn(
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
+                    ) togetherWith fadeOut(
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
+                    )
                 },
                 modifier = Modifier.fillMaxSize()
             ) { yearViewActive ->
@@ -396,6 +391,9 @@ fun CalendarMonthView(
         }
         BackHandler(enabled = isMenuExpanded) {
             isMenuExpanded = false
+        }
+        BackHandler(enabled = isYearView && !isMenuExpanded) {
+            viewModel.toggleYearView()
         }
 
         // Scrim：半透明遮罩，在菜单展开时淡入拦截点击关闭菜单，增强渐变视觉与聚焦感
