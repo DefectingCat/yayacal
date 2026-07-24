@@ -3,6 +3,7 @@ package plus.rua.project
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -81,7 +82,7 @@ class CalendarViewModel(
             getMonthGridInfo(normalizedYear, normalizedMonth)
         }
 
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.Default) {
             monthsToPrecompute.forEach { info ->
                 val dates = (0 until info.totalDays).map { i ->
                     info.startDate.plus(DatePeriod(days = i))

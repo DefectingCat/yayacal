@@ -33,6 +33,8 @@ import plus.rua.project.DayCellInfo
 import plus.rua.project.LunarCache
 import plus.rua.project.ShiftKind
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * 月度日历网格页面，支持两阶段折叠动画。
@@ -80,7 +82,9 @@ fun CalendarMonthPage(
         key1 = year,
         key2 = month
     ) {
-        value = LunarCache.default.getOrComputeBatch(days.map { it.date })
+        value = withContext(Dispatchers.Default) {
+            LunarCache.default.getOrComputeBatch(days.map { it.date })
+        }
     }
 
     val holidayEdges = remember(lunarDataMap, year, month) {
