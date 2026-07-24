@@ -340,7 +340,11 @@ private fun ShiftDayCell(
         else -> Color.Transparent
     }
     val badgeText = when {
-        isRephaseStart -> "起"
+        isRephaseStart -> when (kind) {
+            ShiftKind.WORK -> "起·班"
+            ShiftKind.OFF -> "起·休"
+            null -> "起"
+        }
         kind == ShiftKind.WORK -> "班"
         kind == ShiftKind.OFF -> "休"
         else -> ""
