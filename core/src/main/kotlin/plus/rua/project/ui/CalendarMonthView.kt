@@ -720,9 +720,10 @@ private fun BottomCardArea(
                 composeTraceEndSection()
             },
             dragRangePx = dragRangePx,
-            modifier = modifier
-                .offset(y = with(density) { (slideProgress * 300).dp })
-                .alpha(1f - slideProgress)
+            modifier = modifier.graphicsLayer {
+                translationY = (slideProgress * 300).dp.toPx()
+                alpha = 1f - slideProgress
+            }
         )
     }
 }
