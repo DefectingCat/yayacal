@@ -3,6 +3,18 @@
 package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedContent
+import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -382,8 +394,28 @@ fun CalendarMonthView(
                 }
             }
         }
+        BackHandler(enabled = isMenuExpanded) {
+            isMenuExpanded = false
+        }
+
+        // Scrim：半透明遮罩，在菜单展开时淡入拦截点击关闭菜单，增强渐变视觉与聚焦感
+        AnimatedVisibility(
+            visible = isMenuExpanded,
+            enter = fadeIn(tween(200)),
+            exit = fadeOut(tween(200))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.32f))
+                    .pointerInput(Unit) {
+                        detectTapGestures { isMenuExpanded = false }
+                    }
+            )
+        }
+
         // FAB 浮动按钮
-    FloatingActionButton(
+        FloatingActionButton(
             onClick = { isMenuExpanded = !isMenuExpanded },
             modifier = Modifier
                 .align(Alignment.BottomStart)
@@ -396,57 +428,60 @@ fun CalendarMonthView(
             AnimatedContent(
                 targetState = isMenuExpanded,
                 transitionSpec = {
-                    fadeIn(tween(200)) togetherWith fadeOut(tween(200))
+                    (fadeIn(tween(200)) + scaleIn(initialScale = 0.8f)) togetherWith
+                        (fadeOut(tween(200)) + scaleOut(targetScale = 0.8f))
                 },
                 label = "fab_icon"
             ) { expanded ->
+                val rotation by animateFloatAsState(
+                    targetValue = if (expanded) 180f else 0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMediumLow,
+                        dampingRatio = Spring.DampingRatioLowBouncy
+                    ),
+                    label = "fab_rotation"
+                )
                 Icon(
                     imageVector = if (expanded) Icons.Filled.Close else Icons.Filled.Menu,
-                    contentDescription = if (expanded) "关闭菜单" else "打开菜单"
+                    contentDescription = if (expanded) "关闭菜单" else "打开菜单",
+                    modifier = Modifier.graphicsLayer { rotationZ = rotation }
                 )
             }
         }
 
-        // Scrim：全透明，仅拦截点击关闭菜单，无动画
-        AnimatedVisibility(
-            visible = isMenuExpanded,
-            enter = EnterTransition.None,
-            exit = ExitTransition.None
-        ) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .pointerInput(Unit) {
-                        detectTapGestures { isMenuExpanded = false }
-                    }
-            )
-        }
-
-        // 缩放动画菜单
+        // 物理弹簧缩放动画菜单
         AnimatedVisibility(
             visible = isMenuExpanded,
             enter = scaleIn(
                 initialScale = 0.2f,
-                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                animationSpec = spring(
+                    stiffness = Spring.StiffnessMediumLow,
+                    dampingRatio = Spring.DampingRatioLowBouncy
+                ),
                 transformOrigin = TransformOrigin(0f, 1f)
-            ) + fadeIn(tween(150)),
+            ) + fadeIn(tween(180)),
             exit = scaleOut(
                 targetScale = 0.2f,
                 animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
                 transformOrigin = TransformOrigin(0f, 1f)
-            ) + fadeOut(tween(100)),
+            ) + fadeOut(tween(120)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .padding(start = 24.dp, bottom = 32.dp + 56.dp + 8.dp)
         ) {
             Card(
-                shape = RoundedCornerShape(12.dp),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
             ) {
-                Column(modifier = Modifier.width(140.dp)) {
+                Column(
+                    modifier = Modifier
+                        .width(170.dp)
+                        .padding(vertical = 4.dp)
+                ) {
                     MenuItem(
                         text = "月视图",
+                        icon = Icons.Outlined.CalendarMonth,
                         selected = !isYearView,
                         onClick = {
                             isMenuExpanded = false
@@ -459,6 +494,7 @@ fun CalendarMonthView(
                     )
                     MenuItem(
                         text = "年视图",
+                        icon = Icons.Outlined.DateRange,
                         selected = isYearView,
                         onClick = {
                             isMenuExpanded = false
@@ -471,11 +507,12 @@ fun CalendarMonthView(
                     )
                     HorizontalDivider(
                         thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                     )
                     MenuItem(
                         text = "显示调休",
+                        icon = Icons.Outlined.EventAvailable,
                         selected = showLegalHoliday,
                         onClick = {
                             isMenuExpanded = false
@@ -484,6 +521,7 @@ fun CalendarMonthView(
                     )
                     MenuItem(
                         text = "班次设置",
+                        icon = Icons.Outlined.Tune,
                         selected = false,
                         onClick = {
                             isMenuExpanded = false
@@ -492,11 +530,12 @@ fun CalendarMonthView(
                     )
                     HorizontalDivider(
                         thickness = 1.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp)
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
                     )
                     MenuItem(
                         text = "工具",
+                        icon = Icons.Outlined.Build,
                         selected = false,
                         onClick = {
                             isMenuExpanded = false
@@ -505,6 +544,7 @@ fun CalendarMonthView(
                     )
                     MenuItem(
                         text = "关于",
+                        icon = Icons.Outlined.Info,
                         selected = false,
                         onClick = {
                             isMenuExpanded = false
@@ -692,6 +732,7 @@ private fun BottomCardArea(
 @Composable
 private fun MenuItem(
     text: String,
+    icon: ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
@@ -700,19 +741,43 @@ private fun MenuItem(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer
-            else MaterialTheme.colorScheme.surfaceContainerHigh
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp)
     ) {
-        Text(
-            text = text,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
-            else MaterialTheme.colorScheme.onSurface,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = text,
+                color = if (selected) MaterialTheme.colorScheme.primary
+                else MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f)
+            )
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = "已选择",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
     }
 }
 
