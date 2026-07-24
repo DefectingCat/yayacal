@@ -3,15 +3,18 @@ package plus.rua.project.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
@@ -827,47 +830,18 @@ private fun RecordGrid(
                     )
                 )
 
-                when (viewMode) {
-                    DateRecorderViewMode.TIMELINE -> {
-                        TimelineRecordCard(
-                            record = record,
-                            photoUri = photoUri,
-                            isSelected = isSelected,
-                            selectionMode = selectionMode,
-                            onClick = {
-                                if (selectionMode) onToggleSelection(record.id)
-                                else onOpenRecord(record.id)
-                            },
-                            modifier = cardModifier
-                        )
-                    }
-                    DateRecorderViewMode.GRID -> {
-                        GridRecordCard(
-                            record = record,
-                            photoUri = photoUri,
-                            isSelected = isSelected,
-                            selectionMode = selectionMode,
-                            onClick = {
-                                if (selectionMode) onToggleSelection(record.id)
-                                else onOpenRecord(record.id)
-                            },
-                            modifier = cardModifier
-                        )
-                    }
-                    DateRecorderViewMode.COMPACT -> {
-                        CompactRecordCard(
-                            record = record,
-                            photoUri = photoUri,
-                            isSelected = isSelected,
-                            selectionMode = selectionMode,
-                            onClick = {
-                                if (selectionMode) onToggleSelection(record.id)
-                                else onOpenRecord(record.id)
-                            },
-                            modifier = cardModifier
-                        )
-                    }
-                }
+                AnimatedRecordCard(
+                    record = record,
+                    photoUri = photoUri,
+                    isSelected = isSelected,
+                    selectionMode = selectionMode,
+                    viewMode = viewMode,
+                    onClick = {
+                        if (selectionMode) onToggleSelection(record.id)
+                        else onOpenRecord(record.id)
+                    },
+                    modifier = cardModifier
+                )
             }
         }
     }
@@ -917,38 +891,77 @@ private fun MonthHeaderItem(title: String, count: Int) {
     }
 }
 
-/** 时光流模式 (TIMELINE) 卡片：宽幅展图、标题手记摘要、拍摄与关联日期 Badge。 */
+/** 支持视图切换平滑变形过渡的统一记录卡片。 */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun TimelineRecordCard(
+private fun AnimatedRecordCard(
     record: DateRecord,
     photoUri: String,
     isSelected: Boolean,
     selectionMode: Boolean,
+    viewMode: DateRecorderViewMode,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val cardScale by animateFloatAsState(
-        targetValue = if (selectionMode && isSelected) 0.96f else 1f,
+    val targetCorner = when (viewMode) {
+        DateRecorderViewMode.TIMELINE -> 16.dp
+        DateRecorderViewMode.GRID -> 14.dp
+        DateRecorderViewMode.COMPACT -> 8.dp
+    }
+    val cornerRadius by animateDpAsState(
+        targetValue = targetCorner,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "timeline_card_scale"
+        label = "card_corner_radius"
     )
-    val borderWidth by animateDpAsState(
-        targetValue = if (selectionMode && isSelected) 2.5.dp else 0.dp,
+
+    val targetScale = if (selectionMode && isSelected) {
+        when (viewMode) {
+            DateRecorderViewMode.TIMELINE -> 0.96f
+            DateRecorderViewMode.GRID -> 0.95f
+            DateRecorderViewMode.COMPACT -> 0.92f
+        }
+    } else 1f
+    val cardScale by animateFloatAsState(
+        targetValue = targetScale,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "timeline_card_border"
+        label = "card_scale"
+    )
+
+    val targetBorderWidth = if (selectionMode && isSelected) {
+        when (viewMode) {
+            DateRecorderViewMode.TIMELINE, DateRecorderViewMode.GRID -> 2.5.dp
+            DateRecorderViewMode.COMPACT -> 2.dp
+        }
+    } else 0.dp
+    val borderWidth by animateDpAsState(
+        targetValue = targetBorderWidth,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "card_border"
+    )
+
+    val defaultElevation = if (viewMode == DateRecorderViewMode.COMPACT) 0.dp else 1.dp
+    val elevation by animateDpAsState(
+        targetValue = defaultElevation,
+        animationSpec = tween(200),
+        label = "card_elevation"
     )
 
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(cornerRadius),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
         modifier = modifier
             .fillMaxWidth()
+            .animateContentSize(
+                animationSpec = spring(
+                    stiffness = Spring.StiffnessLow,
+                    dampingRatio = Spring.DampingRatioMediumBouncy
+                )
+            )
             .graphicsLayer {
                 scaleX = cardScale
                 scaleY = cardScale
@@ -956,15 +969,69 @@ private fun TimelineRecordCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Box {
+                val imageModifier = when (viewMode) {
+                    DateRecorderViewMode.TIMELINE -> Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                    else -> Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f)
+                }
+
                 AsyncImage(
                     uri = photoUri,
                     contentDescription = record.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    modifier = imageModifier
                 )
+
+                // 底部蒙层与文字信息 (仅在 GRID 网格模式下展示)
+                androidx.compose.animation.AnimatedVisibility(
+                    visible = viewMode == DateRecorderViewMode.GRID,
+                    enter = fadeIn(tween(200)) + expandVertically(),
+                    exit = fadeOut(tween(150)) + shrinkVertically(),
+                    modifier = Modifier.align(Alignment.BottomStart)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(
+                                Brush.verticalGradient(
+                                    colors = listOf(
+                                        Color.Transparent,
+                                        Color.Black.copy(alpha = 0.75f)
+                                    )
+                                )
+                            )
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = record.title.ifBlank { "记录" },
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = Color.White,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = "${record.shootDate}",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = Color.White.copy(alpha = 0.85f)
+                            )
+                            if (record.linkedDate != null) {
+                                Icon(
+                                    imageVector = Icons.Outlined.CalendarToday,
+                                    contentDescription = null,
+                                    tint = Color.White.copy(alpha = 0.85f),
+                                    modifier = Modifier.size(10.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
                 // 顶端多选 Badge
                 androidx.compose.animation.AnimatedVisibility(
@@ -973,214 +1040,65 @@ private fun TimelineRecordCard(
                     exit = scaleOut() + fadeOut(),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(10.dp)
+                        .padding(if (viewMode == DateRecorderViewMode.COMPACT) 6.dp else 8.dp)
                 ) {
                     SelectionBadge(isSelected = isSelected)
                 }
             }
 
-            Column(modifier = Modifier.padding(14.dp)) {
-                Text(
-                    text = record.title.ifBlank { "无标题记录" },
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-
-                if (record.note.isNotBlank()) {
-                    Spacer(modifier = Modifier.height(4.dp))
+            // 时光流模式 (TIMELINE) 下的文字手记与日期 Tag 区域
+            androidx.compose.animation.AnimatedVisibility(
+                visible = viewMode == DateRecorderViewMode.TIMELINE,
+                enter = expandVertically(spring(stiffness = Spring.StiffnessLow)) + fadeIn(),
+                exit = shrinkVertically(spring(stiffness = Spring.StiffnessLow)) + fadeOut()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
                     Text(
-                        text = record.note,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 2,
+                        text = record.title.ifBlank { "无标题记录" },
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
-                }
 
-                Spacer(modifier = Modifier.height(10.dp))
+                    if (record.note.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = record.note,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
 
-                // 日期标签行
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    // 拍摄日期 Pill
-                    DateTag(
-                        icon = Icons.Outlined.PhotoCamera,
-                        text = "拍摄 ${record.shootDate}",
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                    Spacer(modifier = Modifier.height(10.dp))
 
-                    // 关联日期 Pill
-                    if (record.linkedDate != null) {
-                        val relativeDays = computeRelativeDaysDescription(record.shootDate, record.linkedDate)
+                    // 日期标签行
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        // 拍摄日期 Pill
                         DateTag(
-                            icon = Icons.Outlined.CalendarToday,
-                            text = "关联 ${record.linkedDate}" + if (relativeDays.isNotBlank()) " ($relativeDays)" else "",
-                            containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            icon = Icons.Outlined.PhotoCamera,
+                            text = "拍摄 ${record.shootDate}",
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                    }
-                }
-            }
-        }
-    }
-}
 
-/** 相册网格模式 (GRID) 卡片：双列拍立得相框与沉浸阴影。 */
-@Composable
-private fun GridRecordCard(
-    record: DateRecord,
-    photoUri: String,
-    isSelected: Boolean,
-    selectionMode: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val cardScale by animateFloatAsState(
-        targetValue = if (selectionMode && isSelected) 0.95f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "grid_card_scale"
-    )
-    val borderWidth by animateDpAsState(
-        targetValue = if (selectionMode && isSelected) 2.5.dp else 0.dp,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "grid_card_border"
-    )
-
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
-        border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = cardScale
-                scaleY = cardScale
-            }
-    ) {
-        Box {
-            AsyncImage(
-                uri = photoUri,
-                contentDescription = record.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-            )
-
-            // 底部蒙层与文字信息
-            Column(
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth()
-                    .background(
-                        Brush.verticalGradient(
-                            colors = listOf(
-                                Color.Transparent,
-                                Color.Black.copy(alpha = 0.75f)
+                        // 关联日期 Pill
+                        if (record.linkedDate != null) {
+                            val relativeDays = computeRelativeDaysDescription(record.shootDate, record.linkedDate)
+                            DateTag(
+                                icon = Icons.Outlined.CalendarToday,
+                                text = "关联 ${record.linkedDate}" + if (relativeDays.isNotBlank()) " ($relativeDays)" else "",
+                                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                             )
-                        )
-                    )
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
-            ) {
-                Text(
-                    text = record.title.ifBlank { "记录" },
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color.White,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    Text(
-                        text = "${record.shootDate}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.85f)
-                    )
-                    if (record.linkedDate != null) {
-                        Icon(
-                            imageVector = Icons.Outlined.CalendarToday,
-                            contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(10.dp)
-                        )
+                        }
                     }
                 }
-            }
-
-            androidx.compose.animation.AnimatedVisibility(
-                visible = selectionMode,
-                enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-                exit = scaleOut() + fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-            ) {
-                SelectionBadge(isSelected = isSelected)
-            }
-        }
-    }
-}
-
-/** 紧凑矩阵模式 (COMPACT) 卡片：高效高密度。 */
-@Composable
-private fun CompactRecordCard(
-    record: DateRecord,
-    photoUri: String,
-    isSelected: Boolean,
-    selectionMode: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val cardScale by animateFloatAsState(
-        targetValue = if (selectionMode && isSelected) 0.92f else 1f,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "compact_card_scale"
-    )
-    val borderWidth by animateDpAsState(
-        targetValue = if (selectionMode && isSelected) 2.dp else 0.dp,
-        label = "compact_card_border"
-    )
-
-    Card(
-        onClick = onClick,
-        shape = RoundedCornerShape(8.dp),
-        border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .graphicsLayer {
-                scaleX = cardScale
-                scaleY = cardScale
-            }
-    ) {
-        Box {
-            AsyncImage(
-                uri = photoUri,
-                contentDescription = record.title,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(1f)
-            )
-
-            androidx.compose.animation.AnimatedVisibility(
-                visible = selectionMode,
-                enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-                exit = scaleOut() + fadeOut(),
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(6.dp)
-            ) {
-                SelectionBadge(isSelected = isSelected)
             }
         }
     }
