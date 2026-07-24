@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalDensity
 import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -380,7 +382,11 @@ private fun EditableImage(
             }
         }
 
-        // 1. 照片本体：居中平滑旋转自适应
+        val photoShape = remember { RoundedCornerShape(16.dp) }
+        val density = LocalDensity.current
+        val shadowElevationPx = remember(density) { with(density) { 6.dp.toPx() } }
+
+        // 1. 照片本体：自带圆角与阴影，居中平滑旋转自适应（无外框，旋转无黑边）
         Image(
             bitmap = state.sourceBitmap.asImageBitmap(),
             contentDescription = "编辑中的照片",
@@ -395,6 +401,9 @@ private fun EditableImage(
                 }
                 .graphicsLayer {
                     rotationZ = angle
+                    shadowElevation = shadowElevationPx
+                    shape = photoShape
+                    clip = true
                 }
                 .pointerInput(mode) {
                     if (mode == EditTab.HANDWRITE) {
@@ -423,6 +432,7 @@ private fun EditableImage(
                         placeable.place(0, 0)
                     }
                 }
+                .clip(photoShape)
         ) {
             if (mode == EditTab.CROP && state.cropEnabled) {
                 CropOverlay(
