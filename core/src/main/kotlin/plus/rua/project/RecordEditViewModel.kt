@@ -47,7 +47,7 @@ data class RecordEditUiState(
  * 记录编辑页面 ViewModel，处理新建与编辑两种模式。
  *
  * @param repository 数据仓库
- * @param photoPath 新建模式下的照片绝对路径（来自相机/编辑器），编辑模式为 null
+ * @param photoPath 新建模式下的照片绝对路径，或编辑模式下重新编辑后的照片绝对路径（可空）
  * @param recordId 编辑模式下的已有记录 ID，新建模式为 null
  */
 class RecordEditViewModel(
@@ -61,7 +61,8 @@ class RecordEditViewModel(
 
     /** 用户是否手动编辑过标题；为 false 时标题随拍摄日期联动 */
     private var titleManuallyEdited = false
-
+    private var existingCreatedAt: Instant? = null
+    private var originalPhotoRelativePath: String? = null
     init {
         if (recordId != null) {
             loadExistingRecord(recordId)
@@ -89,7 +90,13 @@ class RecordEditViewModel(
         viewModelScope.launch {
             val record = repository.observeById(id).first()
             if (record != null) {
-                val absFile = repository.absoluteFileOf(record.photoPath)
+                existingCreatedAt = record.createdAt
+                originalPhotoRelativePath = record.photoPath
+                val absFile = if (photoPath != null) {
+                    File(photoPath)
+                } else {
+                    repository.absoluteFileOf(record.photoPath)
+                }
                 titleManuallyEdited = true
                 _uiState.value = RecordEditUiState(
                     loading = false,
@@ -150,9 +157,14 @@ class RecordEditViewModel(
                         shootDate = state.shootDate,
                         linkedDate = state.linkedDate,
                         photoPath = relPath,
-                        createdAt = Instant.fromEpochMilliseconds(System.currentTimeMillis())
+                        createdAt = existingCreatedAt ?: Instant.fromEpochMilliseconds(System.currentTimeMillis())
                     )
                 )
+                originalPhotoRelativePath?.let { oldPath ->
+                    if (oldPath != relPath) {
+                        repository.deletePhotoFile(oldPath)
+                    }
+                }
             } else {
                 repository.insert(
                     DateRecord(

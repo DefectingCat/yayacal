@@ -37,6 +37,7 @@ class RecordDetailActivity : BaseActivity() {
                         startActivityWithSlide(
                             Intent(this, PhotoEditorActivity::class.java).apply {
                                 putExtra(DateRecorderNav.EXTRA_TEMP_PHOTO_PATH, photoPath)
+                                putExtra(DateRecorderNav.EXTRA_RECORD_ID, recordId)
                             }
                         )
                     }

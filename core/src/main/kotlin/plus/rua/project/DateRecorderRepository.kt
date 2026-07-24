@@ -95,7 +95,7 @@ class DateRecorderRepository(
     /**
      * 删除指定相对路径的照片文件，文件不存在时静默忽略。
      */
-    private fun deletePhotoFile(relativePath: String) {
+    internal fun deletePhotoFile(relativePath: String) {
         runCatching { absoluteFileOf(relativePath).delete() }
     }
 
