@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-07-24
+
+### Added
+
+- 开源许可页面重构：重新设计开放源代码许可页面 (`LicensesScreen`)，集成 M3 Expressive 设计规范、弹簧弹性动画与依赖项组件补全。
+- 时光画廊视图切换动画：日期记录器 (`DateRecorderScreen`) 视图模式切换接入 `SharedTransitionLayout`，实现瀑布流/网格/列表视图切换时的卡片形变与层级圆角过渡。
+- 照片编辑自适应无缝旋转：重构 `PhotoEditorScreen` 旋转体验，干掉外框卡片限制，实现全视口自适应旋转，照片主体增加精细悬浮阴影与圆角。
+
+### Changed
+
+- 渲染与绘制性能优化：动画平移与透明度变更改用 `graphicsLayer` 移至 Drawing 阶段，跳过 Composition 与 Layout 测量；农历/节气预计算及批量查询解耦至 `Dispatchers.Default` 后台协程池。
+- 首页 FAB 浮动菜单升级：重新设计左下角 FAB 浮动菜单视觉样式、淡入淡出动画以及 Back 键拦截体验。
+
+### Fixed
+
+- 内存泄露与 Bitmap 回收：修复 `PhotoProcessor.loadSampled` 中 EXIF 旋转前的中间 `Bitmap` 未回收导致的 Native 内存泄露。
+- 照片编辑错位与黑边：修复照片旋转时的错位黑边，以及编辑已有记录时丢掉 `recordId` 的问题。
+- 年视图布局与抖动：修复年视图标题切换今年按钮时的布局抖动、重复农历年份显示，以及 FAB 遮挡 10 月迷你月历的问题。
+- 调班设置重排角标：调班设置迷你月历重排起点显式展示 `起·班` / `起·休` 状态角标。
+- 性能 Trace 范围修正：修正 `CalendarMonthPage` 中 Trace Section 的结束判定边界。
 ## [1.4.0] - 2026-07-23
 
 ### Added
@@ -315,6 +335,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.5.0]: https://github.com/xfy/yayacal/releases/tag/v1.5.0
 [1.4.0]: https://github.com/xfy/yayacal/releases/tag/v1.4.0
 [1.3.0]: https://github.com/xfy/yayacal/releases/tag/v1.3.0
 [1.2.0]: https://github.com/xfy/yayacal/releases/tag/v1.2.0
