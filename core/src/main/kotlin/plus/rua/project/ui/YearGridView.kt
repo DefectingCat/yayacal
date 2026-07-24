@@ -408,25 +408,34 @@ fun YearHeader(
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
-            AnimatedVisibility(
-                visible = year != currentYear,
-                enter = fadeIn(tween(200)) + scaleIn(spring(stiffness = Spring.StiffnessMedium), initialScale = 0.7f),
-                exit = fadeOut(tween(150)) + scaleOut(targetScale = 0.8f),
-                label = "this_year_button_visibility"
-            ) {
-                Surface(
-                    onClick = { onYearChange(currentYear) },
-                    shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f)
-                ) {
-                    Text(
-                        text = "今年",
-                        color = MaterialTheme.colorScheme.primary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
-                    )
+            val showThisYear = year != currentYear
+            val thisYearAlpha by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (showThisYear) 1f else 0f,
+                animationSpec = tween(200),
+                label = "this_year_alpha"
+            )
+            val thisYearScale by androidx.compose.animation.core.animateFloatAsState(
+                targetValue = if (showThisYear) 1f else 0.8f,
+                animationSpec = spring(stiffness = Spring.StiffnessMedium),
+                label = "this_year_scale"
+            )
+            Surface(
+                onClick = { if (showThisYear) onYearChange(currentYear) },
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                modifier = Modifier.graphicsLayer {
+                    alpha = thisYearAlpha
+                    scaleX = thisYearScale
+                    scaleY = thisYearScale
                 }
+            ) {
+                Text(
+                    text = "今年",
+                    color = MaterialTheme.colorScheme.primary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                )
             }
         }
         AnimatedContent(
