@@ -16,11 +16,14 @@ data class LicenseItem(
  */
 val licenses = listOf(
     LicenseItem("AndroidX Activity Compose", "Apache-2.0"),
+    LicenseItem("AndroidX CameraX", "Apache-2.0"),
     LicenseItem("AndroidX Lifecycle", "Apache-2.0"),
+    LicenseItem("AndroidX Media3 (ExoPlayer)", "Apache-2.0"),
+    LicenseItem("AndroidX Room", "Apache-2.0"),
     LicenseItem("Compose Material 3", "Apache-2.0"),
-    LicenseItem("Compose Multiplatform", "Apache-2.0"),
     LicenseItem("Kotlin", "Apache-2.0"),
     LicenseItem("kotlinx-datetime", "Apache-2.0"),
     LicenseItem("Sketch", "Apache-2.0"),
     LicenseItem("tyme4kt", "MIT"),
+    LicenseItem("ZoomImage", "Apache-2.0"),
 )

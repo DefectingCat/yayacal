@@ -12,8 +12,8 @@ class LicensesActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 LicensesScreen(
-                onBack = { finishWithSlideBack() }
-            )
+                    onBack = { finishWithSlideBack() }
+                )
             }
         }
     }
