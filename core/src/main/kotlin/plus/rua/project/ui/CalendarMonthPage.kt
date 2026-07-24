@@ -118,7 +118,6 @@ fun CalendarMonthPage(
             else Modifier
         )
     ) {
-        composeTraceEndSection()
         weeks.forEachIndexed { weekIndex, week ->
             key(weekIndex) {
                 WeekRow(
@@ -141,8 +140,8 @@ fun CalendarMonthPage(
             }
         }
     }
+    composeTraceEndSection()
 }
-
 @Composable
 private fun WeekRow(
     weekIndex: Int,
