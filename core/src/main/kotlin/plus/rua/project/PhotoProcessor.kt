@@ -37,7 +37,12 @@ object PhotoProcessor {
         val bitmap = BitmapFactory.decodeFile(path, options)
             ?: error("无法加载图片: $path")
         val rotation = readExifRotation(path)
-        return if (rotation == 0) bitmap else rotate(bitmap, rotation)
+        if (rotation == 0) return bitmap
+        val rotated = rotate(bitmap, rotation)
+        if (rotated != bitmap && !bitmap.isRecycled) {
+            bitmap.recycle()
+        }
+        return rotated
     }
 
     /**
