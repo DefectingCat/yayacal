@@ -959,6 +959,7 @@ private fun SharedTransitionScope.TimelineRecordCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
                 animatedVisibilityScope = animatedVisibilityScope
@@ -1079,6 +1080,7 @@ private fun SharedTransitionScope.GridRecordCard(
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
             .sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
                 animatedVisibilityScope = animatedVisibilityScope
@@ -1096,6 +1098,7 @@ private fun SharedTransitionScope.GridRecordCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .clip(RoundedCornerShape(14.dp))
                     .sharedElement(
                         sharedContentState = rememberSharedContentState(key = "photo_${record.id}"),
                         animatedVisibilityScope = animatedVisibilityScope
@@ -1184,9 +1187,9 @@ private fun SharedTransitionScope.CompactRecordCard(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
             .sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
                 animatedVisibilityScope = animatedVisibilityScope
@@ -1204,6 +1207,7 @@ private fun SharedTransitionScope.CompactRecordCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
+                    .clip(RoundedCornerShape(8.dp))
                     .sharedElement(
                         sharedContentState = rememberSharedContentState(key = "photo_${record.id}"),
                         animatedVisibilityScope = animatedVisibilityScope
