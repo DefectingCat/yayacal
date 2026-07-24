@@ -3,6 +3,10 @@ package plus.rua.project.ui
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.ExperimentalSharedTransitionApi
+import androidx.compose.animation.SharedTransitionLayout
+import androidx.compose.animation.SharedTransitionScope
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -700,6 +704,7 @@ private fun SortOrderDirectionOption(
         }
     }
 }
+@OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun RecordGrid(
     records: List<DateRecord>,
@@ -727,121 +732,151 @@ private fun RecordGrid(
         }
     }
 
-    val columns = when (viewMode) {
-        DateRecorderViewMode.TIMELINE -> GridCells.Fixed(1)
-        DateRecorderViewMode.GRID -> GridCells.Fixed(2)
-        DateRecorderViewMode.COMPACT -> GridCells.Adaptive(minSize = 100.dp)
-    }
+    SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+        AnimatedContent(
+            targetState = viewMode,
+            label = "date_recorder_view_mode_transition",
+            transitionSpec = {
+                fadeIn(tween(280)) togetherWith fadeOut(tween(280))
+            },
+            modifier = Modifier.fillMaxSize()
+        ) { currentMode ->
+            val columns = when (currentMode) {
+                DateRecorderViewMode.TIMELINE -> GridCells.Fixed(1)
+                DateRecorderViewMode.GRID -> GridCells.Fixed(2)
+                DateRecorderViewMode.COMPACT -> GridCells.Adaptive(minSize = 100.dp)
+            }
 
-    LazyVerticalGrid(
-        state = gridState,
-        columns = columns,
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
-                    val startOffset = down.position
-                    val startRecordId = findRecordIdAtOffset(gridState, startOffset) ?: return@awaitEachGesture
-                    val startTime = down.uptimeMillis
+            LazyVerticalGrid(
+                state = gridState,
+                columns = columns,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .pointerInput(Unit) {
+                        awaitEachGesture {
+                            val down = awaitFirstDown(pass = PointerEventPass.Initial, requireUnconsumed = false)
+                            val startOffset = down.position
+                            val startRecordId = findRecordIdAtOffset(gridState, startOffset) ?: return@awaitEachGesture
+                            val startTime = down.uptimeMillis
 
-                    var isDragSelecting = false
-                    var isScrolling = false
-                    val initialSelected = if (currentSelectionMode) currentSelectedIds else emptySet()
+                            var isDragSelecting = false
+                            var isScrolling = false
+                            val initialSelected = if (currentSelectionMode) currentSelectedIds else emptySet()
 
-                    while (true) {
-                        val event = awaitPointerEvent(pass = PointerEventPass.Initial)
-                        val pointerChange = event.changes.firstOrNull { it.id == down.id } ?: break
-                        if (!pointerChange.pressed) break
+                            while (true) {
+                                val event = awaitPointerEvent(pass = PointerEventPass.Initial)
+                                val pointerChange = event.changes.firstOrNull { it.id == down.id } ?: break
+                                if (!pointerChange.pressed) break
 
-                        val currentOffset = pointerChange.position
-                        val delta = currentOffset - startOffset
-                        val distance = delta.getDistance()
-                        val elapsedTime = pointerChange.uptimeMillis - startTime
+                                val currentOffset = pointerChange.position
+                                val delta = currentOffset - startOffset
+                                val distance = delta.getDistance()
+                                val elapsedTime = pointerChange.uptimeMillis - startTime
 
-                        if (!isDragSelecting && !isScrolling) {
-                            if (currentSelectionMode) {
-                                if (distance > 20f && elapsedTime < 120L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 2f) {
-                                    isScrolling = true
-                                } else if (distance >= 16f || (elapsedTime >= 120L && distance >= 6f)) {
-                                    isDragSelecting = true
-                                    currentOnSetSelectedIds(initialSelected + startRecordId)
+                                if (!isDragSelecting && !isScrolling) {
+                                    if (currentSelectionMode) {
+                                        if (distance > 20f && elapsedTime < 120L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 2f) {
+                                            isScrolling = true
+                                        } else if (distance >= 16f || (elapsedTime >= 120L && distance >= 6f)) {
+                                            isDragSelecting = true
+                                            currentOnSetSelectedIds(initialSelected + startRecordId)
+                                        }
+                                    } else {
+                                        if (distance > 30f && elapsedTime < 200L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 1.5f) {
+                                            isScrolling = true
+                                        } else if (elapsedTime >= 250L || (elapsedTime >= 150L && distance >= 10f)) {
+                                            isDragSelecting = true
+                                            currentOnSetSelectedIds(setOf(startRecordId))
+                                        }
+                                    }
                                 }
-                            } else {
-                                if (distance > 30f && elapsedTime < 200L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 1.5f) {
-                                    isScrolling = true
-                                } else if (elapsedTime >= 250L || (elapsedTime >= 150L && distance >= 10f)) {
-                                    isDragSelecting = true
-                                    currentOnSetSelectedIds(setOf(startRecordId))
+
+                                if (isDragSelecting) {
+                                    pointerChange.consume()
+                                    val currentRecordId = findRecordIdAtOffset(gridState, currentOffset)
+                                    if (currentRecordId != null) {
+                                        val startIdx = currentRecords.indexOfFirst { it.id == startRecordId }
+                                        val currentIdx = currentRecords.indexOfFirst { it.id == currentRecordId }
+                                        if (startIdx != -1 && currentIdx != -1) {
+                                            val minIdx = minOf(startIdx, currentIdx)
+                                            val maxIdx = maxOf(startIdx, currentIdx)
+                                            val draggedIds = (minIdx..maxIdx).map { currentRecords[it].id }.toSet()
+                                            currentOnSetSelectedIds(initialSelected + draggedIds)
+                                        }
+                                    }
+
+                                    val viewportHeight = gridState.layoutInfo.viewportSize.height
+                                    if (currentOffset.y < 120f) {
+                                        coroutineScope.launch { gridState.scrollBy(-30f) }
+                                    } else if (currentOffset.y > viewportHeight - 120f) {
+                                        coroutineScope.launch { gridState.scrollBy(25f) }
+                                    }
                                 }
                             }
                         }
+                    },
+                contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 80.dp),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                groupedRecords.forEach { (monthTitle, monthRecords) ->
+                    item(
+                        key = "header_$monthTitle",
+                        span = { GridItemSpan(maxLineSpan) }
+                    ) {
+                        MonthHeaderItem(title = monthTitle, count = monthRecords.size)
+                    }
 
-                        if (isDragSelecting) {
-                            pointerChange.consume()
-                            val currentRecordId = findRecordIdAtOffset(gridState, currentOffset)
-                            if (currentRecordId != null) {
-                                val startIdx = currentRecords.indexOfFirst { it.id == startRecordId }
-                                val currentIdx = currentRecords.indexOfFirst { it.id == currentRecordId }
-                                if (startIdx != -1 && currentIdx != -1) {
-                                    val minIdx = minOf(startIdx, currentIdx)
-                                    val maxIdx = maxOf(startIdx, currentIdx)
-                                    val draggedIds = (minIdx..maxIdx).map { currentRecords[it].id }.toSet()
-                                    currentOnSetSelectedIds(initialSelected + draggedIds)
-                                }
+                    items(
+                        items = monthRecords,
+                        key = { it.id }
+                    ) { record ->
+                        val photoUri = "file://${photoRoot.absoluteFileOf(record.photoPath).absolutePath}"
+                        val isSelected = record.id in selectedIds
+
+                        when (currentMode) {
+                            DateRecorderViewMode.TIMELINE -> {
+                                TimelineRecordCard(
+                                    record = record,
+                                    photoUri = photoUri,
+                                    isSelected = isSelected,
+                                    selectionMode = selectionMode,
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    onClick = {
+                                        if (selectionMode) onToggleSelection(record.id)
+                                        else onOpenRecord(record.id)
+                                    }
+                                )
                             }
-
-                            val viewportHeight = gridState.layoutInfo.viewportSize.height
-                            if (currentOffset.y < 120f) {
-                                coroutineScope.launch { gridState.scrollBy(-30f) }
-                            } else if (currentOffset.y > viewportHeight - 120f) {
-                                coroutineScope.launch { gridState.scrollBy(25f) }
+                            DateRecorderViewMode.GRID -> {
+                                GridRecordCard(
+                                    record = record,
+                                    photoUri = photoUri,
+                                    isSelected = isSelected,
+                                    selectionMode = selectionMode,
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    onClick = {
+                                        if (selectionMode) onToggleSelection(record.id)
+                                        else onOpenRecord(record.id)
+                                    }
+                                )
+                            }
+                            DateRecorderViewMode.COMPACT -> {
+                                CompactRecordCard(
+                                    record = record,
+                                    photoUri = photoUri,
+                                    isSelected = isSelected,
+                                    selectionMode = selectionMode,
+                                    animatedVisibilityScope = this@AnimatedContent,
+                                    onClick = {
+                                        if (selectionMode) onToggleSelection(record.id)
+                                        else onOpenRecord(record.id)
+                                    }
+                                )
                             }
                         }
                     }
                 }
-            },
-        contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 80.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        groupedRecords.forEach { (monthTitle, monthRecords) ->
-            // 月份分组 Header (跨满整行)
-            item(
-                key = "header_$monthTitle",
-                span = { GridItemSpan(maxLineSpan) }
-            ) {
-                MonthHeaderItem(title = monthTitle, count = monthRecords.size)
-            }
-
-            items(
-                items = monthRecords,
-                key = { it.id }
-            ) { record ->
-                val photoUri = "file://${photoRoot.absoluteFileOf(record.photoPath).absolutePath}"
-                val isSelected = record.id in selectedIds
-
-                val cardModifier = Modifier.animateItem(
-                    fadeInSpec = tween(300),
-                    fadeOutSpec = tween(300),
-                    placementSpec = spring(
-                        stiffness = Spring.StiffnessMediumLow,
-                        dampingRatio = Spring.DampingRatioMediumBouncy
-                    )
-                )
-
-                AnimatedRecordCard(
-                    record = record,
-                    photoUri = photoUri,
-                    isSelected = isSelected,
-                    selectionMode = selectionMode,
-                    viewMode = viewMode,
-                    onClick = {
-                        if (selectionMode) onToggleSelection(record.id)
-                        else onOpenRecord(record.id)
-                    },
-                    modifier = cardModifier
-                )
             }
         }
     }
@@ -891,76 +926,42 @@ private fun MonthHeaderItem(title: String, count: Int) {
     }
 }
 
-/** 支持视图切换平滑变形过渡的统一记录卡片。 */
-@OptIn(ExperimentalLayoutApi::class)
+/** 时光流模式 (TIMELINE) 卡片：宽幅展图、标题手记摘要、拍摄与关联日期 Badge。 */
+@OptIn(ExperimentalSharedTransitionApi::class, ExperimentalLayoutApi::class)
 @Composable
-private fun AnimatedRecordCard(
+private fun SharedTransitionScope.TimelineRecordCard(
     record: DateRecord,
     photoUri: String,
     isSelected: Boolean,
     selectionMode: Boolean,
-    viewMode: DateRecorderViewMode,
+    animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val targetCorner = when (viewMode) {
-        DateRecorderViewMode.TIMELINE -> 16.dp
-        DateRecorderViewMode.GRID -> 14.dp
-        DateRecorderViewMode.COMPACT -> 8.dp
-    }
-    val cornerRadius by animateDpAsState(
-        targetValue = targetCorner,
-        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "card_corner_radius"
-    )
-
-    val targetScale = if (selectionMode && isSelected) {
-        when (viewMode) {
-            DateRecorderViewMode.TIMELINE -> 0.96f
-            DateRecorderViewMode.GRID -> 0.95f
-            DateRecorderViewMode.COMPACT -> 0.92f
-        }
-    } else 1f
     val cardScale by animateFloatAsState(
-        targetValue = targetScale,
+        targetValue = if (selectionMode && isSelected) 0.96f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "card_scale"
+        label = "timeline_card_scale"
     )
-
-    val targetBorderWidth = if (selectionMode && isSelected) {
-        when (viewMode) {
-            DateRecorderViewMode.TIMELINE, DateRecorderViewMode.GRID -> 2.5.dp
-            DateRecorderViewMode.COMPACT -> 2.dp
-        }
-    } else 0.dp
     val borderWidth by animateDpAsState(
-        targetValue = targetBorderWidth,
+        targetValue = if (selectionMode && isSelected) 2.5.dp else 0.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "card_border"
-    )
-
-    val defaultElevation = if (viewMode == DateRecorderViewMode.COMPACT) 0.dp else 1.dp
-    val elevation by animateDpAsState(
-        targetValue = defaultElevation,
-        animationSpec = tween(200),
-        label = "card_elevation"
+        label = "timeline_card_border"
     )
 
     Card(
         onClick = onClick,
-        shape = RoundedCornerShape(cornerRadius),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow
         ),
         border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
-        elevation = CardDefaults.cardElevation(defaultElevation = elevation),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier
             .fillMaxWidth()
-            .animateContentSize(
-                animationSpec = spring(
-                    stiffness = Spring.StiffnessLow,
-                    dampingRatio = Spring.DampingRatioMediumBouncy
-                )
+            .sharedBounds(
+                sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
+                animatedVisibilityScope = animatedVisibilityScope
             )
             .graphicsLayer {
                 scaleX = cardScale
@@ -969,69 +970,19 @@ private fun AnimatedRecordCard(
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Box {
-                val imageModifier = when (viewMode) {
-                    DateRecorderViewMode.TIMELINE -> Modifier
-                        .fillMaxWidth()
-                        .height(180.dp)
-                    else -> Modifier
-                        .fillMaxWidth()
-                        .aspectRatio(1f)
-                }
-
                 AsyncImage(
                     uri = photoUri,
                     contentDescription = record.title,
                     contentScale = ContentScale.Crop,
-                    modifier = imageModifier
-                )
-
-                // 底部蒙层与文字信息 (仅在 GRID 网格模式下展示)
-                androidx.compose.animation.AnimatedVisibility(
-                    visible = viewMode == DateRecorderViewMode.GRID,
-                    enter = fadeIn(tween(200)) + expandVertically(),
-                    exit = fadeOut(tween(150)) + shrinkVertically(),
-                    modifier = Modifier.align(Alignment.BottomStart)
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(
-                                Brush.verticalGradient(
-                                    colors = listOf(
-                                        Color.Transparent,
-                                        Color.Black.copy(alpha = 0.75f)
-                                    )
-                                )
-                            )
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
-                    ) {
-                        Text(
-                            text = record.title.ifBlank { "记录" },
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = Color.White,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(180.dp)
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .sharedElement(
+                            sharedContentState = rememberSharedContentState(key = "photo_${record.id}"),
+                            animatedVisibilityScope = animatedVisibilityScope
                         )
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            Text(
-                                text = "${record.shootDate}",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = Color.White.copy(alpha = 0.85f)
-                            )
-                            if (record.linkedDate != null) {
-                                Icon(
-                                    imageVector = Icons.Outlined.CalendarToday,
-                                    contentDescription = null,
-                                    tint = Color.White.copy(alpha = 0.85f),
-                                    modifier = Modifier.size(10.dp)
-                                )
-                            }
-                        }
-                    }
-                }
+                )
 
                 // 顶端多选 Badge
                 androidx.compose.animation.AnimatedVisibility(
@@ -1040,65 +991,234 @@ private fun AnimatedRecordCard(
                     exit = scaleOut() + fadeOut(),
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(if (viewMode == DateRecorderViewMode.COMPACT) 6.dp else 8.dp)
+                        .padding(10.dp)
                 ) {
                     SelectionBadge(isSelected = isSelected)
                 }
             }
 
-            // 时光流模式 (TIMELINE) 下的文字手记与日期 Tag 区域
-            androidx.compose.animation.AnimatedVisibility(
-                visible = viewMode == DateRecorderViewMode.TIMELINE,
-                enter = expandVertically(spring(stiffness = Spring.StiffnessLow)) + fadeIn(),
-                exit = shrinkVertically(spring(stiffness = Spring.StiffnessLow)) + fadeOut()
-            ) {
-                Column(modifier = Modifier.padding(14.dp)) {
+            Column(modifier = Modifier.padding(14.dp)) {
+                Text(
+                    text = record.title.ifBlank { "无标题记录" },
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+
+                if (record.note.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = record.title.ifBlank { "无标题记录" },
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        maxLines = 1,
+                        text = record.note,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
+                }
 
-                    if (record.note.isNotBlank()) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = record.note,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
+                Spacer(modifier = Modifier.height(10.dp))
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                // 日期标签行
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    // 拍摄日期 Pill
+                    DateTag(
+                        icon = Icons.Outlined.PhotoCamera,
+                        text = "拍摄 ${record.shootDate}",
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
 
-                    // 日期标签行
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        // 拍摄日期 Pill
+                    // 关联日期 Pill
+                    if (record.linkedDate != null) {
+                        val relativeDays = computeRelativeDaysDescription(record.shootDate, record.linkedDate)
                         DateTag(
-                            icon = Icons.Outlined.PhotoCamera,
-                            text = "拍摄 ${record.shootDate}",
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            icon = Icons.Outlined.CalendarToday,
+                            text = "关联 ${record.linkedDate}" + if (relativeDays.isNotBlank()) " ($relativeDays)" else "",
+                            containerColor = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
                         )
-
-                        // 关联日期 Pill
-                        if (record.linkedDate != null) {
-                            val relativeDays = computeRelativeDaysDescription(record.shootDate, record.linkedDate)
-                            DateTag(
-                                icon = Icons.Outlined.CalendarToday,
-                                text = "关联 ${record.linkedDate}" + if (relativeDays.isNotBlank()) " ($relativeDays)" else "",
-                                containerColor = MaterialTheme.colorScheme.primaryContainer,
-                                contentColor = MaterialTheme.colorScheme.onPrimaryContainer
-                            )
-                        }
                     }
                 }
+            }
+        }
+    }
+}
+
+/** 相册网格模式 (GRID) 卡片：双列拍立得相框与沉浸阴影。 */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedTransitionScope.GridRecordCard(
+    record: DateRecord,
+    photoUri: String,
+    isSelected: Boolean,
+    selectionMode: Boolean,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardScale by animateFloatAsState(
+        targetValue = if (selectionMode && isSelected) 0.95f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "grid_card_scale"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (selectionMode && isSelected) 2.5.dp else 0.dp,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "grid_card_border"
+    )
+
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
+        border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .sharedBounds(
+                sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
+                animatedVisibilityScope = animatedVisibilityScope
+            )
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
+    ) {
+        Box {
+            AsyncImage(
+                uri = photoUri,
+                contentDescription = record.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .sharedElement(
+                        sharedContentState = rememberSharedContentState(key = "photo_${record.id}"),
+                        animatedVisibilityScope = animatedVisibilityScope
+                    )
+            )
+
+            // 底部蒙层与文字信息
+            Column(
+                modifier = Modifier
+                    .align(Alignment.BottomStart)
+                    .fillMaxWidth()
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(
+                                Color.Transparent,
+                                Color.Black.copy(alpha = 0.75f)
+                            )
+                        )
+                    )
+                    .padding(horizontal = 8.dp, vertical = 6.dp)
+            ) {
+                Text(
+                    text = record.title.ifBlank { "记录" },
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = Color.White,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = "${record.shootDate}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color.White.copy(alpha = 0.85f)
+                    )
+                    if (record.linkedDate != null) {
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarToday,
+                            contentDescription = null,
+                            tint = Color.White.copy(alpha = 0.85f),
+                            modifier = Modifier.size(10.dp)
+                        )
+                    }
+                }
+            }
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = selectionMode,
+                enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                exit = scaleOut() + fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(8.dp)
+            ) {
+                SelectionBadge(isSelected = isSelected)
+            }
+        }
+    }
+}
+
+/** 紧凑矩阵模式 (COMPACT) 卡片：高效高密度。 */
+@OptIn(ExperimentalSharedTransitionApi::class)
+@Composable
+private fun SharedTransitionScope.CompactRecordCard(
+    record: DateRecord,
+    photoUri: String,
+    isSelected: Boolean,
+    selectionMode: Boolean,
+    animatedVisibilityScope: AnimatedVisibilityScope,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val cardScale by animateFloatAsState(
+        targetValue = if (selectionMode && isSelected) 0.92f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
+        label = "compact_card_scale"
+    )
+    val borderWidth by animateDpAsState(
+        targetValue = if (selectionMode && isSelected) 2.dp else 0.dp,
+        label = "compact_card_border"
+    )
+
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(8.dp),
+        border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        modifier = modifier
+            .fillMaxWidth()
+            .sharedBounds(
+                sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
+                animatedVisibilityScope = animatedVisibilityScope
+            )
+            .graphicsLayer {
+                scaleX = cardScale
+                scaleY = cardScale
+            }
+    ) {
+        Box {
+            AsyncImage(
+                uri = photoUri,
+                contentDescription = record.title,
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .sharedElement(
+                        sharedContentState = rememberSharedContentState(key = "photo_${record.id}"),
+                        animatedVisibilityScope = animatedVisibilityScope
+                    )
+            )
+
+            androidx.compose.animation.AnimatedVisibility(
+                visible = selectionMode,
+                enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
+                exit = scaleOut() + fadeOut(),
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(6.dp)
+            ) {
+                SelectionBadge(isSelected = isSelected)
             }
         }
     }
