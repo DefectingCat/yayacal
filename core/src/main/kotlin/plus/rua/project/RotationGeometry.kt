@@ -46,6 +46,36 @@ object RotationGeometry {
         baseRotation % 180 != 0
 
     /**
+     * 原始宽高比为 [srcAspect] 的照片在旋转 [angleDegrees] 角度时，
+     * 包围盒（AABB）适应视口所需的未旋转 Layout 布局尺寸 (Width, Height)。
+     *
+     * 该尺寸的宽高比恒等于 [srcAspect]，保证 ContentScale.Fit 内部 0 留白 Padding，
+     * 且旋转后的包围盒平滑居中适应视口，无任何 Card 卡片容器遮挡与黑边。
+     */
+    fun calculateLayoutSize(
+        srcAspect: Float,
+        angleDegrees: Float,
+        viewportWidth: Float,
+        viewportHeight: Float
+    ): Pair<Float, Float> {
+        if (viewportWidth <= 0f || viewportHeight <= 0f || srcAspect <= 0f) {
+            return Pair(0f, 0f)
+        }
+        val rad = Math.toRadians(angleDegrees.toDouble())
+        val c = abs(cos(rad)).toFloat()
+        val s = abs(sin(rad)).toFloat()
+
+        // 归一化 AABB 包围盒尺寸 (baseWidth = srcAspect, baseHeight = 1.0)
+        val wAabb = srcAspect * c + 1.0f * s
+        val hAabb = 1.0f * c + srcAspect * s
+
+        // 适应视口的整体缩放系数
+        val k = minOf(viewportWidth / wAabb, viewportHeight / hAabb)
+
+        return Pair(srcAspect * k, 1.0f * k)
+    }
+
+    /**
      * 让「与容器同比例的图片矩形旋转 [offsetDegrees] 后仍完整覆盖容器」所需的最小缩放因子。
      *
      * 推导：图片 base 矩形 = 容器尺寸（宽 [aspect]、高 1，归一化）。绕中心旋转 θ 后，

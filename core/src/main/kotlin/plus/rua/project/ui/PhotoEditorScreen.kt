@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -31,6 +32,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clipToBounds
+import kotlin.math.roundToInt
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -273,34 +276,18 @@ private fun EditorBody(
             modifier = Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(16.dp),
+                .padding(16.dp)
+                .clipToBounds(),
             contentAlignment = Alignment.Center
         ) {
-            val srcAspect = state.sourceBitmap.width.toFloat() / state.sourceBitmap.height.toFloat()
-            val containerAspect by animateFloatAsState(
-                targetValue = RotationGeometry.stableAspect(srcAspect, state.rotationDegrees),
-                animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
-                label = "rotateAspect"
+            EditableImage(
+                state = state,
+                mode = activeTab,
+                onCropChange = onCropChange,
+                onAddPoint = onAddPoint,
+                onEndStroke = onEndStroke,
+                onDisplaySizeChange = onDisplaySizeChange
             )
-
-            Card(
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Black),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                modifier = Modifier.aspectRatio(containerAspect)
-            ) {
-                EditableImage(
-                    state = state,
-                    mode = activeTab,
-                    containerAspect = containerAspect,
-                    onCropChange = onCropChange,
-                    onAddPoint = onAddPoint,
-                    onEndStroke = onEndStroke,
-                    onDisplaySizeChange = onDisplaySizeChange
-                )
-            }
-
             if (saving) {
                 Surface(
                     color = Color.Black.copy(alpha = 0.7f),
@@ -353,7 +340,6 @@ private fun EditorBody(
 private fun EditableImage(
     state: PhotoEditorState,
     mode: EditTab,
-    containerAspect: Float,
     onCropChange: (Float, Float, Float, Float) -> Unit,
     onAddPoint: (Offset) -> Unit,
     onEndStroke: () -> Unit,
@@ -369,41 +355,46 @@ private fun EditableImage(
         )
     }
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .onSizeChanged { size ->
-                if (size.width > 0 && size.height > 0) {
-                    onDisplaySizeChange(size.width.toFloat(), size.height.toFloat())
-                }
-            }
+    val srcAspect = state.sourceBitmap.width.toFloat() / state.sourceBitmap.height.toFloat()
+
+    BoxWithConstraints(
+        modifier = Modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center
     ) {
+        val viewportWidth = constraints.maxWidth.toFloat()
+        val viewportHeight = constraints.maxHeight.toFloat()
         val angle = displayRotation.value
-        val baseRotation = RotationGeometry.baseRotation(angle)
-        val isSwapped = RotationGeometry.isSwapped(baseRotation)
-        val offset = RotationGeometry.offsetDegrees(angle)
-        val scale = RotationGeometry.coverScale(offset, containerAspect)
+
+        val (layoutWidth, layoutHeight) = remember(srcAspect, angle, viewportWidth, viewportHeight) {
+            RotationGeometry.calculateLayoutSize(srcAspect, angle, viewportWidth, viewportHeight)
+        }
+
+        // 稳态旋转下的真实照片显示尺寸（供 ViewModel / 笔触映射使用）
+        val isSteadySwapped = (state.rotationDegrees % 180 != 0)
+        val steadyWidth = if (isSteadySwapped) layoutHeight else layoutWidth
+        val steadyHeight = if (isSteadySwapped) layoutWidth else layoutHeight
+
+        LaunchedEffect(steadyWidth, steadyHeight) {
+            if (steadyWidth > 0f && steadyHeight > 0f) {
+                onDisplaySizeChange(steadyWidth, steadyHeight)
+            }
+        }
+
+        // 1. 照片本体：居中平滑旋转自适应
         Image(
             bitmap = state.sourceBitmap.asImageBitmap(),
             contentDescription = "编辑中的照片",
             modifier = Modifier
-                .layout { measurable, constraints ->
-                    val targetWidth = if (isSwapped) constraints.maxHeight else constraints.maxWidth
-                    val targetHeight = if (isSwapped) constraints.maxWidth else constraints.maxHeight
-                    val placeable = measurable.measure(
-                        Constraints.fixed(targetWidth, targetHeight)
-                    )
-                    layout(constraints.maxWidth, constraints.maxHeight) {
-                        val x = (constraints.maxWidth - targetWidth) / 2
-                        val y = (constraints.maxHeight - targetHeight) / 2
-                        placeable.placeRelative(x, y)
+                .layout { measurable, _ ->
+                    val w = layoutWidth.roundToInt()
+                    val h = layoutHeight.roundToInt()
+                    val placeable = measurable.measure(Constraints.fixed(w, h))
+                    layout(w, h) {
+                        placeable.place(0, 0)
                     }
                 }
                 .graphicsLayer {
                     rotationZ = angle
-                    scaleX = scale
-                    scaleY = scale
                 }
                 .pointerInput(mode) {
                     if (mode == EditTab.HANDWRITE) {
@@ -421,25 +412,38 @@ private fun EditableImage(
             contentScale = ContentScale.Fit
         )
 
-        if (mode == EditTab.CROP && state.cropEnabled) {
-            CropOverlay(
-                state = state,
-                onCropChange = onCropChange,
-                modifier = Modifier.fillMaxSize()
-            )
-        }
-
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            state.strokes.forEach { stroke ->
-                drawPath(
-                    path = stroke.toPath(),
-                    color = stroke.color,
-                    style = Stroke(
-                        width = stroke.widthPx,
-                        cap = StrokeCap.Round,
-                        join = StrokeJoin.Round
-                    )
+        // 2. 稳态 Overlay：裁剪框 CropOverlay 与手写 Canvas 贴合在稳态照片尺寸上
+        Box(
+            modifier = Modifier
+                .layout { measurable, _ ->
+                    val w = steadyWidth.roundToInt()
+                    val h = steadyHeight.roundToInt()
+                    val placeable = measurable.measure(Constraints.fixed(w, h))
+                    layout(w, h) {
+                        placeable.place(0, 0)
+                    }
+                }
+        ) {
+            if (mode == EditTab.CROP && state.cropEnabled) {
+                CropOverlay(
+                    state = state,
+                    onCropChange = onCropChange,
+                    modifier = Modifier.fillMaxSize()
                 )
+            }
+
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                state.strokes.forEach { stroke ->
+                    drawPath(
+                        path = stroke.toPath(),
+                        color = stroke.color,
+                        style = Stroke(
+                            width = stroke.widthPx,
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+                }
             }
         }
     }

@@ -131,4 +131,26 @@ class RotationGeometryTest {
         assertEquals(-10f, RotationGeometry.offsetDegrees(80f), 1e-5f)
         assertEquals(0f, RotationGeometry.offsetDegrees(90f), 1e-5f)
     }
+    @Test
+    fun calculateLayoutSize_maintainsSourceAspect_and_fitsViewportAABB() {
+        val srcAspect = 1.3333f // 4:3 横图
+        val vWidth = 1000f
+        val vHeight = 1400f
+
+        // 0° 未旋转：layout 宽 = 1000, 高 = 1000 / 1.3333 = 750
+        val (w0, h0) = RotationGeometry.calculateLayoutSize(srcAspect, 0f, vWidth, vHeight)
+        assertEquals(srcAspect, w0 / h0, 1e-3f)
+        assertEquals(1000f, w0, 1e-1f)
+        assertEquals(750f, h0, 1e-1f)
+
+        val (w90, h90) = RotationGeometry.calculateLayoutSize(srcAspect, 90f, vWidth, vHeight)
+        assertEquals(srcAspect, w90 / h90, 1e-3f)
+        assertEquals(1333.33f, w90, 1e-1f)
+        assertEquals(1000f, h90, 1e-1f)
+        // 视觉 AABB 包围盒不超过视口
+        val aabbWidth90 = h90
+        val aabbHeight90 = w90
+        assertTrue(aabbWidth90 <= vWidth + 1e-2f)
+        assertTrue(aabbHeight90 <= vHeight + 1e-2f)
+    }
 }
