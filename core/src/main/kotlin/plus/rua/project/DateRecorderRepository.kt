@@ -116,6 +116,8 @@ class DateRecorderRepository(
         val activePhotos = dao.getAllFlow().first().map { it.photoPath }.toSet()
         var deletedCount = 0
         photoDir.listFiles()?.forEach { file ->
+            // 跳过相机拍摄中的临时文件（tmp_ 前缀），它们尚未写入数据库记录
+            if (file.name.startsWith("tmp_")) return@forEach
             val relPath = relativePathOf(file)
             if (relPath !in activePhotos) {
                 if (file.delete()) {
