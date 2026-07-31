@@ -115,6 +115,8 @@ object PhotoProcessor {
         val y = (top.coerceIn(0f, 1f) * bitmap.height).toInt()
         val w = ((right - left).coerceIn(0f, 1f) * bitmap.width).toInt()
         val h = ((bottom - top).coerceIn(0f, 1f) * bitmap.height).toInt()
+        // 边界反转或为零宽高时直接返回原图，避免 createBitmap 抛 IllegalArgumentException
+        if (w <= 0 || h <= 0) return bitmap
         return Bitmap.createBitmap(bitmap, x, y, w, h, null, false)
     }
 
@@ -158,8 +160,8 @@ object PhotoProcessor {
             }
             result = cropped
         }
-        // 3. 合成手写笔触
-        if (strokes.isNotEmpty()) {
+        // 3. 合成手写笔触（displayWidth/Height 为 0 时跳过，避免除零产生 NaN 缩放）
+        if (strokes.isNotEmpty() && displayWidth > 0f && displayHeight > 0f) {
             val withStrokes = drawStrokes(result, strokes, displayWidth, displayHeight)
             if (result != source && result != withStrokes) {
                 result.recycle()

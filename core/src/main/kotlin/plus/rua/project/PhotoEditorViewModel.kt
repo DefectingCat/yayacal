@@ -98,13 +98,23 @@ class PhotoEditorViewModel(
     fun applyCrop() {
         update {
             if (!it.cropEnabled) return@update it
+            // 显式调用 rotate，以便回收中间 Bitmap（rotatedBitmap 属性每次新建且无法引用）
+            val rotated = PhotoProcessor.rotate(it.sourceBitmap, it.rotationDegrees)
             val cropped = PhotoProcessor.crop(
-                bitmap = it.rotatedBitmap,
+                bitmap = rotated,
                 left = it.cropLeft!!,
                 top = it.cropTop,
                 right = it.cropRight!!,
                 bottom = it.cropBottom
             )
+            // 回收旋转中间产物（仅在分配了新 Bitmap 时）
+            if (rotated !== it.sourceBitmap && rotated !== cropped && !rotated.isRecycled) {
+                rotated.recycle()
+            }
+            // 回收被替换的旧源图
+            if (it.sourceBitmap !== cropped && !it.sourceBitmap.isRecycled) {
+                it.sourceBitmap.recycle()
+            }
             it.copy(
                 sourceBitmap = cropped,
                 rotationDegrees = 0,
@@ -181,6 +191,13 @@ class PhotoEditorViewModel(
             }.onFailure { e ->
                 _uiState.update { it.copy(saving = false, error = "保存失败：${e.message}") }
             }
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        _uiState.value.editorState?.sourceBitmap?.let {
+            if (!it.isRecycled) it.recycle()
         }
     }
 
