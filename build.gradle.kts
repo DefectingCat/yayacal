@@ -11,14 +11,14 @@ plugins {
 
 spotless {
     kotlin {
-        target("src/**/*.kt")
+        target("**/src/**/*.kt")
         targetExclude("${layout.buildDirectory}/**/*.kt")
         ktlint()
         trimTrailingWhitespace()
         endWithNewline()
     }
     kotlinGradle {
-        target("*.gradle.kts")
+        target("**/*.gradle.kts")
         ktlint()
         trimTrailingWhitespace()
         endWithNewline()
