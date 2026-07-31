@@ -51,7 +51,7 @@ data class PhotoEditorState(
     val cropBottom: Float = 1f,
     val strokes: List<HandStroke> = emptyList(),
     val strokeColor: Color = Color.Red,
-    val strokeWidthPx: Float = 8f
+    val strokeWidthPx: Float = 16f
 ) {
     /** 当前是否已启用裁剪 */
     val cropEnabled: Boolean get() = cropLeft != null && cropRight != null

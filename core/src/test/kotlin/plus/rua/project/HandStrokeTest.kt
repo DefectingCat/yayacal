@@ -91,6 +91,18 @@ class HandStrokeTest {
         assertFalse(s.strokes[0].points.contains(Offset(50f, 50f)))
     }
 
+    @Test
+    fun defaultStrokeWidth_is16f() {
+        val s = emptyState()
+        assertEquals(16f, s.strokeWidthPx, "默认笔触粗细应为 16f")
+    }
+
+    @Test
+    fun strokeWidth_appliesToNewStrokes() {
+        val s = emptyState().copy(strokeWidthPx = 24f).withAddedPoint(Offset(1f, 1f))
+        assertEquals(24f, s.strokes[0].widthPx, "生成的笔触线宽应与状态一致")
+    }
+
     private companion object {
         /**
          * 通过 Unsafe.allocateInstance 创建 Bitmap 桩，跳过 Android 框架的静态初始化。

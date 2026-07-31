@@ -30,6 +30,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clipToBounds
@@ -57,6 +58,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Surface
@@ -206,6 +208,7 @@ fun PhotoEditorScreen(
                         onEndStroke = viewModel::endStroke,
                         onUndoStroke = viewModel::undoStroke,
                         onStrokeColorChange = viewModel::setStrokeColor,
+                        onStrokeWidthChange = viewModel::setStrokeWidth,
                         onDisplaySizeChange = viewModel::updateDisplaySize,
                         modifier = Modifier.fillMaxSize()
                     )
@@ -231,6 +234,7 @@ private fun EditorBody(
     onEndStroke: () -> Unit,
     onUndoStroke: () -> Unit,
     onStrokeColorChange: (Color) -> Unit,
+    onStrokeWidthChange: (Float) -> Unit,
     onDisplaySizeChange: (Float, Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -333,6 +337,7 @@ private fun EditorBody(
                 onApplyCrop = onApplyCrop,
                 onUndoStroke = onUndoStroke,
                 onStrokeColorChange = onStrokeColorChange,
+                onStrokeWidthChange = onStrokeWidthChange,
                 modifier = Modifier.fillMaxWidth()
             )
         }
@@ -626,6 +631,7 @@ private fun ToolPanel(
     onApplyCrop: () -> Unit,
     onUndoStroke: () -> Unit,
     onStrokeColorChange: (Color) -> Unit,
+    onStrokeWidthChange: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -747,7 +753,7 @@ private fun ToolPanel(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "涂鸦画笔颜色",
+                                text = "画笔粗细与颜色",
                                 style = MaterialTheme.typography.labelMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -774,6 +780,62 @@ private fun ToolPanel(
                                     style = MaterialTheme.typography.labelMedium
                                 )
                             }
+                        }
+
+                        // 笔触粗细调节：预设点 + 连续 Slider 滑块
+                        val presetSizes = listOf(8f, 16f, 24f, 36f)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            presetSizes.forEach { size ->
+                                val selected = (state.strokeWidthPx - size).absoluteValue < 1f
+                                val dotDp = when (size) {
+                                    8f -> 6.dp
+                                    16f -> 10.dp
+                                    24f -> 14.dp
+                                    else -> 18.dp
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .size(32.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (selected) MaterialTheme.colorScheme.primaryContainer
+                                            else MaterialTheme.colorScheme.surfaceContainerHigh
+                                        )
+                                        .border(
+                                            width = if (selected) 2.dp else 1.dp,
+                                            color = if (selected) MaterialTheme.colorScheme.primary
+                                            else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                            shape = CircleShape
+                                        )
+                                        .clickable { onStrokeWidthChange(size) },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(dotDp)
+                                            .background(state.strokeColor, CircleShape)
+                                    )
+                                }
+                            }
+
+                            Slider(
+                                value = state.strokeWidthPx,
+                                onValueChange = onStrokeWidthChange,
+                                valueRange = 4f..40f,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Text(
+                                text = "${state.strokeWidthPx.roundToInt()}px",
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.widthIn(min = 32.dp)
+                            )
                         }
 
                         val palette = listOf(
