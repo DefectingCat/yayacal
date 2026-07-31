@@ -163,6 +163,7 @@ fun YearGridView(
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val gridRows = if (isLandscape) 3 else 4
     val gridCols = if (isLandscape) 4 else 3
+    val bottomPadding = if (isLandscape) 24.dp else 84.dp
 
     Column(
         modifier =
@@ -178,7 +179,7 @@ fun YearGridView(
             Modifier
                 .fillMaxWidth()
                 .weight(1f)
-                .padding(start = 4.dp, end = 4.dp, bottom = 44.dp),
+                .padding(start = 4.dp, end = 4.dp, bottom = bottomPadding),
             verticalArrangement = Arrangement.SpaceEvenly,
         ) {
             (0 until gridRows).forEach { row ->
