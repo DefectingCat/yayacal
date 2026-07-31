@@ -197,15 +197,19 @@ object PhotoProcessor {
             isAntiAlias = true
         }
         strokes.forEach { stroke ->
-            if (stroke.points.size < 2) return@forEach
+            if (stroke.points.isEmpty()) return@forEach
             paint.color = stroke.color.toArgb()
             paint.strokeWidth = stroke.widthPx * ((scaleX + scaleY) / 2f)
             val path = android.graphics.Path()
             val first = stroke.points[0]
             path.moveTo(first.x * scaleX, first.y * scaleY)
-            for (i in 1 until stroke.points.size) {
-                val p = stroke.points[i]
-                path.lineTo(p.x * scaleX, p.y * scaleY)
+            if (stroke.points.size == 1) {
+                path.lineTo(first.x * scaleX, first.y * scaleY)
+            } else {
+                for (i in 1 until stroke.points.size) {
+                    val p = stroke.points[i]
+                    path.lineTo(p.x * scaleX, p.y * scaleY)
+                }
             }
             canvas.drawPath(path, paint)
         }

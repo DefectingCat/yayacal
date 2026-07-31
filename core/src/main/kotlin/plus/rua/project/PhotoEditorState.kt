@@ -78,8 +78,12 @@ fun HandStroke.toPath(): Path {
     if (points.isEmpty()) return Path()
     val path = Path()
     path.moveTo(points[0].x, points[0].y)
-    for (i in 1 until points.size) {
-        path.lineTo(points[i].x, points[i].y)
+    if (points.size == 1) {
+        path.lineTo(points[0].x, points[0].y)
+    } else {
+        for (i in 1 until points.size) {
+            path.lineTo(points[i].x, points[i].y)
+        }
     }
     return path
 }

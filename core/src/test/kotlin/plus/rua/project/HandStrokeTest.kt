@@ -103,6 +103,13 @@ class HandStrokeTest {
         assertEquals(24f, s.strokes[0].widthPx, "生成的笔触线宽应与状态一致")
     }
 
+    @Test
+    fun singlePointStroke_createsValidStroke() {
+        val s = emptyState().withAddedPoint(Offset(10f, 10f)).withEndedStroke()
+        assertEquals(1, s.strokes.size)
+        assertEquals(1, s.strokes[0].points.size)
+    }
+
     private companion object {
         /**
          * 通过 Unsafe.allocateInstance 创建 Bitmap 桩，跳过 Android 框架的静态初始化。

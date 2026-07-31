@@ -17,6 +17,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -412,15 +414,23 @@ private fun EditableImage(
                 }
                 .pointerInput(mode) {
                     if (mode == EditTab.HANDWRITE) {
-                        detectDragGestures(
-                            onDragStart = { offset -> onAddPoint(offset) },
-                            onDrag = { change, _ ->
-                                change.consume()
-                                onAddPoint(change.position)
-                            },
-                            onDragEnd = onEndStroke,
-                            onDragCancel = onEndStroke
-                        )
+                        awaitEachGesture {
+                            val down = awaitFirstDown(requireUnconsumed = false)
+                            onAddPoint(down.position)
+                            do {
+                                val event = awaitPointerEvent()
+                                val change = event.changes.firstOrNull { it.id == down.id }
+                                if (change != null && change.pressed) {
+                                    if (change.position != down.position) {
+                                        change.consume()
+                                        onAddPoint(change.position)
+                                    }
+                                } else {
+                                    break
+                                }
+                            } while (event.changes.any { it.pressed })
+                            onEndStroke()
+                        }
                     }
                 },
             contentScale = ContentScale.Fit
