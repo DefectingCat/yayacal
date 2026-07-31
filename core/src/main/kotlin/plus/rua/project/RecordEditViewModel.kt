@@ -40,6 +40,7 @@ data class RecordEditUiState(
     val photoAbsolutePath: String? = null,
     val canSave: Boolean = false,
     val finished: Boolean = false,
+    val error: String? = null,
     val isExistingRecord: Boolean = false
 )
 
@@ -88,30 +89,34 @@ class RecordEditViewModel(
 
     private fun loadExistingRecord(id: Long) {
         viewModelScope.launch {
-            val record = repository.observeById(id).first()
-            if (record != null) {
-                existingCreatedAt = record.createdAt
-                originalPhotoRelativePath = record.photoPath
-                val absFile = if (photoPath != null) {
-                    File(photoPath)
+            try {
+                val record = repository.observeById(id).first()
+                if (record != null) {
+                    existingCreatedAt = record.createdAt
+                    originalPhotoRelativePath = record.photoPath
+                    val absFile = if (photoPath != null) {
+                        File(photoPath)
+                    } else {
+                        repository.absoluteFileOf(record.photoPath)
+                    }
+                    titleManuallyEdited = true
+                    _uiState.value = RecordEditUiState(
+                        loading = false,
+                        title = record.title,
+                        note = record.note,
+                        shootDate = record.shootDate,
+                        linkedDate = record.linkedDate,
+                        photoUri = "file://${absFile.absolutePath}",
+                        photoAbsolutePath = absFile.absolutePath,
+                        canSave = true,
+                        isExistingRecord = true
+                    )
                 } else {
-                    repository.absoluteFileOf(record.photoPath)
+                    // 记录不存在（已被删除），直接结束
+                    _uiState.update { it.copy(loading = false, finished = true) }
                 }
-                titleManuallyEdited = true
-                _uiState.value = RecordEditUiState(
-                    loading = false,
-                    title = record.title,
-                    note = record.note,
-                    shootDate = record.shootDate,
-                    linkedDate = record.linkedDate,
-                    photoUri = "file://${absFile.absolutePath}",
-                    photoAbsolutePath = absFile.absolutePath,
-                    canSave = true,
-                    isExistingRecord = true
-                )
-            } else {
-                // 记录不存在（已被删除），直接结束
-                _uiState.update { it.copy(loading = false, finished = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(loading = false, error = "加载记录失败：${e.message}") }
             }
         }
     }
@@ -147,34 +152,38 @@ class RecordEditViewModel(
         val state = _uiState.value
         if (!state.canSave || state.photoAbsolutePath == null) return
         viewModelScope.launch {
-            val relPath = repository.relativePathOf(File(state.photoAbsolutePath))
-            if (state.isExistingRecord && recordId != null) {
-                repository.update(
-                    DateRecord(
-                        id = recordId,
-                        title = state.title,
-                        note = state.note,
-                        shootDate = state.shootDate,
-                        linkedDate = state.linkedDate,
-                        photoPath = relPath,
-                        createdAt = existingCreatedAt ?: Instant.fromEpochMilliseconds(System.currentTimeMillis())
-                    ),
-                    oldPhotoPath = originalPhotoRelativePath
-                )
-            } else {
-                repository.insert(
-                    DateRecord(
-                        id = 0,
-                        title = state.title,
-                        note = state.note,
-                        shootDate = state.shootDate,
-                        linkedDate = state.linkedDate,
-                        photoPath = relPath,
-                        createdAt = Instant.fromEpochMilliseconds(System.currentTimeMillis())
+            try {
+                val relPath = repository.relativePathOf(File(state.photoAbsolutePath))
+                if (state.isExistingRecord && recordId != null) {
+                    repository.update(
+                        DateRecord(
+                            id = recordId,
+                            title = state.title,
+                            note = state.note,
+                            shootDate = state.shootDate,
+                            linkedDate = state.linkedDate,
+                            photoPath = relPath,
+                            createdAt = existingCreatedAt ?: Instant.fromEpochMilliseconds(System.currentTimeMillis())
+                        ),
+                        oldPhotoPath = originalPhotoRelativePath
                     )
-                )
+                } else {
+                    repository.insert(
+                        DateRecord(
+                            id = 0,
+                            title = state.title,
+                            note = state.note,
+                            shootDate = state.shootDate,
+                            linkedDate = state.linkedDate,
+                            photoPath = relPath,
+                            createdAt = Instant.fromEpochMilliseconds(System.currentTimeMillis())
+                        )
+                    )
+                }
+                _uiState.update { it.copy(finished = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "保存失败：${e.message}") }
             }
-            _uiState.update { it.copy(finished = true) }
         }
     }
 }

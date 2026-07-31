@@ -21,7 +21,8 @@ data class DateRecordDetailUiState(
     val loading: Boolean = true,
     val record: DateRecord? = null,
     val photoUri: String? = null,
-    val deleted: Boolean = false
+    val deleted: Boolean = false,
+    val error: String? = null
 )
 
 /**
@@ -65,10 +66,13 @@ class DateRecordDetailViewModel(
 
     /** 删除当前记录及其照片文件。 */
     fun delete() {
-        val record = _uiState.value.record ?: return
         viewModelScope.launch {
-            repository.deleteWithPhoto(record)
-            _uiState.update { it.copy(deleted = true) }
+            try {
+                repository.deleteWithPhoto(record)
+                _uiState.update { it.copy(deleted = true) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "删除失败：${e.message}") }
+            }
         }
     }
 }
