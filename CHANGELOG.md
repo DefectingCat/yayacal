@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-07-31
+
+### Changed
+
+- 共享调试密钥配置：项目集中配置共享 `debug.keystore` 签名文件，解决本地与 CI 构建环境签名不一致导致的覆盖安装冲突问题。
+
 ## [1.6.0] - 2026-07-31
 
 ### Added
@@ -357,6 +363,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.6.1]: https://github.com/xfy/yayacal/releases/tag/v1.6.1
 [1.6.0]: https://github.com/xfy/yayacal/releases/tag/v1.6.0
 [1.5.0]: https://github.com/xfy/yayacal/releases/tag/v1.5.0
 [1.4.0]: https://github.com/xfy/yayacal/releases/tag/v1.4.0
