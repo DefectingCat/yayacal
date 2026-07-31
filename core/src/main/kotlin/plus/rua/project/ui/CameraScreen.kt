@@ -164,10 +164,14 @@ private fun CameraPreview(
             .setTargetRotation(context.getDisplayRotation())
             .build()
     }
-    // 注意：不要在 onDispose 中 shutdown executor。
-    // CameraX 1.5 的 takePicture 在 onImageSaved 之后内部仍可能向 executor 提交收尾任务，
-    // 过早 shutdown 会导致 RejectedExecutionException 崩溃。应用进程结束时线程池自然回收。
-    val executor = remember { Executors.newSingleThreadExecutor() }
+    // CameraX 1.5 的 takePicture 在 onImageSaved 之后内部仍可能向 executor 提交收尾任务。
+    // 使用 daemon 线程而非 shutdown()：shutdown() 会拒绝后续提交导致 RejectedExecutionException，
+    // daemon 线程不阻止进程退出且不会在 CameraX 延迟提交时崩溃。
+    val executor = remember {
+        Executors.newSingleThreadExecutor { r ->
+            Thread(r, "camera-capture").apply { isDaemon = true }
+        }
+    }
     // 主线程 Handler，用于把拍照回调从 executor 线程切回 UI 线程后再触发跳转/状态更新
     val mainHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
     var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
