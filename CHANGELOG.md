@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-31
+
+### Added
+
+- 工具中心 M3 Expressive 重构：依据 Material 3 Expressive 设计规范重新设计工具页面 (`ToolsScreen`)，提升视效与交互沉浸感。
+- 照片编辑手绘笔刷粗细调节：照片编辑器支持手绘笔刷宽度调节，并增大默认笔触宽度。
+- 自动化 CI/CD 流水线：集成 GitHub Actions 工作流，实现 Spotless 检查、单元测试、Debug APK 构建及 Tag 自动发布 Release。
+
+### Changed
+
+- 照片编辑器 Tab 调整：将手绘涂鸦选项移至照片编辑器首个 Tab 页。
+- 基础构建与环境升级：升级项目与 CI 编译环境至 JDK 21 / Kotlin JVM 21 Target，全模块注入 Spotless 规范检查。
+- 代码规范与导入收敛：统一 `Instant` 导包、优化线程模型（相机捕获守护线程、孤立照片清理异步化），完善 ViewModel 错误处理防御。
+
+### Fixed
+
+- 照片编辑器单点涂鸦：修复照片编辑器画布单点触摸无法绘制手绘点阵及渲染的问题。
+- 核心日期计算修复：修复农历格式化、ISO 周数计算及跨页偏移相关算法漏洞。
+- 照片处理管线防腐：优化图片加载与裁剪中的 Bitmap 生命周期管理及边界越界保护，相机临时文件过滤防误删。
+- 界面细节错位修正：调整年视图月历网格底部边距整体上移；修复新建/编辑记录页面多行备注输入框图标垂直居中错位问题。
+- ProGuard 保持规则修正：修正 tyme4kt 混淆 keep 规则包名（`cn.tyme` → `com.tyme`）。
+
 ## [1.5.0] - 2026-07-24
 
 ### Added
@@ -335,6 +357,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.6.0]: https://github.com/xfy/yayacal/releases/tag/v1.6.0
 [1.5.0]: https://github.com/xfy/yayacal/releases/tag/v1.5.0
 [1.4.0]: https://github.com/xfy/yayacal/releases/tag/v1.4.0
 [1.3.0]: https://github.com/xfy/yayacal/releases/tag/v1.3.0
