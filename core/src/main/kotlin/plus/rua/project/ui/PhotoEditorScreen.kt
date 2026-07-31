@@ -125,7 +125,7 @@ fun PhotoEditorScreen(
         }
     )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    var activeTab by remember { mutableStateOf(EditTab.ROTATE) }
+    var activeTab by remember { mutableStateOf(EditTab.HANDWRITE) }
     val savedPath = state.savedPath
 
     if (savedPath != null) {
@@ -215,7 +215,7 @@ fun PhotoEditorScreen(
     }
 }
 
-private enum class EditTab { ROTATE, CROP, HANDWRITE }
+private enum class EditTab { HANDWRITE, ROTATE, CROP }
 
 @Composable
 private fun EditorBody(
