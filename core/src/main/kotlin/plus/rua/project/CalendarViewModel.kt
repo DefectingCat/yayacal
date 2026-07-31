@@ -283,11 +283,13 @@ class CalendarViewModel(
         val jan4DayOfWeek = jan4.dayOfWeek.ordinal
         val week1Monday = jan4.minus(DatePeriod(days = jan4DayOfWeek))
         val diff = week1Monday.daysUntil(date)
-        val weekNumber = diff / 7 + 1
-        return if (weekNumber > getIsoWeeksInYear(date.year)) {
-            1
-        } else {
-            weekNumber
+        // 用 floorDiv 处理负 diff（一月初属于上年最后一周的情况），
+        // 例如 2021-01-01（周五）应返回 53 而非 1
+        val weekNumber = diff.floorDiv(7) + 1
+        return when {
+            weekNumber < 1 -> getIsoWeeksInYear(date.year - 1)
+            weekNumber > getIsoWeeksInYear(date.year) -> 1
+            else -> weekNumber
         }
     }
 

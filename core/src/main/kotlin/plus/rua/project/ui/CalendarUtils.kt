@@ -100,8 +100,8 @@ fun calculateWeeksCountForPage(page: Int, today: LocalDate): Int {
     val initialMonth = today.month.number
     val offset = page - START_PAGE
     val totalMonths = initialYear * 12 + (initialMonth - 1) + offset
-    val year = totalMonths / 12
-    val month = totalMonths % 12 + 1
+    val year = totalMonths.floorDiv(12)
+    val month = totalMonths.floorMod(12) + 1
     return calculateWeeksCount(year, month)
 }
 
@@ -119,7 +119,7 @@ fun calculateWeeksCountForPage(page: Int, today: LocalDate): Int {
 fun pageToYearMonth(page: Int, initialYear: Int, initialMonth: Int): Pair<Int, Int> {
     val offset = page - START_PAGE
     val totalMonths = initialYear * 12 + (initialMonth - 1) + offset
-    return Pair(totalMonths / 12, totalMonths % 12 + 1)
+    return Pair(totalMonths.floorDiv(12), totalMonths.floorMod(12) + 1)
 }
 
 /**

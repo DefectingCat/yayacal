@@ -74,12 +74,16 @@ class LunarCache(
     /**
      * 获取完整农历日期字符串，如"农历四月初三"。
      *
-     * 复用缓存中的 lunarMonthName 和 annotationText，避免重复创建 SolarDay。
+     * 独立计算农历月名与日名，不复用缓存中的 annotationText —— 后者在
+     * 节日/节气当天保存的是节日名（如"春节"），会导致输出错误。
+     * 与 [plus.rua.project.ui.formatLunarDate] 保持一致。
      */
     suspend fun formatLunarDate(date: LocalDate): String {
-        val info = getOrCompute(date)
-        val dayText = info.annotationText.removeSuffix("月")
-        return "农历${info.lunarMonthName}${dayText}"
+        getOrCompute(date) // 预热缓存
+        val solarDay = SolarDay.fromYmd(date.year, date.month.number, date.day)
+        val lunarDay = solarDay.getLunarDay()
+        val lunarMonth = lunarDay.getLunarMonth()
+        return "农历${lunarMonth.getName()}${lunarDay.getName()}"
     }
 
     private fun trimIfNeeded() {
