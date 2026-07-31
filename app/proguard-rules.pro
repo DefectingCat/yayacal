@@ -6,7 +6,7 @@
 -keep class kotlinx.datetime.** { *; }
 
 # tyme4kt (Chinese traditional calendar)
--keep class cn.tyme.** { *; }
+-keep class com.tyme.** { *; }
 
 # ViewModel (used by CalendarViewModel)
 -keep class * extends androidx.lifecycle.ViewModel { *; }

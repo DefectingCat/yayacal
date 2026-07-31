@@ -3,5 +3,5 @@
 
 # ========== 第三方库保留 ==========
 -keep class kotlinx.datetime.** { *; }
--keep class cn.tyme.** { *; }
+-keep class com.tyme.** { *; }
 -dontwarn com.github.panpf.sketch.**
