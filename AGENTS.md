@@ -113,17 +113,17 @@ Other docs: `DEVELOPMENT.md` (perf/profile workflow + trace marker catalog), `RE
 
 ## Runtime/Tooling Preferences
 
-- **JDK 17** (`VERSION_17` in all modules). Gradle wrapper **9.5.1**.
+ - **JDK 21** (`VERSION_21` in all modules). Gradle wrapper **9.5.1**.
 - **AGP 9.2.1 · Kotlin 2.3.21 · KSP 2.3.10 · Compose BOM 2026.06.01.** compileSdk/targetSdk **37**, minSdk **24**.
 - Key libs: **kotlinx-datetime 0.8.0 · tyme4kt 1.5.0 · sketch 4.4.0 · zoomimage 1.6.0 · Room 2.8.4 · lifecycle 2.11.0 · activity-compose 1.13.0 · CameraX 1.5.3 · Media3 1.6.1.**
 - **Gradle caches on:** configuration cache + build cache + parallel (`gradle.properties`). R8 full mode enabled.
 - **Build types:** `debug` (default, trace on) · `release` (R8 + resource shrink, trace off, debug-signed) · `trace` (release + trace markers) · `benchmark` (release base, **no** minify — so generated profile names aren't obfuscated).
 - **Profiling needs a device/emulator** with GPU acceleration (software renderer can't produce `gfxinfo` framestats). Real benchmarks need a physical device on a release target.
-- No CI/CD exists — all builds, tests, profiling, and releases run locally.
+ - **CI/CD:** GitHub Actions pipeline (`.github/workflows/ci.yml`) runs unit tests and debug builds on push/PR, and publishes release APK on `v*` tags.
 
 ## Testing & QA
 
-- **All automated tests are pure-JVM unit tests** in `core/src/test/kotlin/plus/rua/project[/ui]/` — **no `androidTest` source set, no Compose UI tests, no Robolectric/Turbine/Mockk.** Run on JVM 17, no emulator.
+ - **All automated tests are pure-JVM unit tests** in `core/src/test/kotlin/plus/rua/project[/ui]/` — **no `androidTest` source set, no Compose UI tests, no Robolectric/Turbine/Mockk.** Run on JVM 21, no emulator.
 - **Frameworks:** `kotlin-test-junit` (+ JUnit 4 in a few classes) and `kotlinx-coroutines-test` (`runTest`). `androidx.room:room-testing` is declared but unused.
 - **Covered well:** date math (`CalendarUtilsTest`), the shift engine (`ShiftPatternTest` — cycle/override/`RephaseFlip`), `CalendarViewModel` observable state + grid generation, storage round-trips, record sorting, lunar birthday/rose-day flags, `PhotoProcessor.calculateInSampleSize`, `HandStroke` segmentation.
 - **Coverage gaps to be aware of:** no Compose UI/instrumented tests (UI exercised only via the macrobenchmark journey); Room DAO/Database/migration logic untested; `Flow` emission sequences untested (only synchronous `.value` snapshots); `DateRecordDetailViewModel`/`PhotoEditorViewModel` and the edit-record path of `RecordEditViewModel` have no dedicated tests.
