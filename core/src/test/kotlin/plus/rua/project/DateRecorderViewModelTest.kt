@@ -1,12 +1,5 @@
 package plus.rua.project
 
-import java.io.File
-import kotlin.test.AfterTest
-import kotlin.test.BeforeTest
-import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -16,13 +9,19 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import java.io.File
+import kotlin.test.AfterTest
+import kotlin.test.BeforeTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * [DateRecorderViewModel] 的多选模式与选择状态单元测试。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class DateRecorderViewModelTest {
-
     private val testDispatcher = UnconfinedTestDispatcher()
 
     @BeforeTest
@@ -61,7 +60,10 @@ class DateRecorderViewModelTest {
 
         vm.toggleSelectionMode()
         assertFalse(vm.uiState.value.selectionMode)
-        assertTrue(vm.uiState.value.selectedIds.isEmpty())
+        assertTrue(
+            vm.uiState.value.selectedIds
+                .isEmpty(),
+        )
     }
 
     @Test
@@ -80,8 +82,12 @@ class DateRecorderViewModelTest {
 
 private class FakeDateRecorderDao : DateRecordDao {
     override fun getByIdFlow(id: Long): Flow<DateRecord?> = flowOf(null)
+
     override fun getAllFlow(): Flow<List<DateRecord>> = flowOf(emptyList())
+
     override suspend fun insert(record: DateRecord): Long = 0
+
     override suspend fun update(record: DateRecord) = Unit
+
     override suspend fun deleteByIds(ids: List<Long>): Int = 0
 }

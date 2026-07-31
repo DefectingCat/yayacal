@@ -14,15 +14,15 @@ import androidx.room.TypeConverters
 @Database(
     entities = [DateRecord::class],
     version = 1,
-    exportSchema = true
+    exportSchema = true,
 )
 @TypeConverters(DateRecordConverters::class)
 abstract class DateRecordDatabase : RoomDatabase() {
-
     abstract fun dateRecordDao(): DateRecordDao
 
     companion object {
         @Volatile
+        @Suppress("ObjectPropertyName") // Android singleton 惯例
         private var INSTANCE: DateRecordDatabase? = null
 
         /**
@@ -30,13 +30,14 @@ abstract class DateRecordDatabase : RoomDatabase() {
          *
          * @param context 任意 Context，内部取 applicationContext
          */
-        fun fromContext(context: Context): DateRecordDatabase =
-            INSTANCE ?: synchronized(this) {
-                INSTANCE ?: Room.databaseBuilder(
+        fun fromContext(context: Context): DateRecordDatabase = INSTANCE ?: synchronized(this) {
+            INSTANCE ?: Room
+                .databaseBuilder(
                     context.applicationContext,
                     DateRecordDatabase::class.java,
-                    "date_recorder.db"
-                ).build().also { INSTANCE = it }
-            }
+                    "date_recorder.db",
+                ).build()
+                .also { INSTANCE = it }
+        }
     }
 }

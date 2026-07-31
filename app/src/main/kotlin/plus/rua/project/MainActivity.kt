@@ -24,7 +24,7 @@ class MainActivity : BaseActivity() {
                     },
                     onNavigateToShiftSettings = {
                         startActivityWithSlide(Intent(this, ShiftPatternActivity::class.java))
-                    }
+                    },
                 )
             }
         }

@@ -20,8 +20,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
-import plus.rua.project.composeTraceBeginSection
-import plus.rua.project.composeTraceEndSection
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
@@ -31,9 +31,8 @@ import kotlinx.datetime.plus
 import plus.rua.project.DayCellInfo
 import plus.rua.project.LunarCache
 import plus.rua.project.ShiftKind
-
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import plus.rua.project.composeTraceBeginSection
+import plus.rua.project.composeTraceEndSection
 
 /**
  * 月度日历网格页面，支持两阶段折叠动画。
@@ -67,56 +66,68 @@ fun CalendarMonthPage(
     shiftKindAt: (LocalDate) -> ShiftKind?,
     showLegalHoliday: Boolean,
     onRowHeightMeasured: ((Int) -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     composeTraceBeginSection("CalendarMonthPage:$year-$month")
-    val days = remember(year, month) {
-        generateMonthDays(year, month)
-    }
+    val days =
+        remember(year, month) {
+            generateMonthDays(year, month)
+        }
     val density = LocalDensity.current
     val interactionSource = remember { MutableInteractionSource() }
 
     val lunarDataMap by produceState(
         initialValue = emptyMap<LocalDate, DayCellInfo>(),
         key1 = year,
-        key2 = month
+        key2 = month,
     ) {
-        value = withContext(Dispatchers.Default) {
-            LunarCache.default.getOrComputeBatch(days.map { it.date })
-        }
+        value =
+            withContext(Dispatchers.Default) {
+                LunarCache.default.getOrComputeBatch(days.map { it.date })
+            }
     }
 
-    val holidayEdges = remember(lunarDataMap, year, month) {
-        val map = mutableMapOf<LocalDate, HolidayEdgeInfo>()
-        for (dayData in days) {
-            val date = dayData.date
-            val badge = lunarDataMap[date]?.holidayBadge ?: continue
-            val prevBadge = lunarDataMap[date.minus(DatePeriod(days = 1))]?.holidayBadge
-            val nextBadge = lunarDataMap[date.plus(DatePeriod(days = 1))]?.holidayBadge
-            map[date] = HolidayEdgeInfo(
-                isStart = prevBadge != badge,
-                isEnd = nextBadge != badge
-            )
+    val holidayEdges =
+        remember(lunarDataMap, year, month) {
+            val map = mutableMapOf<LocalDate, HolidayEdgeInfo>()
+            for (dayData in days) {
+                val date = dayData.date
+                val badge = lunarDataMap[date]?.holidayBadge ?: continue
+                val prevBadge = lunarDataMap[date.minus(DatePeriod(days = 1))]?.holidayBadge
+                val nextBadge = lunarDataMap[date.plus(DatePeriod(days = 1))]?.holidayBadge
+                map[date] =
+                    HolidayEdgeInfo(
+                        isStart = prevBadge != badge,
+                        isEnd = nextBadge != badge,
+                    )
+            }
+            map
         }
-        map
-    }
 
     val weeks = remember(days) { days.chunked(7) }
-    val anchorIndex = remember(year, month, selectedDate) {
-        weeks.indexOfFirst { week -> week.any { it.date == selectedDate } }
-    }
+    val anchorIndex =
+        remember(year, month, selectedDate) {
+            weeks.indexOfFirst { week -> week.any { it.date == selectedDate } }
+        }
 
-    val totalHeightDp = if (rowHeightPx > 0) {
-        val h = rowHeightPx.toFloat()
-        val totalPx = h * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))
-        with(density) { totalPx.toDp() }
-    } else null
+    val totalHeightDp =
+        if (rowHeightPx > 0) {
+            val h = rowHeightPx.toFloat()
+            val totalPx = h * (1 + (effectiveWeeks - 1) * (1f - collapseProgress))
+            with(density) { totalPx.toDp() }
+        } else {
+            null
+        }
 
     Box(
-        modifier = modifier.clipToBounds().then(
-            if (totalHeightDp != null) Modifier.height(totalHeightDp)
-            else Modifier
-        )
+        modifier =
+        modifier.clipToBounds().then(
+            if (totalHeightDp != null) {
+                Modifier.height(totalHeightDp)
+            } else {
+                Modifier
+            },
+        ),
     ) {
         weeks.forEachIndexed { weekIndex, week ->
             key(week.first().date) {
@@ -135,13 +146,14 @@ fun CalendarMonthPage(
                     lunarDataMap = lunarDataMap,
                     onDateClick = onDateClick,
                     onRowHeightMeasured = onRowHeightMeasured,
-                    interactionSource = interactionSource
+                    interactionSource = interactionSource,
                 )
             }
         }
     }
     composeTraceEndSection()
 }
+
 @Composable
 private fun WeekRow(
     weekIndex: Int,
@@ -167,67 +179,90 @@ private fun WeekRow(
     val isAbove = hasAnchor && weekIndex < anchorIndex
     val isBelow = hasAnchor && weekIndex > anchorIndex
 
-    val phase1End = if (hasAnchor && anchorIndex > 0 && weeksSize > 1) {
-        anchorIndex.toFloat() / (weeksSize - 1)
-    } else 0f
-
-    val phase1 = if (phase1End > 0f) {
-        (collapseProgress / phase1End).coerceIn(0f, 1f)
-    } else if (collapseProgress > 0f) 1f else 0f
-
-    val phase2 = if (phase1End < 1f && collapseProgress > phase1End) {
-        ((collapseProgress - phase1End) / (1f - phase1End)).coerceIn(0f, 1f)
-    } else 0f
-
-    val belowRowsHeight = if (hasAnchor) {
-        (weeksSize - 1 - anchorIndex) * h
-    } else 0f
-
-    val yOffsetPx = if (rowHeightPx > 0) {
-        when {
-            !hasAnchor -> weekIndex * h - collapseProgress * weeksSize * h
-            isAnchor -> anchorIndex * h * (1f - phase1)
-            isAbove -> weekIndex * h - phase1 * anchorIndex * h
-            isBelow -> weekIndex * h - phase1 * anchorIndex * h - phase2 * belowRowsHeight
-            else -> weekIndex * h
+    val phase1End =
+        if (hasAnchor && anchorIndex > 0 && weeksSize > 1) {
+            anchorIndex.toFloat() / (weeksSize - 1)
+        } else {
+            0f
         }
-    } else 0f
 
-    val rowAlpha = when {
-        !hasAnchor -> (1f - collapseProgress).coerceIn(0f, 1f)
-        isAnchor -> 1f
-        isAbove -> (1f - phase1).coerceIn(0f, 1f)
-        isBelow -> (1f - phase2).coerceIn(0f, 1f)
-        else -> 1f
-    }
+    val phase1 =
+        if (phase1End > 0f) {
+            (collapseProgress / phase1End).coerceIn(0f, 1f)
+        } else if (collapseProgress > 0f) {
+            1f
+        } else {
+            0f
+        }
+
+    val phase2 =
+        if (phase1End < 1f && collapseProgress > phase1End) {
+            ((collapseProgress - phase1End) / (1f - phase1End)).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+
+    val belowRowsHeight =
+        if (hasAnchor) {
+            (weeksSize - 1 - anchorIndex) * h
+        } else {
+            0f
+        }
+
+    val yOffsetPx =
+        if (rowHeightPx > 0) {
+            when {
+                !hasAnchor -> weekIndex * h - collapseProgress * weeksSize * h
+                isAnchor -> anchorIndex * h * (1f - phase1)
+                isAbove -> weekIndex * h - phase1 * anchorIndex * h
+                isBelow -> weekIndex * h - phase1 * anchorIndex * h - phase2 * belowRowsHeight
+                else -> weekIndex * h
+            }
+        } else {
+            0f
+        }
+
+    val rowAlpha =
+        when {
+            !hasAnchor -> (1f - collapseProgress).coerceIn(0f, 1f)
+            isAnchor -> 1f
+            isAbove -> (1f - phase1).coerceIn(0f, 1f)
+            isBelow -> (1f - phase2).coerceIn(0f, 1f)
+            else -> 1f
+        }
 
     if (rowAlpha > 0.01f) {
         Row(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxWidth()
                 .zIndex(if (isAnchor) 1f else 0f)
                 .then(
-                    if (rowHeightPx > 0) Modifier.height(with(density) { h.toDp() })
-                    else Modifier
-                )
-                .then(
-                    if (isAnchor && phase1 >= 1f) Modifier.background(MaterialTheme.colorScheme.surface)
-                    else Modifier
-                )
-                .graphicsLayer {
+                    if (rowHeightPx > 0) {
+                        Modifier.height(with(density) { h.toDp() })
+                    } else {
+                        Modifier
+                    },
+                ).then(
+                    if (isAnchor && phase1 >= 1f) {
+                        Modifier.background(MaterialTheme.colorScheme.surface)
+                    } else {
+                        Modifier
+                    },
+                ).graphicsLayer {
                     translationY = yOffsetPx
                     alpha = rowAlpha
-                }
-                .then(
+                }.then(
                     if (weekIndex == 0 && rowHeightPx == 0) {
                         Modifier.onSizeChanged { size ->
                             if (size.height > 0) {
                                 onRowHeightMeasured?.invoke(size.height)
                             }
                         }
-                    } else Modifier
-                )
-                .padding(vertical = ROW_PADDING_DP.dp)
+                    } else {
+                        Modifier
+                    },
+                ).padding(vertical = ROW_PADDING_DP.dp),
         ) {
             week.forEachIndexed { dayIndex, dayData ->
                 key(dayData.date) {
@@ -243,7 +278,7 @@ private fun WeekRow(
                         onClick = { onDateClick(dayData.date) },
                         modifier = Modifier.weight(1f),
                         interactionSource = interactionSource,
-                        lunarData = lunarDataMap[dayData.date]
+                        lunarData = lunarDataMap[dayData.date],
                     )
                 }
             }
@@ -253,7 +288,7 @@ private fun WeekRow(
 
 private data class DayData(
     val date: LocalDate,
-    val isCurrentMonth: Boolean
+    val isCurrentMonth: Boolean,
 )
 
 /**
@@ -264,16 +299,19 @@ private data class DayData(
  */
 data class HolidayEdgeInfo(
     val isStart: Boolean,
-    val isEnd: Boolean
+    val isEnd: Boolean,
 )
 
-private fun generateMonthDays(year: Int, month: Int): List<DayData> {
+private fun generateMonthDays(
+    year: Int,
+    month: Int,
+): List<DayData> {
     val info = getMonthGridInfo(year, month)
     return (0 until info.totalDays).map { i ->
         val date = info.startDate.plus(DatePeriod(days = i))
         DayData(
             date = date,
-            isCurrentMonth = date.month.number == month && date.year == year
+            isCurrentMonth = date.month.number == month && date.year == year,
         )
     }
 }

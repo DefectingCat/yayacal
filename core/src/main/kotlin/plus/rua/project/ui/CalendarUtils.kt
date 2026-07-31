@@ -37,7 +37,11 @@ const val CARD_GAP_EXPANDED_DP = 24
 const val CARD_GAP_COLLAPSED_DP = 12
 
 /** 线性插值 */
-fun lerp(start: Float, end: Float, fraction: Float): Float = start + (end - start) * fraction
+fun lerp(
+    start: Float,
+    end: Float,
+    fraction: Float,
+): Float = start + (end - start) * fraction
 
 /**
  * 月份网格信息，包含计算日历网格所需的所有数据。
@@ -50,7 +54,7 @@ data class MonthGridInfo(
     val startDate: LocalDate,
     val daysInMonth: Int,
     val rows: Int,
-    val totalDays: Int
+    val totalDays: Int,
 )
 
 /**
@@ -60,7 +64,10 @@ data class MonthGridInfo(
  * @param month 月份（1-12）
  * @return 月份网格信息
  */
-fun getMonthGridInfo(year: Int, month: Int): MonthGridInfo {
+fun getMonthGridInfo(
+    year: Int,
+    month: Int,
+): MonthGridInfo {
     val firstOfMonth = LocalDate(year, Month(month), 1)
     val offset = firstOfMonth.dayOfWeek.ordinal
     val startDate = firstOfMonth.minus(DatePeriod(days = offset))
@@ -78,13 +85,17 @@ fun getMonthGridInfo(year: Int, month: Int): MonthGridInfo {
  * @param month 月份（1-12）
  * @return 网格行数
  */
-fun calculateWeeksCount(year: Int, month: Int): Int {
+fun calculateWeeksCount(
+    year: Int,
+    month: Int,
+): Int {
     val offset = LocalDate(year, Month(month), 1).dayOfWeek.ordinal
-    val daysInMonth = when (month) {
-        2 -> if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) 29 else 28
-        4, 6, 9, 11 -> 30
-        else -> 31
-    }
+    val daysInMonth =
+        when (month) {
+            2 -> if ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0) 29 else 28
+            4, 6, 9, 11 -> 30
+            else -> 31
+        }
     return ((offset + daysInMonth - 1) / 7) + 1
 }
 
@@ -95,13 +106,16 @@ fun calculateWeeksCount(year: Int, month: Int): Int {
  * @param today 今天的日期，用于确定起始月份
  * @return 网格行数
  */
-fun calculateWeeksCountForPage(page: Int, today: LocalDate): Int {
+fun calculateWeeksCountForPage(
+    page: Int,
+    today: LocalDate,
+): Int {
     val initialYear = today.year
     val initialMonth = today.month.number
     val offset = page - START_PAGE
     val totalMonths = initialYear * 12 + (initialMonth - 1) + offset
     val year = totalMonths.floorDiv(12)
-    val month = totalMonths.floorMod(12) + 1
+    val month = Math.floorMod(totalMonths, 12) + 1
     return calculateWeeksCount(year, month)
 }
 
@@ -116,10 +130,14 @@ fun calculateWeeksCountForPage(page: Int, today: LocalDate): Int {
  * @param initialMonth 起始月份（中心页对应的月份，1-12）
  * @return Pair(year, month)
  */
-fun pageToYearMonth(page: Int, initialYear: Int, initialMonth: Int): Pair<Int, Int> {
+fun pageToYearMonth(
+    page: Int,
+    initialYear: Int,
+    initialMonth: Int,
+): Pair<Int, Int> {
     val offset = page - START_PAGE
     val totalMonths = initialYear * 12 + (initialMonth - 1) + offset
-    return Pair(totalMonths.floorDiv(12), totalMonths.floorMod(12) + 1)
+    return Pair(totalMonths.floorDiv(12), Math.floorMod(totalMonths, 12) + 1)
 }
 
 /**
@@ -133,7 +151,12 @@ fun pageToYearMonth(page: Int, initialYear: Int, initialMonth: Int): Pair<Int, I
  * @param initialMonth 起始月份
  * @return 分页器页码
  */
-fun yearMonthToPage(year: Int, month: Int, initialYear: Int, initialMonth: Int): Int {
+fun yearMonthToPage(
+    year: Int,
+    month: Int,
+    initialYear: Int,
+    initialMonth: Int,
+): Int {
     val targetTotal = year * 12 + (month - 1)
     val initialTotal = initialYear * 12 + (initialMonth - 1)
     return START_PAGE + (targetTotal - initialTotal)
@@ -161,7 +184,10 @@ fun LocalDate.toWeekMonday(): LocalDate {
  * @param initial 参考周一日期（中心页对应的周一）
  * @return 该页周一的 LocalDate
  */
-fun pageToWeekMonday(page: Int, initial: LocalDate): LocalDate {
+fun pageToWeekMonday(
+    page: Int,
+    initial: LocalDate,
+): LocalDate {
     val offset = page - START_PAGE
     return initial.plus(DatePeriod(days = offset * 7))
 }
@@ -176,7 +202,10 @@ fun pageToWeekMonday(page: Int, initial: LocalDate): LocalDate {
  * @param today 今天日期
  * @return 相对天数描述
  */
-fun relativeDayDescription(selectedDate: LocalDate, today: LocalDate): String {
+fun relativeDayDescription(
+    selectedDate: LocalDate,
+    today: LocalDate,
+): String {
     val diff = today.daysUntil(selectedDate)
     return when {
         diff == 0 -> "今天"

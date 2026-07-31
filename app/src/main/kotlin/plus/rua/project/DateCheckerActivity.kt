@@ -12,8 +12,8 @@ class DateCheckerActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 DateCheckerScreen(
-                onBack = { finishWithSlideBack() }
-            )
+                    onBack = { finishWithSlideBack() },
+                )
             }
         }
     }

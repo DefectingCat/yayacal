@@ -67,7 +67,7 @@ import java.util.concurrent.Executors
 fun CameraScreen(
     onBack: () -> Unit,
     onPhotoCaptured: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current
@@ -79,11 +79,12 @@ fun CameraScreen(
     var captureError by remember { mutableStateOf<String?>(null) }
 
     // 运行时权限请求 launcher
-    val permissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        hasCameraPermission = granted
-    }
+    val permissionLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.RequestPermission(),
+        ) { granted ->
+            hasCameraPermission = granted
+        }
 
     // 进入时若无权限则发起请求
     LaunchedEffect(Unit) {
@@ -93,10 +94,11 @@ fun CameraScreen(
     }
 
     Box(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxSize()
             .background(Color.Black)
-            .semantics { testTagsAsResourceId = true }
+            .semantics { testTagsAsResourceId = true },
     ) {
         if (!hasCameraPermission) {
             PermissionDeniedContent(onBack = onBack)
@@ -119,16 +121,17 @@ fun CameraScreen(
                     isCapturing = false
                     captureError = msg
                 },
-                setCapturing = { isCapturing = it }
+                setCapturing = { isCapturing = it },
             )
 
             if (isCapturing) {
                 // 半透明遮罩 + loading，覆盖在预览之上但不移除预览
                 Box(
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .fillMaxSize()
                         .background(Color.Black.copy(alpha = 0.4f)),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator(color = Color.White)
                 }
@@ -139,9 +142,10 @@ fun CameraScreen(
             Text(
                 text = msg,
                 color = Color.White,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.BottomCenter)
-                    .padding(bottom = 160.dp)
+                    .padding(bottom = 160.dp),
             )
         }
     }
@@ -155,23 +159,26 @@ private fun CameraPreview(
     onBack: () -> Unit,
     onCaptured: (String) -> Unit,
     onError: (String) -> Unit,
-    setCapturing: (Boolean) -> Unit
+    setCapturing: (Boolean) -> Unit,
 ) {
-    val imageCapture = remember {
-        // 设置目标旋转角度，让 CameraX 写入正确的 EXIF orientation，
-        // 配合 PhotoProcessor 读取 EXIF 后即可得到正向图片。
-        ImageCapture.Builder()
-            .setTargetRotation(context.getDisplayRotation())
-            .build()
-    }
+    val imageCapture =
+        remember {
+            // 设置目标旋转角度，让 CameraX 写入正确的 EXIF orientation，
+            // 配合 PhotoProcessor 读取 EXIF 后即可得到正向图片。
+            ImageCapture
+                .Builder()
+                .setTargetRotation(context.getDisplayRotation())
+                .build()
+        }
     // CameraX 1.5 的 takePicture 在 onImageSaved 之后内部仍可能向 executor 提交收尾任务。
     // 使用 daemon 线程而非 shutdown()：shutdown() 会拒绝后续提交导致 RejectedExecutionException，
     // daemon 线程不阻止进程退出且不会在 CameraX 延迟提交时崩溃。
-    val executor = remember {
-        Executors.newSingleThreadExecutor { r ->
-            Thread(r, "camera-capture").apply { isDaemon = true }
+    val executor =
+        remember {
+            Executors.newSingleThreadExecutor { r ->
+                Thread(r, "camera-capture").apply { isDaemon = true }
+            }
         }
-    }
     // 主线程 Handler，用于把拍照回调从 executor 线程切回 UI 线程后再触发跳转/状态更新
     val mainHandler = remember { android.os.Handler(android.os.Looper.getMainLooper()) }
     var lensFacing by remember { mutableStateOf(CameraSelector.LENS_FACING_BACK) }
@@ -193,7 +200,7 @@ private fun CameraPreview(
                         previewView = this
                     }
                 }
-            }
+            },
             // 不在 update 里重新绑定相机，避免每次重组触发解绑重绑
         )
 
@@ -206,49 +213,52 @@ private fun CameraPreview(
                 lifecycleOwner = lifecycleOwner,
                 previewView = pv,
                 imageCapture = imageCapture,
-                lensFacing = lensFacing
+                lensFacing = lensFacing,
             )
         }
 
         // 顶部返回按钮
         IconButton(
             onClick = onBack,
-            modifier = Modifier
+            modifier =
+            Modifier
                 .align(Alignment.TopStart)
                 .padding(16.dp)
-                .testTag("camera_back")
+                .testTag("camera_back"),
         ) {
             Icon(
                 imageVector = Icons.Filled.ChevronLeft,
                 contentDescription = "返回",
-                tint = Color.White
+                tint = Color.White,
             )
         }
 
         // 底部控制栏：切换镜头（左）/ 快门（中）
         Row(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .padding(bottom = 48.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(
                 onClick = {
-                    lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
-                        CameraSelector.LENS_FACING_FRONT
-                    } else {
-                        CameraSelector.LENS_FACING_BACK
-                    }
+                    lensFacing =
+                        if (lensFacing == CameraSelector.LENS_FACING_BACK) {
+                            CameraSelector.LENS_FACING_FRONT
+                        } else {
+                            CameraSelector.LENS_FACING_BACK
+                        }
                 },
-                modifier = Modifier.testTag("camera_switch")
+                modifier = Modifier.testTag("camera_switch"),
             ) {
                 Icon(
                     imageVector = Icons.Filled.Cameraswitch,
                     contentDescription = "切换镜头",
                     tint = Color.White,
-                    modifier = Modifier.size(32.dp)
+                    modifier = Modifier.size(32.dp),
                 )
             }
 
@@ -275,18 +285,20 @@ private fun CameraPreview(
                                 val msg = "拍照失败：${exception.message}"
                                 mainHandler.post { onError(msg) }
                             }
-                        }
+                        },
                     )
                 },
-                modifier = Modifier
+                modifier =
+                Modifier
                     .size(72.dp)
                     .background(Color.White.copy(alpha = 0.3f), CircleShape)
-                    .testTag("camera_shutter")
+                    .testTag("camera_shutter"),
             ) {
                 Box(
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .size(60.dp)
-                        .background(Color.White, CircleShape)
+                        .background(Color.White, CircleShape),
                 )
             }
         }
@@ -297,33 +309,34 @@ private fun CameraPreview(
 private fun PermissionDeniedContent(onBack: () -> Unit) {
     Box(
         modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text(
                 text = "需要相机权限才能拍照",
                 color = Color.White,
-                style = MaterialTheme.typography.bodyLarge
+                style = MaterialTheme.typography.bodyLarge,
             )
             Text(
                 text = "请在系统设置中授权后重试",
                 color = Color.White,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodyMedium,
             )
         }
     }
 }
 
 private fun Context.getDisplayRotation(): Int {
-    val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
-        display
-    } else {
-        @Suppress("DEPRECATION") //getDisplay 在 API30+ 弃用，旧版本必须用此 API
-        (getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay
-    }
+    val display =
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            display
+        } else {
+            @Suppress("DEPRECATION") // getDisplay 在 API30+ 弃用，旧版本必须用此 API
+            (getSystemService(Context.WINDOW_SERVICE) as android.view.WindowManager).defaultDisplay
+        }
     return when (display?.rotation) {
         android.view.Surface.ROTATION_90 -> 90
         android.view.Surface.ROTATION_180 -> 180
@@ -339,33 +352,35 @@ private fun bindCameraUseCases(
     lifecycleOwner: LifecycleOwner,
     previewView: PreviewView,
     imageCapture: ImageCapture,
-    lensFacing: Int
+    lensFacing: Int,
 ) {
     val cameraProviderFuture = ProcessCameraProvider.getInstance(context)
     cameraProviderFuture.addListener({
         runCatching {
             val cameraProvider = cameraProviderFuture.get()
-            val preview = Preview.Builder().build().also {
-                it.surfaceProvider = previewView.surfaceProvider
-            }
-            val selector = CameraSelector.Builder()
-                .requireLensFacing(lensFacing)
-                .build()
+            val preview =
+                Preview.Builder().build().also {
+                    it.surfaceProvider = previewView.surfaceProvider
+                }
+            val selector =
+                CameraSelector
+                    .Builder()
+                    .requireLensFacing(lensFacing)
+                    .build()
 
             cameraProvider.unbindAll()
             cameraProvider.bindToLifecycle(
                 lifecycleOwner,
                 selector,
                 preview,
-                imageCapture
+                imageCapture,
             )
         }
     }, ContextCompat.getMainExecutor(context))
 }
 
-private fun Context.checkCameraPermission(): Boolean =
-    ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
-        PackageManager.PERMISSION_GRANTED
+private fun Context.checkCameraPermission(): Boolean = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
+    PackageManager.PERMISSION_GRANTED
 
 private fun createTempPhotoFile(context: Context): File {
     val dir = File(context.filesDir, "Pictures/date_recorder").apply { mkdirs() }

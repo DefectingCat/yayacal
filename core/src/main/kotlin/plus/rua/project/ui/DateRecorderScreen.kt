@@ -2,11 +2,11 @@ package plus.rua.project.ui
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
@@ -24,12 +24,12 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.scrollBy
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -140,19 +140,20 @@ import plus.rua.project.RecordSortOrder
 /** 视图模式：时光画廊、相册网格、紧凑矩阵。 */
 enum class DateRecorderViewMode(
     val label: String,
-    val icon: ImageVector
+    val icon: ImageVector,
 ) {
     TIMELINE("时光流", Icons.Outlined.ViewStream),
     GRID("网格", Icons.Outlined.GridView),
-    COMPACT("紧凑", Icons.Outlined.ViewComfy)
+    COMPACT("紧凑", Icons.Outlined.ViewComfy),
 }
 
 /** 排序菜单展示的字段选项。 */
-private val sortFields = listOf(
-    RecordSortField.SHOOT_DATE to "拍摄日期",
-    RecordSortField.LINKED_DATE to "关联日期",
-    RecordSortField.CREATED_AT to "创建时间"
-)
+private val sortFields =
+    listOf(
+        RecordSortField.SHOOT_DATE to "拍摄日期",
+        RecordSortField.LINKED_DATE to "关联日期",
+        RecordSortField.CREATED_AT to "创建时间",
+    )
 
 /**
  * 日期记录器主界面，以沉浸式照片日记与时光画廊形式展示所有记录。
@@ -174,14 +175,16 @@ fun DateRecorderScreen(
     onBack: () -> Unit,
     onOpenCamera: () -> Unit,
     onOpenRecord: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current.applicationContext
-    val viewModel: DateRecorderViewModel = viewModel(
-        factory = viewModelFactory {
-            initializer { DateRecorderViewModel(DateRecorderRepository.fromContext(context)) }
-        }
-    )
+    val viewModel: DateRecorderViewModel =
+        viewModel(
+            factory =
+            viewModelFactory {
+                initializer { DateRecorderViewModel(DateRecorderRepository.fromContext(context)) }
+            },
+        )
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val repo = remember { DateRecorderRepository.fromContext(context) }
 
@@ -195,7 +198,8 @@ fun DateRecorderScreen(
             TopAppBar(
                 title = {
                     AnimatedContent(
-                        targetState = if (uiState.selectionMode) {
+                        targetState =
+                        if (uiState.selectionMode) {
                             "已选中 ${uiState.selectedIds.size} 项"
                         } else {
                             "日期记录器"
@@ -204,11 +208,11 @@ fun DateRecorderScreen(
                             (fadeIn(tween(200)) + slideInVertically { height -> height / 2 }) togetherWith
                                 (fadeOut(tween(200)) + slideOutVertically { height -> -height / 2 })
                         },
-                        label = "top_bar_title"
+                        label = "top_bar_title",
                     ) { titleText ->
                         Text(
                             text = titleText,
-                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         )
                     }
                 },
@@ -219,15 +223,18 @@ fun DateRecorderScreen(
                             (fadeIn(tween(200)) + scaleIn(initialScale = 0.8f)) togetherWith
                                 (fadeOut(tween(200)) + scaleOut(targetScale = 0.8f))
                         },
-                        label = "top_bar_nav_icon"
+                        label = "top_bar_nav_icon",
                     ) { isSelectionMode ->
                         IconButton(onClick = {
-                            if (isSelectionMode) viewModel.toggleSelectionMode()
-                            else onBack()
+                            if (isSelectionMode) {
+                                viewModel.toggleSelectionMode()
+                            } else {
+                                onBack()
+                            }
                         }) {
                             Icon(
                                 imageVector = if (isSelectionMode) Icons.Filled.Close else Icons.Filled.ChevronLeft,
-                                contentDescription = if (isSelectionMode) "退出多选" else "返回"
+                                contentDescription = if (isSelectionMode) "退出多选" else "返回",
                             )
                         }
                     }
@@ -236,7 +243,7 @@ fun DateRecorderScreen(
                     AnimatedContent(
                         targetState = uiState.selectionMode,
                         transitionSpec = { fadeIn(tween(200)) togetherWith fadeOut(tween(200)) },
-                        label = "top_bar_actions"
+                        label = "top_bar_actions",
                     ) { isSelectionMode ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (isSelectionMode) {
@@ -251,25 +258,26 @@ fun DateRecorderScreen(
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
             )
         },
         bottomBar = {
             AnimatedVisibility(
                 visible = uiState.selectionMode,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
+                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
             ) {
                 BottomAppBar(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    contentColor = MaterialTheme.colorScheme.onSurface
+                    contentColor = MaterialTheme.colorScheme.onSurface,
                 ) {
                     Row(
-                        modifier = Modifier
+                        modifier =
+                        Modifier
                             .fillMaxWidth()
                             .padding(horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         TextButton(onClick = viewModel::toggleSelectAll) {
                             Text(if (uiState.allSelected) "取消全选" else "全选")
@@ -277,15 +285,16 @@ fun DateRecorderScreen(
                         Button(
                             onClick = { showBatchDeleteDialog = true },
                             enabled = uiState.selectedIds.isNotEmpty(),
-                            colors = ButtonDefaults.buttonColors(
+                            colors =
+                            ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
-                                contentColor = MaterialTheme.colorScheme.onError
-                            )
+                                contentColor = MaterialTheme.colorScheme.onError,
+                            ),
                         ) {
                             Icon(
                                 Icons.Filled.Delete,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(18.dp),
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text("删除 (${uiState.selectedIds.size})")
@@ -298,24 +307,25 @@ fun DateRecorderScreen(
             AnimatedVisibility(
                 visible = !uiState.selectionMode,
                 enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-                exit = scaleOut() + fadeOut()
+                exit = scaleOut() + fadeOut(),
             ) {
                 FloatingActionButton(
                     onClick = onOpenCamera,
                     modifier = Modifier.testTag("date_recorder_fab"),
                     containerColor = MaterialTheme.colorScheme.primary,
                     contentColor = MaterialTheme.colorScheme.onPrimary,
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(16.dp),
                 ) {
                     Icon(Icons.Outlined.PhotoCamera, contentDescription = "拍照记录")
                 }
             }
-        }
+        },
     ) { innerPadding ->
         Column(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
         ) {
             if (!uiState.isLoading && uiState.records.isNotEmpty()) {
                 HeaderControlBar(
@@ -323,7 +333,7 @@ fun DateRecorderScreen(
                     currentViewMode = viewMode,
                     sortOrder = uiState.sortOrder,
                     onViewModeChange = { viewMode = it },
-                    onOpenSortMenu = { showSortMenu = true }
+                    onOpenSortMenu = { showSortMenu = true },
                 )
             }
 
@@ -332,9 +342,11 @@ fun DateRecorderScreen(
                     uiState.isLoading -> {
                         CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                     }
+
                     uiState.records.isEmpty() -> {
                         EmptyState(onOpenCamera = onOpenCamera)
                     }
+
                     else -> {
                         RecordGrid(
                             records = uiState.records,
@@ -344,7 +356,7 @@ fun DateRecorderScreen(
                             photoRoot = repo,
                             onOpenRecord = onOpenRecord,
                             onToggleSelection = viewModel::toggleSelection,
-                            onSetSelectedIds = viewModel::setSelectedIds
+                            onSetSelectedIds = viewModel::setSelectedIds,
                         )
                     }
                 }
@@ -359,7 +371,7 @@ fun DateRecorderScreen(
             onSelectSort = { newSortOrder ->
                 viewModel.setSortOrder(newSortOrder)
                 showSortMenu = false
-            }
+            },
         )
     }
 
@@ -367,7 +379,12 @@ fun DateRecorderScreen(
         AlertDialog(
             onDismissRequest = { showBatchDeleteDialog = false },
             title = { Text("删除记录", fontWeight = FontWeight.Bold) },
-            text = { Text("确定要删除选中的 ${uiState.selectedIds.size} 条日期记录吗？相关照片文件也将被一并清理，此操作不可撤销。") },
+            text = {
+                Text(
+                    "确定要删除选中的 ${uiState.selectedIds.size} 条日期记录吗？" +
+                        "相关照片文件也将被一并清理，此操作不可撤销。",
+                )
+            },
             confirmButton = {
                 TextButton(onClick = {
                     showBatchDeleteDialog = false
@@ -380,7 +397,7 @@ fun DateRecorderScreen(
                 TextButton(onClick = { showBatchDeleteDialog = false }) {
                     Text("取消")
                 }
-            }
+            },
         )
     }
 }
@@ -393,43 +410,44 @@ private fun HeaderControlBar(
     sortOrder: RecordSortOrder,
     onViewModeChange: (DateRecorderViewMode) -> Unit,
     onOpenSortMenu: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         color = Color.Transparent,
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             // 左侧：统计 Pill 与 排序入口
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
                     contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.AutoAwesome,
                             contentDescription = null,
                             modifier = Modifier.size(14.dp),
-                            tint = MaterialTheme.colorScheme.primary
+                            tint = MaterialTheme.colorScheme.primary,
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "$totalCount 篇记录",
-                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                         )
                     }
                 }
@@ -438,26 +456,27 @@ private fun HeaderControlBar(
                     onClick = onOpenSortMenu,
                     color = MaterialTheme.colorScheme.surfaceContainerHigh,
                     contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        val fieldName = when (sortOrder.field) {
-                            RecordSortField.SHOOT_DATE -> "拍摄日期"
-                            RecordSortField.LINKED_DATE -> "关联日期"
-                            RecordSortField.CREATED_AT -> "创建时间"
-                        }
+                        val fieldName =
+                            when (sortOrder.field) {
+                                RecordSortField.SHOOT_DATE -> "拍摄日期"
+                                RecordSortField.LINKED_DATE -> "关联日期"
+                                RecordSortField.CREATED_AT -> "创建时间"
+                            }
                         Icon(
                             imageVector = if (sortOrder.ascending) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward,
                             contentDescription = null,
-                            modifier = Modifier.size(12.dp)
+                            modifier = Modifier.size(12.dp),
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = fieldName,
-                            style = MaterialTheme.typography.labelMedium
+                            style = MaterialTheme.typography.labelMedium,
                         )
                     }
                 }
@@ -466,7 +485,7 @@ private fun HeaderControlBar(
             // 右侧：视图切换按钮组 Segmented Control
             SegmentedViewModeSwitcher(
                 currentViewMode = currentViewMode,
-                onViewModeChange = onViewModeChange
+                onViewModeChange = onViewModeChange,
             )
         }
     }
@@ -477,7 +496,7 @@ private fun HeaderControlBar(
 private fun SegmentedViewModeSwitcher(
     currentViewMode: DateRecorderViewMode,
     onViewModeChange: (DateRecorderViewMode) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val modes = DateRecorderViewMode.entries
     val selectedIndex = modes.indexOf(currentViewMode).coerceAtLeast(0)
@@ -488,71 +507,79 @@ private fun SegmentedViewModeSwitcher(
 
     val indicatorOffset by animateDpAsState(
         targetValue = outerPadding + (itemWidth * selectedIndex),
-        animationSpec = spring(
+        animationSpec =
+        spring(
             stiffness = Spring.StiffnessMediumLow,
-            dampingRatio = Spring.DampingRatioMediumBouncy
+            dampingRatio = Spring.DampingRatioMediumBouncy,
         ),
-        label = "mode_switcher_indicator_offset"
+        label = "mode_switcher_indicator_offset",
     )
 
     Surface(
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         shape = CircleShape,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        modifier = modifier
+        modifier = modifier,
     ) {
         Box(
-            modifier = Modifier.padding(outerPadding)
+            modifier = Modifier.padding(outerPadding),
         ) {
             // 滑动指示器 (Sliding Indicator Background)
             Box(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .graphicsLayer {
                         translationX = indicatorOffset.toPx() - outerPadding.toPx()
-                    }
-                    .size(width = itemWidth, height = itemHeight)
+                    }.size(width = itemWidth, height = itemHeight)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
             )
 
             // 图标按键（带柔和手感及颜色渐变）
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 modes.forEachIndexed { index, mode ->
                     val isSelected = index == selectedIndex
                     val iconColor by animateColorAsState(
-                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
+                        targetValue =
+                        if (isSelected) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         animationSpec = tween(200),
-                        label = "mode_switcher_icon_color"
+                        label = "mode_switcher_icon_color",
                     )
                     val iconScale by animateFloatAsState(
                         targetValue = if (isSelected) 1.15f else 1f,
                         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-                        label = "mode_switcher_icon_scale"
+                        label = "mode_switcher_icon_scale",
                     )
 
                     Box(
-                        modifier = Modifier
+                        modifier =
+                        Modifier
                             .size(width = itemWidth, height = itemHeight)
                             .clip(CircleShape)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null,
-                                onClick = { onViewModeChange(mode) }
+                                onClick = { onViewModeChange(mode) },
                             ),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = mode.icon,
                             contentDescription = mode.label,
                             tint = iconColor,
-                            modifier = Modifier
+                            modifier =
+                            Modifier
                                 .size(16.dp)
                                 .graphicsLayer {
                                     scaleX = iconScale
                                     scaleY = iconScale
-                                }
+                                },
                         )
                     }
                 }
@@ -566,14 +593,14 @@ private fun SegmentedViewModeSwitcher(
 private fun SortDialog(
     currentSortOrder: RecordSortOrder,
     onDismiss: () -> Unit,
-    onSelectSort: (RecordSortOrder) -> Unit
+    onSelectSort: (RecordSortOrder) -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
                 text = "排序方式",
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
             )
         },
         text = {
@@ -583,7 +610,7 @@ private fun SortDialog(
                     Text(
                         text = "排序依据",
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                     sortFields.forEach { (field, label) ->
                         val isSelected = currentSortOrder.field == field
@@ -592,28 +619,36 @@ private fun SortDialog(
                                 onSelectSort(currentSortOrder.copy(field = field))
                             },
                             shape = RoundedCornerShape(12.dp),
-                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
-                                    else MaterialTheme.colorScheme.surfaceContainerLow,
-                            modifier = Modifier.fillMaxWidth()
+                            color =
+                            if (isSelected) {
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                            } else {
+                                MaterialTheme.colorScheme.surfaceContainerLow
+                            },
+                            modifier = Modifier.fillMaxWidth(),
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
                                 Text(
                                     text = label,
                                     style = MaterialTheme.typography.bodyLarge,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
-                                            else MaterialTheme.colorScheme.onSurface
+                                    color =
+                                    if (isSelected) {
+                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurface
+                                    },
                                 )
                                 if (isSelected) {
                                     Icon(
                                         imageVector = Icons.Filled.Check,
                                         contentDescription = "已选择",
                                         tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(18.dp),
                                     )
                                 }
                             }
@@ -626,11 +661,11 @@ private fun SortDialog(
                     Text(
                         text = "排序顺序",
                         style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
                         SortOrderDirectionOption(
                             text = "最新优先",
@@ -638,7 +673,7 @@ private fun SortDialog(
                             icon = Icons.Filled.ArrowDownward,
                             isSelected = !currentSortOrder.ascending,
                             onClick = { onSelectSort(currentSortOrder.copy(ascending = false)) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                         SortOrderDirectionOption(
                             text = "最早优先",
@@ -646,7 +681,7 @@ private fun SortDialog(
                             icon = Icons.Filled.ArrowUpward,
                             isSelected = currentSortOrder.ascending,
                             onClick = { onSelectSort(currentSortOrder.copy(ascending = true)) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -656,7 +691,7 @@ private fun SortDialog(
             TextButton(onClick = onDismiss) {
                 Text("完成", fontWeight = FontWeight.Bold)
             }
-        }
+        },
     )
 }
 
@@ -668,7 +703,7 @@ private fun SortOrderDirectionOption(
     icon: ImageVector,
     isSelected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         onClick = onClick,
@@ -676,34 +711,39 @@ private fun SortOrderDirectionOption(
         color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
         border = if (isSelected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        modifier = modifier
+        modifier = modifier,
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 10.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Center,
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    modifier = Modifier.size(14.dp)
+                    modifier = Modifier.size(14.dp),
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = text,
-                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
                 )
             }
             Text(
                 text = subtitle,
                 style = MaterialTheme.typography.labelSmall,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
-                        else MaterialTheme.colorScheme.onSurfaceVariant
+                color =
+                if (isSelected) {
+                    MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
             )
         }
     }
 }
+
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
 private fun RecordGrid(
@@ -714,7 +754,7 @@ private fun RecordGrid(
     photoRoot: DateRecorderRepository,
     onOpenRecord: (Long) -> Unit,
     onToggleSelection: (Long) -> Unit,
-    onSetSelectedIds: (Set<Long>) -> Unit
+    onSetSelectedIds: (Set<Long>) -> Unit,
 ) {
     val gridState = rememberLazyGridState()
     val coroutineScope = rememberCoroutineScope()
@@ -725,12 +765,13 @@ private fun RecordGrid(
     val currentOnSetSelectedIds by rememberUpdatedState(onSetSelectedIds)
 
     // 按年月（例如 "2026年07月"）分组
-    val groupedRecords = remember(records) {
-        records.groupBy { record ->
-            val date = record.shootDate
-            "${date.year}年${date.month.number.toString().padStart(2, '0')}月"
+    val groupedRecords =
+        remember(records) {
+            records.groupBy { record ->
+                val date = record.shootDate
+                "${date.year}年${date.month.number.toString().padStart(2, '0')}月"
+            }
         }
-    }
 
     SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
         AnimatedContent(
@@ -739,18 +780,20 @@ private fun RecordGrid(
             transitionSpec = {
                 fadeIn(tween(280)) togetherWith fadeOut(tween(280))
             },
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) { currentMode ->
-            val columns = when (currentMode) {
-                DateRecorderViewMode.TIMELINE -> GridCells.Fixed(1)
-                DateRecorderViewMode.GRID -> GridCells.Fixed(2)
-                DateRecorderViewMode.COMPACT -> GridCells.Adaptive(minSize = 100.dp)
-            }
+            val columns =
+                when (currentMode) {
+                    DateRecorderViewMode.TIMELINE -> GridCells.Fixed(1)
+                    DateRecorderViewMode.GRID -> GridCells.Fixed(2)
+                    DateRecorderViewMode.COMPACT -> GridCells.Adaptive(minSize = 100.dp)
+                }
 
             LazyVerticalGrid(
                 state = gridState,
                 columns = columns,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxSize()
                     .pointerInput(Unit) {
                         awaitEachGesture {
@@ -775,14 +818,18 @@ private fun RecordGrid(
 
                                 if (!isDragSelecting && !isScrolling) {
                                     if (currentSelectionMode) {
-                                        if (distance > 20f && elapsedTime < 120L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 2f) {
+                                        if (distance > 20f && elapsedTime < 120L &&
+                                            kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 2f
+                                        ) {
                                             isScrolling = true
                                         } else if (distance >= 16f || (elapsedTime >= 120L && distance >= 6f)) {
                                             isDragSelecting = true
                                             currentOnSetSelectedIds(initialSelected + startRecordId)
                                         }
                                     } else {
-                                        if (distance > 30f && elapsedTime < 200L && kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 1.5f) {
+                                        if (distance > 30f && elapsedTime < 200L &&
+                                            kotlin.math.abs(delta.y) > kotlin.math.abs(delta.x) * 1.5f
+                                        ) {
                                             isScrolling = true
                                         } else if (elapsedTime >= 250L || (elapsedTime >= 150L && distance >= 10f)) {
                                             isDragSelecting = true
@@ -817,19 +864,19 @@ private fun RecordGrid(
                     },
                 contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 80.dp),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 groupedRecords.forEach { (monthTitle, monthRecords) ->
                     item(
                         key = "header_$monthTitle",
-                        span = { GridItemSpan(maxLineSpan) }
+                        span = { GridItemSpan(maxLineSpan) },
                     ) {
                         MonthHeaderItem(title = monthTitle, count = monthRecords.size)
                     }
 
                     items(
                         items = monthRecords,
-                        key = { it.id }
+                        key = { it.id },
                     ) { record ->
                         val photoUri = "file://${photoRoot.absoluteFileOf(record.photoPath).absolutePath}"
                         val isSelected = record.id in selectedIds
@@ -843,11 +890,15 @@ private fun RecordGrid(
                                     selectionMode = selectionMode,
                                     animatedVisibilityScope = this@AnimatedContent,
                                     onClick = {
-                                        if (selectionMode) onToggleSelection(record.id)
-                                        else onOpenRecord(record.id)
-                                    }
+                                        if (selectionMode) {
+                                            onToggleSelection(record.id)
+                                        } else {
+                                            onOpenRecord(record.id)
+                                        }
+                                    },
                                 )
                             }
+
                             DateRecorderViewMode.GRID -> {
                                 GridRecordCard(
                                     record = record,
@@ -856,11 +907,15 @@ private fun RecordGrid(
                                     selectionMode = selectionMode,
                                     animatedVisibilityScope = this@AnimatedContent,
                                     onClick = {
-                                        if (selectionMode) onToggleSelection(record.id)
-                                        else onOpenRecord(record.id)
-                                    }
+                                        if (selectionMode) {
+                                            onToggleSelection(record.id)
+                                        } else {
+                                            onOpenRecord(record.id)
+                                        }
+                                    },
                                 )
                             }
+
                             DateRecorderViewMode.COMPACT -> {
                                 CompactRecordCard(
                                     record = record,
@@ -869,9 +924,12 @@ private fun RecordGrid(
                                     selectionMode = selectionMode,
                                     animatedVisibilityScope = this@AnimatedContent,
                                     onClick = {
-                                        if (selectionMode) onToggleSelection(record.id)
-                                        else onOpenRecord(record.id)
-                                    }
+                                        if (selectionMode) {
+                                            onToggleSelection(record.id)
+                                        } else {
+                                            onOpenRecord(record.id)
+                                        }
+                                    },
                                 )
                             }
                         }
@@ -883,45 +941,54 @@ private fun RecordGrid(
 }
 
 /** 寻找触控位置命中的 DateRecord ID。 */
-private fun findRecordIdAtOffset(gridState: LazyGridState, offset: Offset): Long? {
+private fun findRecordIdAtOffset(
+    gridState: LazyGridState,
+    offset: Offset,
+): Long? {
     val itemsInfo = gridState.layoutInfo.visibleItemsInfo
     if (itemsInfo.isEmpty()) return null
 
-    val hit = itemsInfo.firstOrNull { item ->
-        val x = item.offset.x
-        val y = item.offset.y
-        offset.x >= x && offset.x <= x + item.size.width &&
-            offset.y >= y && offset.y <= y + item.size.height
-    }
+    val hit =
+        itemsInfo.firstOrNull { item ->
+            val x = item.offset.x
+            val y = item.offset.y
+            offset.x >= x && offset.x <= x + item.size.width &&
+                offset.y >= y && offset.y <= y + item.size.height
+        }
     return hit?.key as? Long
 }
 
 /** 按月分组的时光 Header。 */
 @Composable
-private fun MonthHeaderItem(title: String, count: Int) {
+private fun MonthHeaderItem(
+    title: String,
+    count: Int,
+) {
     Row(
-        modifier = Modifier
+        modifier =
+        Modifier
             .fillMaxWidth()
             .padding(top = 12.dp, bottom = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Box(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.primary)
+                .background(MaterialTheme.colorScheme.primary),
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = title,
             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
             text = "· $count 条记录",
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
@@ -936,39 +1003,40 @@ private fun SharedTransitionScope.TimelineRecordCard(
     selectionMode: Boolean,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val cardScale by animateFloatAsState(
         targetValue = if (selectionMode && isSelected) 0.96f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "timeline_card_scale"
+        label = "timeline_card_scale",
     )
     val borderWidth by animateDpAsState(
         targetValue = if (selectionMode && isSelected) 2.5.dp else 0.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "timeline_card_border"
+        label = "timeline_card_border",
     )
 
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        colors =
+        CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .graphicsLayer {
                 scaleX = cardScale
                 scaleY = cardScale
                 clip = true
                 shape = RoundedCornerShape(16.dp)
-            }
-            .sharedBounds(
+            }.sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
-                animatedVisibilityScope = animatedVisibilityScope
-            )
+                animatedVisibilityScope = animatedVisibilityScope,
+            ),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Box {
@@ -976,10 +1044,11 @@ private fun SharedTransitionScope.TimelineRecordCard(
                     uri = photoUri,
                     contentDescription = record.title,
                     contentScale = ContentScale.Crop,
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .fillMaxWidth()
                         .height(180.dp)
-                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                        .clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
                 )
 
                 // 顶端多选 Badge
@@ -987,9 +1056,10 @@ private fun SharedTransitionScope.TimelineRecordCard(
                     visible = selectionMode,
                     enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
                     exit = scaleOut() + fadeOut(),
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .align(Alignment.TopEnd)
-                        .padding(10.dp)
+                        .padding(10.dp),
                 ) {
                     SelectionBadge(isSelected = isSelected)
                 }
@@ -1001,7 +1071,7 @@ private fun SharedTransitionScope.TimelineRecordCard(
                     style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
 
                 if (record.note.isNotBlank()) {
@@ -1011,7 +1081,7 @@ private fun SharedTransitionScope.TimelineRecordCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
 
@@ -1020,14 +1090,14 @@ private fun SharedTransitionScope.TimelineRecordCard(
                 // 日期标签行
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     // 拍摄日期 Pill
                     DateTag(
                         icon = Icons.Outlined.PhotoCamera,
                         text = "拍摄 ${record.shootDate}",
                         containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
 
                     // 关联日期 Pill
@@ -1037,7 +1107,7 @@ private fun SharedTransitionScope.TimelineRecordCard(
                             icon = Icons.Outlined.CalendarToday,
                             text = "关联 ${record.linkedDate}" + if (relativeDays.isNotBlank()) " ($relativeDays)" else "",
                             containerColor = MaterialTheme.colorScheme.primaryContainer,
-                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 }
@@ -1056,17 +1126,17 @@ private fun SharedTransitionScope.GridRecordCard(
     selectionMode: Boolean,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val cardScale by animateFloatAsState(
         targetValue = if (selectionMode && isSelected) 0.95f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "grid_card_scale"
+        label = "grid_card_scale",
     )
     val borderWidth by animateDpAsState(
         targetValue = if (selectionMode && isSelected) 2.5.dp else 0.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "grid_card_border"
+        label = "grid_card_border",
     )
 
     Card(
@@ -1075,67 +1145,69 @@ private fun SharedTransitionScope.GridRecordCard(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         border = BorderStroke(borderWidth, MaterialTheme.colorScheme.primary),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .graphicsLayer {
                 scaleX = cardScale
                 scaleY = cardScale
                 clip = true
                 shape = RoundedCornerShape(14.dp)
-            }
-            .sharedBounds(
+            }.sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
-                animatedVisibilityScope = animatedVisibilityScope
-            )
+                animatedVisibilityScope = animatedVisibilityScope,
+            ),
     ) {
         Box {
             AsyncImage(
                 uri = photoUri,
                 contentDescription = record.title,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(14.dp))
+                    .clip(RoundedCornerShape(14.dp)),
             )
 
             // 底部蒙层与文字信息
             Column(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.BottomStart)
                     .fillMaxWidth()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(
+                            colors =
+                            listOf(
                                 Color.Transparent,
-                                Color.Black.copy(alpha = 0.75f)
-                            )
-                        )
-                    )
-                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                                Color.Black.copy(alpha = 0.75f),
+                            ),
+                        ),
+                    ).padding(horizontal = 8.dp, vertical = 6.dp),
             ) {
                 Text(
                     text = record.title.ifBlank { "记录" },
                     style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
                     color = Color.White,
                     maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+                    overflow = TextOverflow.Ellipsis,
                 )
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
                     Text(
                         text = "${record.shootDate}",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White.copy(alpha = 0.85f)
+                        color = Color.White.copy(alpha = 0.85f),
                     )
                     if (record.linkedDate != null) {
                         Icon(
                             imageVector = Icons.Outlined.CalendarToday,
                             contentDescription = null,
                             tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(10.dp)
+                            modifier = Modifier.size(10.dp),
                         )
                     }
                 }
@@ -1145,9 +1217,10 @@ private fun SharedTransitionScope.GridRecordCard(
                 visible = selectionMode,
                 enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
                 exit = scaleOut() + fadeOut(),
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.TopEnd)
-                    .padding(8.dp)
+                    .padding(8.dp),
             ) {
                 SelectionBadge(isSelected = isSelected)
             }
@@ -1165,51 +1238,53 @@ private fun SharedTransitionScope.CompactRecordCard(
     selectionMode: Boolean,
     animatedVisibilityScope: AnimatedVisibilityScope,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val cardScale by animateFloatAsState(
         targetValue = if (selectionMode && isSelected) 0.92f else 1f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "compact_card_scale"
+        label = "compact_card_scale",
     )
     val borderWidth by animateDpAsState(
         targetValue = if (selectionMode && isSelected) 2.dp else 0.dp,
-        label = "compact_card_border"
+        label = "compact_card_border",
     )
 
     Card(
         onClick = onClick,
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .graphicsLayer {
                 scaleX = cardScale
                 scaleY = cardScale
                 clip = true
                 shape = RoundedCornerShape(8.dp)
-            }
-            .sharedBounds(
+            }.sharedBounds(
                 sharedContentState = rememberSharedContentState(key = "card_${record.id}"),
-                animatedVisibilityScope = animatedVisibilityScope
-            )
+                animatedVisibilityScope = animatedVisibilityScope,
+            ),
     ) {
         Box {
             AsyncImage(
                 uri = photoUri,
                 contentDescription = record.title,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(8.dp)),
             )
 
             androidx.compose.animation.AnimatedVisibility(
                 visible = selectionMode,
                 enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
                 exit = scaleOut() + fadeOut(),
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.TopEnd)
-                    .padding(6.dp)
+                    .padding(6.dp),
             ) {
                 SelectionBadge(isSelected = isSelected)
             }
@@ -1223,33 +1298,36 @@ private fun DateTag(
     icon: ImageVector,
     text: String,
     containerColor: Color,
-    contentColor: Color
+    contentColor: Color,
 ) {
     Surface(
         color = containerColor,
         contentColor = contentColor,
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(8.dp),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier.size(12.dp)
+                modifier = Modifier.size(12.dp),
             )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = text,
-                style = MaterialTheme.typography.labelSmall
+                style = MaterialTheme.typography.labelSmall,
             )
         }
     }
 }
 
 /** 计算拍摄日期与关联日期之间的天数关联描述。 */
-private fun computeRelativeDaysDescription(shootDate: LocalDate, linkedDate: LocalDate): String {
+private fun computeRelativeDaysDescription(
+    shootDate: LocalDate,
+    linkedDate: LocalDate,
+): String {
     val diff = linkedDate.toEpochDays() - shootDate.toEpochDays()
     return when {
         diff == 0L -> "当日"
@@ -1260,39 +1338,42 @@ private fun computeRelativeDaysDescription(shootDate: LocalDate, linkedDate: Loc
 
 /** 选择标识角标。 */
 @Composable
-private fun SelectionBadge(isSelected: Boolean, modifier: Modifier = Modifier) {
+private fun SelectionBadge(
+    isSelected: Boolean,
+    modifier: Modifier = Modifier,
+) {
     val bg by animateColorAsState(
         targetValue = if (isSelected) MaterialTheme.colorScheme.primary else Color.Black.copy(alpha = 0.45f),
         animationSpec = tween(200),
-        label = "selection_badge_bg"
+        label = "selection_badge_bg",
     )
     val badgeScale by animateFloatAsState(
         targetValue = if (isSelected) 1f else 0.85f,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
-        label = "selection_badge_scale"
+        label = "selection_badge_scale",
     )
     Box(
-        modifier = modifier
+        modifier =
+        modifier
             .graphicsLayer {
                 scaleX = badgeScale
                 scaleY = badgeScale
-            }
-            .clip(CircleShape)
+            }.clip(CircleShape)
             .background(bg)
             .padding(4.dp),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Box(modifier = Modifier.size(18.dp), contentAlignment = Alignment.Center) {
             AnimatedVisibility(
                 visible = isSelected,
                 enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(),
-                exit = scaleOut() + fadeOut()
+                exit = scaleOut() + fadeOut(),
             ) {
                 Icon(
                     Icons.Filled.Check,
                     contentDescription = "已选中",
                     tint = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
         }
@@ -1303,23 +1384,24 @@ private fun SelectionBadge(isSelected: Boolean, modifier: Modifier = Modifier) {
 @Composable
 private fun EmptyState(onOpenCamera: () -> Unit) {
     Column(
-        modifier = Modifier
+        modifier =
+        Modifier
             .fillMaxSize()
             .padding(32.dp),
         verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Surface(
             modifier = Modifier.size(96.dp),
             shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(
                     imageVector = Icons.Outlined.PhotoLibrary,
                     contentDescription = null,
                     modifier = Modifier.size(44.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
                 )
             }
         }
@@ -1329,7 +1411,7 @@ private fun EmptyState(onOpenCamera: () -> Unit) {
         Text(
             text = "还没有时光记录",
             style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -1339,7 +1421,7 @@ private fun EmptyState(onOpenCamera: () -> Unit) {
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(horizontal = 16.dp),
-            lineHeight = 22.sp
+            lineHeight = 22.sp,
         )
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -1347,12 +1429,12 @@ private fun EmptyState(onOpenCamera: () -> Unit) {
         Button(
             onClick = onOpenCamera,
             shape = RoundedCornerShape(14.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
         ) {
             Icon(
                 imageVector = Icons.Outlined.PhotoCamera,
                 contentDescription = null,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(18.dp),
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text("立即拍摄第一条记录")

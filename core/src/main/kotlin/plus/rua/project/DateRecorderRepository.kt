@@ -20,9 +20,8 @@ import java.io.File
 class DateRecorderRepository(
     private val dao: DateRecordDao,
     private val filesDir: File,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-
     /** 照片存放的子目录（相对 filesDir） */
     private val photoDir: File by lazy {
         File(filesDir, PHOTO_DIR_NAME).apply { if (!exists()) mkdirs() }
@@ -49,9 +48,12 @@ class DateRecorderRepository(
     suspend fun insert(record: DateRecord): Long = dao.insert(record)
 
     /**
-     * 更新一条记录。编辑信息/替换照片后调用。若传入 oldPhotoPath 且与新照片路径不同，自动清理旧照片文件。
+     * 更新一条记录。编辑信息/替换照片后调用。若传入 oldPhotoPath 且与新照片路径不同，自动清理旧照片。
      */
-    suspend fun update(record: DateRecord, oldPhotoPath: String? = null) = withContext(ioDispatcher) {
+    suspend fun update(
+        record: DateRecord,
+        oldPhotoPath: String? = null,
+    ) = withContext(ioDispatcher) {
         dao.update(record)
         if (oldPhotoPath != null && oldPhotoPath != record.photoPath) {
             deletePhotoFile(oldPhotoPath)
@@ -86,7 +88,7 @@ class DateRecorderRepository(
     fun createPhotoFile(): File {
         val timestamp = System.currentTimeMillis()
         val nonce = (1000..9999).random()
-        val name = "rec_${timestamp}_${nonce}"
+        val name = "rec_${timestamp}_$nonce"
         return File(photoDir, "$name.jpg")
     }
 
@@ -108,12 +110,18 @@ class DateRecorderRepository(
     internal fun deletePhotoFile(relativePath: String) {
         runCatching { absoluteFileOf(relativePath).delete() }
     }
+
     /**
      * 扫描照片目录并清理无任何数据库记录引用的孤立照片文件。
      * @return 清理的孤立文件数量
      */
     suspend fun cleanOrphanedPhotos(): Int = withContext(ioDispatcher) {
-        val activePhotos = dao.getAllFlow().first().map { it.photoPath }.toSet()
+        val activePhotos =
+            dao
+                .getAllFlow()
+                .first()
+                .map { it.photoPath }
+                .toSet()
         var deletedCount = 0
         photoDir.listFiles()?.forEach { file ->
             // 跳过相机拍摄中的临时文件（tmp_ 前缀），它们尚未写入数据库记录

@@ -1,14 +1,14 @@
 package plus.rua.project.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.PagerDefaults
 import androidx.compose.foundation.pager.rememberPagerState
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -26,7 +26,6 @@ import plus.rua.project.ShiftKind
 import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
-
 
 /**
  * 周视图分页器，折叠状态下显示选中日期所在周，支持左右滑动切换周。
@@ -47,14 +46,15 @@ fun WeekPager(
     onWeekChanged: (LocalDate) -> Unit,
     shiftKindAt: (LocalDate) -> ShiftKind?,
     showLegalHoliday: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val initialWeekMonday = remember { selectedDate.toWeekMonday() }
     val interactionSource = remember { MutableInteractionSource() }
-    val pagerState = rememberPagerState(
-        initialPage = START_PAGE,
-        pageCount = { Int.MAX_VALUE }
-    )
+    val pagerState =
+        rememberPagerState(
+            initialPage = START_PAGE,
+            pageCount = { Int.MAX_VALUE },
+        )
 
     // selectedDate 外部变更（如点击回到今天）时，滚动到对应周
     LaunchedEffect(selectedDate) {
@@ -76,27 +76,28 @@ fun WeekPager(
         state = pagerState,
         beyondViewportPageCount = 0,
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
-        modifier = modifier
+        modifier = modifier,
     ) { page ->
         composeTraceBeginSection("WeekPager:Page")
         val weekMonday = pageToWeekMonday(page, initialWeekMonday)
         Row(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .graphicsLayer {
                     val pageOffset = abs(pagerState.currentPageOffsetFraction)
                     val isCurrentPage = page == pagerState.currentPage
                     alpha = if (isCurrentPage) 1f - pageOffset else pageOffset
-                }
-                .fillMaxWidth()
+                }.fillMaxWidth()
                 .background(MaterialTheme.colorScheme.surface)
-                .padding(vertical = ROW_PADDING_DP.dp)
+                .padding(vertical = ROW_PADDING_DP.dp),
         ) {
             (0 until 7).forEach { dayOffset ->
                 val date = weekMonday.plus(DatePeriod(days = dayOffset))
                 DayCell(
                     date = date,
-                    isCurrentMonth = date.month == selectedDate.month
-                            && date.year == selectedDate.year,
+                    isCurrentMonth =
+                    date.month == selectedDate.month &&
+                        date.year == selectedDate.year,
                     isSelected = date == selectedDate,
                     isToday = date == today,
                     shiftKind = shiftKindAt(date),
@@ -104,7 +105,7 @@ fun WeekPager(
                     cellIndex = dayOffset,
                     onClick = { onDateClick(date) },
                     modifier = Modifier.weight(1f),
-                    interactionSource = interactionSource
+                    interactionSource = interactionSource,
                 )
             }
         }

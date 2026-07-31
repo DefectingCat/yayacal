@@ -18,8 +18,10 @@ class PhotoEditorActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
 
         val sourcePath = intent?.getStringExtra(DateRecorderNav.EXTRA_TEMP_PHOTO_PATH)
-        val recordId = intent?.getLongExtra(DateRecorderNav.EXTRA_RECORD_ID, -1L)
-            ?.takeIf { it >= 0 }
+        val recordId =
+            intent
+                ?.getLongExtra(DateRecorderNav.EXTRA_RECORD_ID, -1L)
+                ?.takeIf { it >= 0 }
         requireNotNull(sourcePath) { "PhotoEditorActivity 必须接收 EXTRA_TEMP_PHOTO_PATH" }
 
         setContent {
@@ -33,11 +35,11 @@ class PhotoEditorActivity : BaseActivity() {
                                 if (recordId != null) {
                                     putExtra(DateRecorderNav.EXTRA_RECORD_ID, recordId)
                                 }
-                            }
+                            },
                         )
                         finishWithSlideBack()
                     },
-                    sourcePath = sourcePath
+                    sourcePath = sourcePath,
                 )
             }
         }

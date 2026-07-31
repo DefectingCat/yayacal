@@ -17,8 +17,10 @@ class RecordDetailActivity : BaseActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        val recordId = intent?.getLongExtra(DateRecorderNav.EXTRA_RECORD_ID, -1L)
-            ?.takeIf { it >= 0 }
+        val recordId =
+            intent
+                ?.getLongExtra(DateRecorderNav.EXTRA_RECORD_ID, -1L)
+                ?.takeIf { it >= 0 }
         requireNotNull(recordId) { "RecordDetailActivity 必须接收 EXTRA_RECORD_ID" }
 
         setContent {
@@ -30,7 +32,7 @@ class RecordDetailActivity : BaseActivity() {
                         startActivityWithSlide(
                             Intent(this, RecordEditActivity::class.java).apply {
                                 putExtra(DateRecorderNav.EXTRA_RECORD_ID, id)
-                            }
+                            },
                         )
                     },
                     onEditPhoto = { photoPath ->
@@ -38,9 +40,9 @@ class RecordDetailActivity : BaseActivity() {
                             Intent(this, PhotoEditorActivity::class.java).apply {
                                 putExtra(DateRecorderNav.EXTRA_TEMP_PHOTO_PATH, photoPath)
                                 putExtra(DateRecorderNav.EXTRA_RECORD_ID, recordId)
-                            }
+                            },
                         )
-                    }
+                    },
                 )
             }
         }

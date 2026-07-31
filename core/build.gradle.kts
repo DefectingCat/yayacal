@@ -12,21 +12,28 @@ room {
 
 android {
     namespace = "plus.rua.project.shared"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk =
+        libs.versions.android.compileSdk
+            .get()
+            .toInt()
 
     defaultConfig {
-        minSdk = libs.versions.android.minSdk.get().toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
         consumerProguardFiles("proguard-rules.pro")
 
         // 构建期扫描 assets/animations/ 生成 WebP 文件列表，避免运行期硬编码 (1..152)
         // 与 assets/ 目录耦合却不校验，导致增删文件后隐性 bug
-        val webpFiles = layout.projectDirectory
-            .dir("src/main/assets/animations")
-            .asFile
-            .listFiles { f -> f.extension.equals("webp", ignoreCase = true) }
-            ?.map { it.name }
-            ?.sorted()
-            ?: emptyList()
+        val webpFiles =
+            layout.projectDirectory
+                .dir("src/main/assets/animations")
+                .asFile
+                .listFiles { f -> f.extension.equals("webp", ignoreCase = true) }
+                ?.map { it.name }
+                ?.sorted()
+                ?: emptyList()
         require(webpFiles.isNotEmpty()) { "assets/animations/ 不应为空，请检查目录" }
         // 拼成 Java 数组字面量: new String[]{"001.webp","002.webp",...}
         val quoted = webpFiles.joinToString(",") { name -> "\"$name\"" }
@@ -58,22 +65,23 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        }
     }
-}
 
     packaging {
         resources {
-            excludes += listOf(
-                "/META-INF/{AL2.0,LGPL2.1}",
-                "/META-INF/LICENSE*",
-                "/META-INF/NOTICE*",
-                "META-INF/DEPENDENCIES",
-                "**/*.kotlin_metadata",
-                "**/*.kotlin_module",
-            )
+            excludes +=
+                listOf(
+                    "/META-INF/{AL2.0,LGPL2.1}",
+                    "/META-INF/LICENSE*",
+                    "/META-INF/NOTICE*",
+                    "META-INF/DEPENDENCIES",
+                    "**/*.kotlin_metadata",
+                    "**/*.kotlin_module",
+                )
         }
     }
 }

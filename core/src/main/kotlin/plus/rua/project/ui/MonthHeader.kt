@@ -45,34 +45,36 @@ fun MonthHeader(
     showToday: Boolean,
     onToday: (() -> Unit)? = null,
     onYearMonthClick: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .padding(vertical = 14.dp, horizontal = 12.dp),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         AnimatedContent(
             targetState = Pair(year, month),
             transitionSpec = {
                 if (targetState.second > initialState.second) {
                     slideInVertically(tween(250)) { -it } togetherWith
-                            slideOutVertically(tween(250)) { it }
+                        slideOutVertically(tween(250)) { it }
                 } else {
                     slideInVertically(tween(250)) { it } togetherWith
-                            slideOutVertically(tween(250)) { -it }
+                        slideOutVertically(tween(250)) { -it }
                 } using SizeTransform { _, _ -> snap() }
-            }
+            },
         ) { (y, m) ->
             Text(
                 text = "${y}年${m}月",
                 color = MaterialTheme.colorScheme.onBackground,
                 style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onYearMonthClick)
-                    .padding(horizontal = 4.dp, vertical = 2.dp)
+                    .padding(horizontal = 4.dp, vertical = 2.dp),
             )
         }
         Spacer(modifier = Modifier.width(6.dp))
@@ -81,35 +83,36 @@ fun MonthHeader(
             transitionSpec = {
                 if (targetState > initialState) {
                     slideInVertically(tween(250)) { -it } togetherWith
-                            slideOutVertically(tween(250)) { it }
+                        slideOutVertically(tween(250)) { it }
                 } else {
                     slideInVertically(tween(250)) { it } togetherWith
-                            slideOutVertically(tween(250)) { -it }
+                        slideOutVertically(tween(250)) { -it }
                 } using SizeTransform { _, _ -> snap() }
             },
-            modifier = Modifier
+            modifier = Modifier,
         ) { week ->
             Text(
                 text = "第${week}周",
                 color = MaterialTheme.colorScheme.onBackground,
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
             )
         }
         Spacer(modifier = Modifier.weight(1f))
         val todayAlpha by animateFloatAsState(
             targetValue = if (showToday && onToday != null) 1f else 0f,
-            animationSpec = tween(200)
+            animationSpec = tween(200),
         )
         if (onToday != null) {
             Text(
                 text = "今天",
                 color = MaterialTheme.colorScheme.primary,
                 fontSize = 14.sp,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .graphicsLayer { alpha = todayAlpha }
                     .clip(RoundedCornerShape(12.dp))
                     .clickable(enabled = showToday, onClick = onToday)
-                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
             )
         }
     }

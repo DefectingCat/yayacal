@@ -45,16 +45,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.coroutines.launch
 import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.toLocalDateTime
 import plus.rua.project.CalendarViewModel
 import plus.rua.project.ShiftKind
 import plus.rua.project.ShiftPattern
 import plus.rua.project.ShiftPatternStorage
-import kotlin.time.Instant
 
 /**
  * 班次设置页。照抄 DateCheckerScreen 的 storage 创建 + 自动存盘模式。
@@ -90,18 +90,19 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ChevronLeft, contentDescription = "返回")
                     }
-                }
+                },
             )
         },
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
     ) { padding ->
         Column(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Text("基础周期", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
 
@@ -109,57 +110,69 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
             ) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("锚点日期", style = MaterialTheme.typography.bodyMedium)
                         Text(
                             text = pattern.anchorDate.toString(),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.clickable { showAnchorPicker = true }
+                            modifier = Modifier.clickable { showAnchorPicker = true },
                         )
                     }
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text("周期", style = MaterialTheme.typography.bodyMedium)
                         Text(
                             pattern.cycle.joinToString(" ") { if (it == ShiftKind.WORK) "班" else "休" },
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
             }
 
             Text("预设方案", style = MaterialTheme.typography.labelLarge)
-            val presets = listOf(
-                "1班1休" to listOf(ShiftKind.WORK, ShiftKind.OFF),
-                "2班2休" to listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
-                "3班3休" to listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF, ShiftKind.OFF),
-                "4班4休" to listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF, ShiftKind.OFF, ShiftKind.OFF)
-            )
+            val presets =
+                listOf(
+                    "1班1休" to listOf(ShiftKind.WORK, ShiftKind.OFF),
+                    "2班2休" to listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
+                    "3班3休" to listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF, ShiftKind.OFF),
+                    "4班4休" to
+                        listOf(
+                            ShiftKind.WORK,
+                            ShiftKind.WORK,
+                            ShiftKind.WORK,
+                            ShiftKind.WORK,
+                            ShiftKind.OFF,
+                            ShiftKind.OFF,
+                            ShiftKind.OFF,
+                            ShiftKind.OFF,
+                        ),
+                )
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 presets.forEach { (label, cycle) ->
                     FilterChip(
                         selected = pattern.cycle == cycle,
                         onClick = {
-                            pattern = pattern.copy(
-                                cycle = cycle,
-                                overrides = emptyMap(),
-                                rephaseFlips = emptyList()
-                            )
+                            pattern =
+                                pattern.copy(
+                                    cycle = cycle,
+                                    overrides = emptyMap(),
+                                    rephaseFlips = emptyList(),
+                                )
                         },
-                        label = { Text(label) }
+                        label = { Text(label) },
                     )
                 }
             }
@@ -169,12 +182,12 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
             Text(
                 text = "点某天 = 翻转班/休(仅当天),长按某天 = 翻转并从次日起重排",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Text(
                 text = "图例:班(蓝)/休(红)/重排起点(琥珀)",
                 style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
 
             OutlinedButton(
@@ -182,17 +195,18 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
                     val previous = pattern
                     pattern = CalendarViewModel.DEFAULT_PATTERN
                     scope.launch {
-                        val result = snackbarHostState.showSnackbar(
-                            message = "已恢复默认设置",
-                            actionLabel = "撤销",
-                            duration = SnackbarDuration.Short
-                        )
+                        val result =
+                            snackbarHostState.showSnackbar(
+                                message = "已恢复默认设置",
+                                actionLabel = "撤销",
+                                duration = SnackbarDuration.Short,
+                            )
                         if (result == SnackbarResult.ActionPerformed) {
                             pattern = previous
                         }
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Text("恢复默认")
             }
@@ -200,9 +214,10 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
     }
 
     if (showAnchorPicker) {
-        val state = rememberDatePickerState(
-            initialSelectedDateMillis = pattern.anchorDate.toEpochMillis()
-        )
+        val state =
+            rememberDatePickerState(
+                initialSelectedDateMillis = pattern.anchorDate.toEpochMillis(),
+            )
         DatePickerDialog(
             onDismissRequest = { showAnchorPicker = false },
             confirmButton = {
@@ -213,15 +228,13 @@ fun ShiftPatternScreen(onBack: () -> Unit) {
             },
             dismissButton = {
                 TextButton(onClick = { showAnchorPicker = false }) { Text("取消") }
-            }
+            },
         ) {
             DatePicker(state = state)
         }
     }
 }
 
-private fun LocalDate.toEpochMillis(): Long =
-    this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+private fun LocalDate.toEpochMillis(): Long = this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
 
-private fun Long.toLocalDate(): LocalDate =
-    Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date
+private fun Long.toLocalDate(): LocalDate = Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date

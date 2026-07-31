@@ -4,7 +4,10 @@ import android.util.Log
 import plus.rua.project.shared.BuildConfig
 
 @Suppress("NOTHING_TO_INLINE")
-inline fun logd(tag: String, message: () -> String) {
+inline fun logd(
+    tag: String,
+    message: () -> String,
+) {
     if (BuildConfig.DEBUG) {
         try {
             Log.d(tag, message())
@@ -16,7 +19,10 @@ inline fun logd(tag: String, message: () -> String) {
 }
 
 @Suppress("NOTHING_TO_INLINE")
-inline fun logd(tag: String, message: String) {
+inline fun logd(
+    tag: String,
+    message: String,
+) {
     if (BuildConfig.DEBUG) {
         try {
             Log.d(tag, message)

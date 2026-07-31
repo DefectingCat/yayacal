@@ -13,14 +13,14 @@ class ToolsActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 ToolsScreen(
-                onBack = { finishWithSlideBack() },
-                onNavigateToDateChecker = {
-                    startActivityWithSlide(Intent(this, DateCheckerActivity::class.java))
-                },
-                onNavigateToDateRecorder = {
-                    startActivityWithSlide(Intent(this, DateRecorderActivity::class.java))
-                }
-            )
+                    onBack = { finishWithSlideBack() },
+                    onNavigateToDateChecker = {
+                        startActivityWithSlide(Intent(this, DateCheckerActivity::class.java))
+                    },
+                    onNavigateToDateRecorder = {
+                        startActivityWithSlide(Intent(this, DateRecorderActivity::class.java))
+                    },
+                )
             }
         }
     }

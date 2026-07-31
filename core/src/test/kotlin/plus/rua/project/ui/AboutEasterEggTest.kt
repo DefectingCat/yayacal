@@ -5,7 +5,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
 class AboutEasterEggTest {
-
     @Test
     fun `first three clicks show no toast`() {
         assertNull(getToastMessage(1))

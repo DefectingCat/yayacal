@@ -11,17 +11,16 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.testTag
-import plus.rua.project.composeTraceBeginSection
-import plus.rua.project.composeTraceEndSection
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.platform.testTag
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 import plus.rua.project.ShiftKind
+import plus.rua.project.composeTraceBeginSection
+import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
-
 
 /**
  * 月度日历分页器，HorizontalPager 实现无限左右滑动切换月份。
@@ -55,7 +54,7 @@ fun CalendarPager(
     showLegalHoliday: Boolean,
     onRowHeightMeasured: ((Int) -> Unit)? = null,
     pagerState: PagerState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val initialYear = remember { today.year }
     val initialMonth = remember { today.month.number }
@@ -69,12 +68,11 @@ fun CalendarPager(
         }
     }
 
-
     HorizontalPager(
         state = pagerState,
         beyondViewportPageCount = 0,
         flingBehavior = PagerDefaults.flingBehavior(state = pagerState),
-        modifier = modifier.testTag("calendar_pager")
+        modifier = modifier.testTag("calendar_pager"),
     ) { page ->
         val (year, month) = pageToYearMonth(page, initialYear, initialMonth)
         composeTraceBeginSection("CalendarPager:Page:$year-$month")
@@ -104,11 +102,12 @@ fun CalendarPager(
             shiftKindAt = shiftKindAt,
             showLegalHoliday = showLegalHoliday,
             onRowHeightMeasured = onRowHeightMeasured,
-            modifier = Modifier.graphicsLayer {
+            modifier =
+            Modifier.graphicsLayer {
                 val pageOffset = abs(pagerState.currentPageOffsetFraction)
                 val isCurrentPage = page == pagerState.currentPage
                 alpha = if (isCurrentPage) 1f - pageOffset else pageOffset
-            }
+            },
         )
         composeTraceEndSection()
     }

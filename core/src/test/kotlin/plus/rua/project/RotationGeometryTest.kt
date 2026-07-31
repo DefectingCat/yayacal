@@ -6,8 +6,8 @@ import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /**
  * [RotationGeometry] 单元测试。
@@ -17,7 +17,6 @@ import kotlin.test.assertFalse
  * bug 的几何重现与防护：缩放因子不足时角点会落进容器内 → 容器角露黑。
  */
 class RotationGeometryTest {
-
     @Test
     fun stableAspect_noRotation_returnsSourceAspect() {
         assertEquals(1.5f, RotationGeometry.stableAspect(1.5f, 0))
@@ -67,25 +66,27 @@ class RotationGeometryTest {
     @Test
     fun coverScale_rotatedImageCornersCoverContainer_noBlackAtAnyAngle() {
         val aspects = listOf(0.5f, 0.75f, 1.0f, 1.3333f, 2.0f, 3.0f)
-        val maxViolation = aspects.maxOf { aspect ->
-            (-90..90).maxOf { offsetDeg ->
-                val offset = offsetDeg.toFloat()
-                val k = RotationGeometry.coverScale(offset, aspect)
-                val rad = offset * PI.toFloat() / 180f
-                val ca = cos(rad); val sa = sin(rad)
-                // 容器四角反旋转到图片坐标系，与缩放图片半尺寸比较（>0 表示露出黑边）
-                listOf(
-                    aspect / 2 to 0.5f,
-                    aspect / 2 to -0.5f,
-                    -aspect / 2 to 0.5f,
-                    -aspect / 2 to -0.5f
-                ).maxOf { (x, y) ->
-                    val xp = x * ca + y * sa
-                    val yp = -x * sa + y * ca
-                    maxOf(abs(xp) - k * aspect / 2, abs(yp) - k * 0.5f)
+        val maxViolation =
+            aspects.maxOf { aspect ->
+                (-90..90).maxOf { offsetDeg ->
+                    val offset = offsetDeg.toFloat()
+                    val k = RotationGeometry.coverScale(offset, aspect)
+                    val rad = offset * PI.toFloat() / 180f
+                    val ca = cos(rad)
+                    val sa = sin(rad)
+                    // 容器四角反旋转到图片坐标系，与缩放图片半尺寸比较（>0 表示露出黑边）
+                    listOf(
+                        aspect / 2 to 0.5f,
+                        aspect / 2 to -0.5f,
+                        -aspect / 2 to 0.5f,
+                        -aspect / 2 to -0.5f,
+                    ).maxOf { (x, y) ->
+                        val xp = x * ca + y * sa
+                        val yp = -x * sa + y * ca
+                        maxOf(abs(xp) - k * aspect / 2, abs(yp) - k * 0.5f)
+                    }
                 }
             }
-        }
         // 无任何角点超出缩放图片 → 无黑边
         assertTrue(maxViolation <= 1e-4f, "存在角点露出黑边，最大越界=$maxViolation")
     }
@@ -98,10 +99,11 @@ class RotationGeometryTest {
             assertEquals(
                 RotationGeometry.coverScale(offset.toFloat(), aspect),
                 RotationGeometry.coverScale(-offset.toFloat(), aspect),
-                1e-5f
+                1e-5f,
             )
         }
     }
+
     @Test
     fun baseRotation_and_isSwapped_dynamicAngleTransition() {
         assertEquals(0, RotationGeometry.baseRotation(0f))
@@ -131,6 +133,7 @@ class RotationGeometryTest {
         assertEquals(-10f, RotationGeometry.offsetDegrees(80f), 1e-5f)
         assertEquals(0f, RotationGeometry.offsetDegrees(90f), 1e-5f)
     }
+
     @Test
     fun calculateLayoutSize_maintainsSourceAspect_and_fitsViewportAABB() {
         val srcAspect = 1.3333f // 4:3 横图

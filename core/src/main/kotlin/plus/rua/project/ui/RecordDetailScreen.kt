@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.Brush
@@ -25,7 +26,6 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.EditNote
-import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.ZoomIn
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -90,19 +90,21 @@ fun RecordDetailScreen(
     recordId: Long,
     onEditInfo: (Long) -> Unit,
     onEditPhoto: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current.applicationContext
-    val viewModel: DateRecordDetailViewModel = viewModel(
-        factory = viewModelFactory {
-            initializer {
-                DateRecordDetailViewModel(
-                    DateRecorderRepository.fromContext(context),
-                    recordId
-                )
-            }
-        }
-    )
+    val viewModel: DateRecordDetailViewModel =
+        viewModel(
+            factory =
+            viewModelFactory {
+                initializer {
+                    DateRecordDetailViewModel(
+                        DateRecorderRepository.fromContext(context),
+                        recordId,
+                    )
+                }
+            },
+        )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showDeleteDialog by remember { mutableStateOf(false) }
     var showLightbox by remember { mutableStateOf(false) }
@@ -121,7 +123,7 @@ fun RecordDetailScreen(
                 title = {
                     Text(
                         text = "记录详情",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     )
                 },
                 navigationIcon = {
@@ -129,7 +131,7 @@ fun RecordDetailScreen(
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
         bottomBar = {
@@ -137,38 +139,47 @@ fun RecordDetailScreen(
                 DetailBottomBar(
                     onEditInfo = { onEditInfo(record.id) },
                     onEditPhoto = { viewModel.currentPhotoPath()?.let(onEditPhoto) },
-                    onDelete = { showDeleteDialog = true }
+                    onDelete = { showDeleteDialog = true },
                 )
             }
         },
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
     ) { innerPadding ->
         when {
-            state.loading -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) { CircularProgressIndicator() }
-
-            record == null -> Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("记录不存在", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            state.loading -> {
+                Box(
+                    modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) { CircularProgressIndicator() }
             }
 
-            else -> DetailContent(
-                state = state,
-                onPhotoClick = { showLightbox = true },
-                onEditInfo = { onEditInfo(record.id) },
-                onEditPhoto = { viewModel.currentPhotoPath()?.let(onEditPhoto) },
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-            )
+            record == null -> {
+                Box(
+                    modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text("记录不存在", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            else -> {
+                DetailContent(
+                    state = state,
+                    onPhotoClick = { showLightbox = true },
+                    onEditInfo = { onEditInfo(record.id) },
+                    onEditPhoto = { viewModel.currentPhotoPath()?.let(onEditPhoto) },
+                    modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                )
+            }
         }
     }
 
@@ -185,7 +196,7 @@ fun RecordDetailScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("取消") }
-            }
+            },
         )
     }
 
@@ -193,7 +204,7 @@ fun RecordDetailScreen(
         ImageLightbox(
             photoUri = state.photoUri,
             contentDescription = state.record?.title,
-            onDismiss = { showLightbox = false }
+            onDismiss = { showLightbox = false },
         )
     }
 }
@@ -213,30 +224,30 @@ private fun DetailContent(
     onPhotoClick: () -> Unit,
     onEditInfo: () -> Unit,
     onEditPhoto: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val record = state.record ?: return
     Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         HeroPhotoCard(
             photoUri = state.photoUri,
             title = record.title,
             onPhotoClick = onPhotoClick,
-            onEditPhotoClick = onEditPhoto
+            onEditPhotoClick = onEditPhoto,
         )
 
         TitleHeaderSection(title = record.title)
 
         MetadataSection(
             shootDate = record.shootDate,
-            linkedDate = record.linkedDate
+            linkedDate = record.linkedDate,
         )
 
         JournalNoteSection(
             note = record.note,
-            onEditNoteClick = onEditInfo
+            onEditNoteClick = onEditInfo,
         )
 
         Spacer(modifier = Modifier.padding(bottom = 12.dp))
@@ -258,56 +269,61 @@ private fun HeroPhotoCard(
     title: String,
     onPhotoClick: () -> Unit,
     onEditPhotoClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     ElevatedCard(
         onClick = onPhotoClick,
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.elevatedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        colors =
+        CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Box(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxWidth()
-                .heightIn(min = 220.dp, max = 380.dp)
+                .heightIn(min = 220.dp, max = 380.dp),
         ) {
             AsyncImage(
                 uri = photoUri,
                 contentDescription = title,
                 contentScale = ContentScale.Crop,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxWidth()
-                    .fillMaxSize()
+                    .fillMaxSize(),
             )
 
             // 右上角全屏提示胶囊
             Surface(
                 color = Color.Black.copy(alpha = 0.45f),
                 shape = CircleShape,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.TopEnd)
-                    .padding(12.dp)
+                    .padding(12.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.ZoomIn,
                         contentDescription = "全屏预览",
                         tint = Color.White,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(16.dp),
                     )
                     Text(
                         text = "全屏查看",
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color.White
+                        color = Color.White,
                     )
                 }
             }
@@ -317,26 +333,27 @@ private fun HeroPhotoCard(
                 color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.92f),
                 shape = RoundedCornerShape(12.dp),
                 onClick = onEditPhotoClick,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.BottomEnd)
-                    .padding(12.dp)
+                    .padding(12.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Brush,
                         contentDescription = "涂鸦编辑",
                         tint = MaterialTheme.colorScheme.onSecondaryContainer,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(16.dp),
                     )
                     Text(
                         text = "涂鸦编辑",
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.Medium,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
                     )
                 }
             }
@@ -353,28 +370,29 @@ private fun HeroPhotoCard(
 @Composable
 private fun TitleHeaderSection(
     title: String,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .padding(horizontal = 20.dp, vertical = 2.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Surface(
                 color = MaterialTheme.colorScheme.primaryContainer,
-                shape = RoundedCornerShape(6.dp)
+                shape = RoundedCornerShape(6.dp),
             ) {
                 Text(
                     text = "日期记忆",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                 )
             }
         }
@@ -383,7 +401,7 @@ private fun TitleHeaderSection(
             text = title,
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }
@@ -399,13 +417,14 @@ private fun TitleHeaderSection(
 private fun MetadataSection(
     shootDate: LocalDate,
     linkedDate: LocalDate?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         MetadataCard(
             icon = Icons.Outlined.CalendarToday,
@@ -414,7 +433,7 @@ private fun MetadataSection(
             primaryValue = formatChineseDate(shootDate),
             secondaryValue = getWeekdayName(shootDate),
             secondaryColor = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
 
         val hasLinked = linkedDate != null
@@ -425,7 +444,7 @@ private fun MetadataSection(
             primaryValue = if (hasLinked) formatChineseDate(linkedDate) else "未关联",
             secondaryValue = if (hasLinked) getWeekdayName(linkedDate) else "独立记录",
             secondaryColor = if (hasLinked) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.outline,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
     }
 }
@@ -449,30 +468,30 @@ private fun MetadataCard(
     primaryValue: String,
     secondaryValue: String,
     secondaryColor: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        modifier = modifier
+        modifier = modifier,
     ) {
         Row(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp)
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = iconTint.copy(alpha = 0.12f),
-                modifier = Modifier.size(38.dp)
+                modifier = Modifier.size(38.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
                         tint = iconTint,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
                     )
                 }
             }
@@ -481,18 +500,18 @@ private fun MetadataCard(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = primaryValue,
                     style = MaterialTheme.typography.bodySmall,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
                     text = secondaryValue,
                     style = MaterialTheme.typography.labelSmall,
-                    color = secondaryColor
+                    color = secondaryColor,
                 )
             }
         }
@@ -510,43 +529,45 @@ private fun MetadataCard(
 private fun JournalNoteSection(
     note: String,
     onEditNoteClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     OutlinedCard(
         onClick = onEditNoteClick,
         shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.outlinedCardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+        colors =
+        CardDefaults.outlinedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp)
+            .padding(horizontal = 16.dp),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Outlined.Notes,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
                     )
                     Text(
                         text = "记录笔记",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
 
@@ -554,7 +575,7 @@ private fun JournalNoteSection(
                     imageVector = Icons.Outlined.Edit,
                     contentDescription = "编辑笔记",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(16.dp),
                 )
             }
 
@@ -563,24 +584,24 @@ private fun JournalNoteSection(
                     text = note,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.3f
+                    lineHeight = MaterialTheme.typography.bodyMedium.lineHeight * 1.3f,
                 )
             } else {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(vertical = 4.dp)
+                    modifier = Modifier.padding(vertical = 4.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.EditNote,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
                     )
                     Text(
                         text = "暂无笔记内容，点击可编辑添加...",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.outline
+                        color = MaterialTheme.colorScheme.outline,
                     )
                 }
             }
@@ -601,29 +622,30 @@ private fun DetailBottomBar(
     onEditInfo: () -> Unit,
     onEditPhoto: () -> Unit,
     onDelete: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         tonalElevation = 3.dp,
         color = MaterialTheme.colorScheme.surfaceContainer,
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Button(
                 onClick = onEditInfo,
                 shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Edit,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("编辑信息")
@@ -632,12 +654,12 @@ private fun DetailBottomBar(
             OutlinedButton(
                 onClick = onEditPhoto,
                 shape = RoundedCornerShape(14.dp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Brush,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(6.dp))
                 Text("涂鸦编辑")
@@ -647,31 +669,28 @@ private fun DetailBottomBar(
                 onClick = onDelete,
                 shape = RoundedCornerShape(14.dp),
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.5f)),
-                colors = IconButtonDefaults.outlinedIconButtonColors(
-                    contentColor = MaterialTheme.colorScheme.error
-                )
+                colors =
+                IconButtonDefaults.outlinedIconButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Delete,
-                    contentDescription = "删除记录"
+                    contentDescription = "删除记录",
                 )
             }
         }
     }
 }
 
-private fun formatChineseDate(date: LocalDate): String {
-    return "${date.year}年${date.month.number}月${date.day}日"
-}
+private fun formatChineseDate(date: LocalDate): String = "${date.year}年${date.month.number}月${date.day}日"
 
-private fun getWeekdayName(date: LocalDate): String {
-    return when (date.dayOfWeek) {
-        DayOfWeek.MONDAY -> "星期一"
-        DayOfWeek.TUESDAY -> "星期二"
-        DayOfWeek.WEDNESDAY -> "星期三"
-        DayOfWeek.THURSDAY -> "星期四"
-        DayOfWeek.FRIDAY -> "星期五"
-        DayOfWeek.SATURDAY -> "星期六"
-        DayOfWeek.SUNDAY -> "星期日"
-    }
+private fun getWeekdayName(date: LocalDate): String = when (date.dayOfWeek) {
+    DayOfWeek.MONDAY -> "星期一"
+    DayOfWeek.TUESDAY -> "星期二"
+    DayOfWeek.WEDNESDAY -> "星期三"
+    DayOfWeek.THURSDAY -> "星期四"
+    DayOfWeek.FRIDAY -> "星期五"
+    DayOfWeek.SATURDAY -> "星期六"
+    DayOfWeek.SUNDAY -> "星期日"
 }

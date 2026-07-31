@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
  */
 data class RecordSortOrder(
     val field: RecordSortField,
-    val ascending: Boolean
+    val ascending: Boolean,
 ) {
     companion object {
         /** 默认按拍摄日期降序（最新的在前） */
@@ -31,12 +31,14 @@ data class RecordSortOrder(
          * @param current 当前排序方式
          * @param field 用户点击的排序字段
          */
-        fun nextAfter(current: RecordSortOrder, field: RecordSortField): RecordSortOrder =
-            if (current.field == field) {
-                current.copy(ascending = !current.ascending)
-            } else {
-                RecordSortOrder(field, current.ascending)
-            }
+        fun nextAfter(
+            current: RecordSortOrder,
+            field: RecordSortField,
+        ): RecordSortOrder = if (current.field == field) {
+            current.copy(ascending = !current.ascending)
+        } else {
+            RecordSortOrder(field, current.ascending)
+        }
     }
 }
 
@@ -49,7 +51,7 @@ enum class RecordSortField {
     LINKED_DATE,
 
     /** 记录创建时间 */
-    CREATED_AT
+    CREATED_AT,
 }
 
 /**
@@ -66,7 +68,7 @@ data class DateRecorderUiState(
     val sortOrder: RecordSortOrder = RecordSortOrder.DEFAULT,
     val isLoading: Boolean = true,
     val selectionMode: Boolean = false,
-    val selectedIds: Set<Long> = emptySet()
+    val selectedIds: Set<Long> = emptySet(),
 ) {
     /** 是否已选中全部记录（供"全选/取消全选"切换显示） */
     val allSelected: Boolean get() = records.isNotEmpty() && selectedIds.size == records.size
@@ -80,38 +82,43 @@ data class DateRecorderUiState(
  * @param repository 数据仓库
  */
 class DateRecorderViewModel(
-    private val repository: DateRecorderRepository
+    private val repository: DateRecorderRepository,
 ) : ViewModel() {
-
     private val _sortOrder = MutableStateFlow(RecordSortOrder.DEFAULT)
     val sortOrder: StateFlow<RecordSortOrder> = _sortOrder.asStateFlow()
 
+    // 聚合进 uiState，不单独暴露
+    @Suppress("ktlint:standard:backing-property-naming")
     private val _selectionMode = MutableStateFlow(false)
+
+    @Suppress("ktlint:standard:backing-property-naming")
     private val _selectedIds = MutableStateFlow<Set<Long>>(emptySet())
 
     /**
      * 聚合的 UI 状态：仓库记录 Flow + 排序 Flow + 多选 Flow 合并、排序。
      */
-    val uiState: StateFlow<DateRecorderUiState> = run {
-        kotlinx.coroutines.flow.combine(
-            repository.observeAll(),
-            _sortOrder,
-            _selectionMode,
-            _selectedIds
-        ) { records, order, selectionMode, selectedIds ->
-            DateRecorderUiState(
-                records = sortRecords(records, order),
-                sortOrder = order,
-                isLoading = false,
-                selectionMode = selectionMode,
-                selectedIds = selectedIds
-            )
-        }.stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5000),
-            initialValue = DateRecorderUiState()
-        )
-    }
+    val uiState: StateFlow<DateRecorderUiState> =
+        run {
+            kotlinx.coroutines.flow
+                .combine(
+                    repository.observeAll(),
+                    _sortOrder,
+                    _selectionMode,
+                    _selectedIds,
+                ) { records, order, selectionMode, selectedIds ->
+                    DateRecorderUiState(
+                        records = sortRecords(records, order),
+                        sortOrder = order,
+                        isLoading = false,
+                        selectionMode = selectionMode,
+                        selectedIds = selectedIds,
+                    )
+                }.stateIn(
+                    scope = viewModelScope,
+                    started = SharingStarted.WhileSubscribed(5000),
+                    initialValue = DateRecorderUiState(),
+                )
+        }
 
     /**
      * 切换排序方式。
@@ -156,9 +163,10 @@ class DateRecorderViewModel(
      * 切换某条记录的选中状态。
      */
     fun toggleSelection(id: Long) {
-        _selectedIds.value = _selectedIds.value.let { current ->
-            if (id in current) current - id else current + id
-        }
+        _selectedIds.value =
+            _selectedIds.value.let { current ->
+                if (id in current) current - id else current + id
+            }
     }
 
     /**
@@ -166,11 +174,12 @@ class DateRecorderViewModel(
      */
     fun toggleSelectAll() {
         val records = uiState.value.records
-        _selectedIds.value = if (uiState.value.allSelected) {
-            emptySet()
-        } else {
-            records.map { it.id }.toSet()
-        }
+        _selectedIds.value =
+            if (uiState.value.allSelected) {
+                emptySet()
+            } else {
+                records.map { it.id }.toSet()
+            }
     }
 
     /**
@@ -200,7 +209,7 @@ class DateRecorderViewModel(
 
     private fun sortRecords(
         records: List<DateRecord>,
-        order: RecordSortOrder
+        order: RecordSortOrder,
     ): List<DateRecord> = sortDateRecords(records, order)
 
     companion object {
@@ -209,13 +218,14 @@ class DateRecorderViewModel(
          */
         fun sortDateRecords(
             records: List<DateRecord>,
-            order: RecordSortOrder
+            order: RecordSortOrder,
         ): List<DateRecord> {
-            val comparator: Comparator<DateRecord> = when (order.field) {
-                RecordSortField.SHOOT_DATE -> compareBy { it.shootDate }
-                RecordSortField.LINKED_DATE -> compareBy(nullsLast()) { it.linkedDate }
-                RecordSortField.CREATED_AT -> compareBy { it.createdAt }
-            }
+            val comparator: Comparator<DateRecord> =
+                when (order.field) {
+                    RecordSortField.SHOOT_DATE -> compareBy { it.shootDate }
+                    RecordSortField.LINKED_DATE -> compareBy(nullsLast()) { it.linkedDate }
+                    RecordSortField.CREATED_AT -> compareBy { it.createdAt }
+                }
             // id 兜底随主排序一起反转，保证降序时同值记录也是最新（id 最大）的在前
             val ordered = comparator.then(compareBy { it.id })
             return records.sortedWith(if (order.ascending) ordered else ordered.reversed())

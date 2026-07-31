@@ -2,19 +2,8 @@
 
 package plus.rua.project.ui
 
-import androidx.compose.animation.AnimatedContent
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.outlined.Build
-import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material.icons.outlined.DateRange
-import androidx.compose.material.icons.outlined.EventAvailable
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
@@ -33,13 +22,13 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.togetherWith
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -55,8 +44,15 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.outlined.Build
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.DateRange
+import androidx.compose.material.icons.outlined.EventAvailable
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DatePicker
@@ -70,12 +66,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -83,16 +80,28 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
@@ -101,22 +110,13 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
-import kotlin.time.Instant
 import plus.rua.project.CalendarViewModel
 import plus.rua.project.ShiftKind
+import plus.rua.project.ShiftPatternStorage
 import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
 import kotlin.time.Clock
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.ui.platform.LocalContext
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
-import plus.rua.project.ShiftPatternStorage
 
 /**
  * 日历主界面，包含月/周视图切换、折叠动画和年视图转场。
@@ -134,7 +134,7 @@ fun CalendarMonthView(
     onNavigateToAbout: () -> Unit = {},
     onNavigateToTools: () -> Unit = {},
     onNavigateToShiftSettings: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current.applicationContext
     val viewModel: CalendarViewModel = viewModel(
@@ -142,11 +142,14 @@ fun CalendarMonthView(
             initializer {
                 CalendarViewModel(
                     clock = Clock.System,
-                    shiftStorage = ShiftPatternStorage.fromContext(context)
+                    shiftStorage = ShiftPatternStorage.fromContext(context),
                 )
             }
-        }
+        },
     )
+
+    // today 在 ON_RESUME 时刷新，确保跨天后"今天"高亮正确
+    var today by remember { mutableStateOf(Clock.System.todayIn(TimeZone.currentSystemDefault())) }
 
     // 设置页返回后 onResume 重读 storage,立即刷新班次
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -160,7 +163,6 @@ fun CalendarMonthView(
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    var today by remember { mutableStateOf(Clock.System.todayIn(TimeZone.currentSystemDefault())) }
 
     val uiState by viewModel.uiState.collectAsState()
     val shiftPattern by viewModel.shiftPattern.collectAsState()
@@ -177,7 +179,7 @@ fun CalendarMonthView(
     val animatedCollapseProgress by animateFloatAsState(
         targetValue = collapseProgress,
         animationSpec = spring(stiffness = Spring.StiffnessMedium),
-        label = "collapseProgress"
+        label = "collapseProgress",
     )
 
     val density = LocalDensity.current
@@ -193,7 +195,7 @@ fun CalendarMonthView(
     // 年视图分页器
     val yearPagerState = rememberPagerState(
         initialPage = START_PAGE,
-        pageCount = { Int.MAX_VALUE }
+        pageCount = { Int.MAX_VALUE },
     )
 
     // 视图切换时自动关闭菜单
@@ -216,8 +218,10 @@ fun CalendarMonthView(
     // 折叠态 WeekPager 切月时，持续同步 CalendarPager 的 pagerState
     LaunchedEffect(selectedDate) {
         val targetPage = yearMonthToPage(
-            selectedDate.year, selectedDate.month.number,
-            today.year, today.month.number
+            selectedDate.year,
+            selectedDate.month.number,
+            today.year,
+            today.month.number,
         )
         if (targetPage != pagerState.currentPage) {
             pagerState.animateScrollToPage(targetPage)
@@ -232,22 +236,22 @@ fun CalendarMonthView(
             .semantics { testTagsAsResourceId = true }
             .onSizeChanged { size ->
                 screenWidthPx = size.width
-            }
+            },
     ) {
         SharedTransitionLayout(
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) {
             AnimatedContent(
                 targetState = isYearView,
                 label = "month_year_transition",
                 transitionSpec = {
                     fadeIn(
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
                     ) togetherWith fadeOut(
-                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
+                        animationSpec = spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy),
                     )
                 },
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             ) { yearViewActive ->
                 if (!yearViewActive) {
                     composeTraceBeginSection("MonthView:Compose")
@@ -257,12 +261,12 @@ fun CalendarMonthView(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.background)
-                            .alpha(if (layoutReady) 1f else 0f)
+                            .alpha(if (layoutReady) 1f else 0f),
                     ) {
                         Column(
                             modifier = Modifier
                                 .fillMaxSize()
-                                .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
+                                .padding(horizontal = HORIZONTAL_PADDING_DP.dp),
                         ) {
                             val weekNumber = remember(selectedDate) {
                                 viewModel.getIsoWeekNumber(selectedDate)
@@ -276,18 +280,21 @@ fun CalendarMonthView(
                                 weekNumber = weekNumber,
                                 showToday = selectedDate != today,
                                 onToday = onToday,
-                                onYearMonthClick = { showDatePicker = true }
+                                onYearMonthClick = { showDatePicker = true },
                             )
                             WeekdayHeader(
-                                modifier = Modifier.fillMaxWidth().padding(bottom = ROW_PADDING_DP.dp)
+                                modifier = Modifier.fillMaxWidth().padding(bottom = ROW_PADDING_DP.dp),
                             )
                             val onDateClick = remember(viewModel) {
                                 { date: LocalDate -> viewModel.selectDate(date) }
                             }
                             val onMonthChanged = remember(viewModel, today) {
                                 { year: Int, month: Int ->
-                                    val date = if (year == today.year && today.month.number == month) today
-                                    else LocalDate(year, Month(month), 1)
+                                    val date = if (year == today.year && today.month.number == month) {
+                                        today
+                                    } else {
+                                        LocalDate(year, Month(month), 1)
+                                    }
                                     viewModel.selectDate(date)
                                 }
                             }
@@ -316,15 +323,15 @@ fun CalendarMonthView(
                                         animatedVisibilityScope = this@AnimatedContent,
                                         boundsTransform = { _, _ ->
                                             spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
-                                        }
-                                    )
+                                        },
+                                    ),
                             )
                             BottomCardArea(
                                 viewModel = viewModel,
                                 today = today,
                                 rowHeightPx = rowHeightPx,
                                 isYearView = isYearView,
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier.fillMaxWidth(),
                             )
                         }
                     }
@@ -336,7 +343,7 @@ fun CalendarMonthView(
                         modifier = Modifier
                             .fillMaxSize()
                             .background(MaterialTheme.colorScheme.background)
-                            .padding(horizontal = HORIZONTAL_PADDING_DP.dp)
+                            .padding(horizontal = HORIZONTAL_PADDING_DP.dp),
                     ) {
                         YearHeader(
                             year = yearViewYear,
@@ -347,16 +354,17 @@ fun CalendarMonthView(
                                 if (targetPage != yearPagerState.currentPage) {
                                     coroutineScope.launch { yearPagerState.animateScrollToPage(targetPage) }
                                 }
-                            }
+                            },
                         )
                         HorizontalPager(
                             state = yearPagerState,
-                            userScrollEnabled = (this@AnimatedContent.transition.currentState == this@AnimatedContent.transition.targetState),
+                            userScrollEnabled =
+                            (this@AnimatedContent.transition.currentState == this@AnimatedContent.transition.targetState),
                             beyondViewportPageCount = 0,
                             flingBehavior = PagerDefaults.flingBehavior(state = yearPagerState),
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .weight(1f)
+                                .weight(1f),
                         ) { page ->
                             // P0: 稳定 pageYear 计算，避免 settledPage/yearViewYear 不同步导致抖动
                             val pageYear = remember(page, yearViewYear, yearPagerState.settledPage) {
@@ -370,8 +378,10 @@ fun CalendarMonthView(
                                     composeTraceBeginSection("YearView:SelectMonth")
                                     viewModel.selectMonthFromYearView(month)
                                     val targetPage = yearMonthToPage(
-                                        yearViewYear, month,
-                                        today.year, today.month.number
+                                        yearViewYear,
+                                        month,
+                                        today.year,
+                                        today.month.number,
                                     )
                                     if (targetPage != pagerState.currentPage) {
                                         coroutineScope.launch { pagerState.scrollToPage(targetPage) }
@@ -384,10 +394,10 @@ fun CalendarMonthView(
                                         animatedVisibilityScope = this@AnimatedContent,
                                         boundsTransform = { _, _ ->
                                             spring(stiffness = Spring.StiffnessMediumLow, dampingRatio = Spring.DampingRatioNoBouncy)
-                                        }
+                                        },
                                     )
                                 },
-                                modifier = Modifier
+                                modifier = Modifier,
                             )
                         }
                     }
@@ -406,7 +416,7 @@ fun CalendarMonthView(
         AnimatedVisibility(
             visible = isMenuExpanded,
             enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(200))
+            exit = fadeOut(tween(200)),
         ) {
             Box(
                 modifier = Modifier
@@ -414,7 +424,7 @@ fun CalendarMonthView(
                     .background(Color.Black.copy(alpha = 0.32f))
                     .pointerInput(Unit) {
                         detectTapGestures { isMenuExpanded = false }
-                    }
+                    },
             )
         }
 
@@ -427,7 +437,7 @@ fun CalendarMonthView(
                 .testTag("fab_menu"),
             shape = CircleShape,
             containerColor = MaterialTheme.colorScheme.primaryContainer,
-            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         ) {
             AnimatedContent(
                 targetState = isMenuExpanded,
@@ -435,20 +445,20 @@ fun CalendarMonthView(
                     (fadeIn(tween(200)) + scaleIn(initialScale = 0.8f)) togetherWith
                         (fadeOut(tween(200)) + scaleOut(targetScale = 0.8f))
                 },
-                label = "fab_icon"
+                label = "fab_icon",
             ) { expanded ->
                 val rotation by animateFloatAsState(
                     targetValue = if (expanded) 180f else 0f,
                     animationSpec = spring(
                         stiffness = Spring.StiffnessMediumLow,
-                        dampingRatio = Spring.DampingRatioLowBouncy
+                        dampingRatio = Spring.DampingRatioLowBouncy,
                     ),
-                    label = "fab_rotation"
+                    label = "fab_rotation",
                 )
                 Icon(
                     imageVector = if (expanded) Icons.Filled.Close else Icons.Filled.Menu,
                     contentDescription = if (expanded) "关闭菜单" else "打开菜单",
-                    modifier = Modifier.graphicsLayer { rotationZ = rotation }
+                    modifier = Modifier.graphicsLayer { rotationZ = rotation },
                 )
             }
         }
@@ -460,28 +470,28 @@ fun CalendarMonthView(
                 initialScale = 0.2f,
                 animationSpec = spring(
                     stiffness = Spring.StiffnessMediumLow,
-                    dampingRatio = Spring.DampingRatioLowBouncy
+                    dampingRatio = Spring.DampingRatioLowBouncy,
                 ),
-                transformOrigin = TransformOrigin(0f, 1f)
+                transformOrigin = TransformOrigin(0f, 1f),
             ) + fadeIn(tween(180)),
             exit = scaleOut(
                 targetScale = 0.2f,
                 animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
-                transformOrigin = TransformOrigin(0f, 1f)
+                transformOrigin = TransformOrigin(0f, 1f),
             ) + fadeOut(tween(120)),
             modifier = Modifier
                 .align(Alignment.BottomStart)
-                .padding(start = 24.dp, bottom = 32.dp + 56.dp + 8.dp)
+                .padding(start = 24.dp, bottom = 32.dp + 56.dp + 8.dp),
         ) {
             Card(
                 shape = RoundedCornerShape(16.dp),
                 elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
             ) {
                 Column(
                     modifier = Modifier
                         .width(170.dp)
-                        .padding(vertical = 4.dp)
+                        .padding(vertical = 4.dp),
                 ) {
                     MenuItem(
                         text = "月视图",
@@ -494,7 +504,7 @@ fun CalendarMonthView(
                                 viewModel.toggleYearView()
                                 composeTraceEndSection()
                             }
-                        }
+                        },
                     )
                     MenuItem(
                         text = "年视图",
@@ -507,12 +517,12 @@ fun CalendarMonthView(
                                 viewModel.toggleYearView()
                                 composeTraceEndSection()
                             }
-                        }
+                        },
                     )
                     HorizontalDivider(
                         thickness = 1.dp,
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
                     )
                     MenuItem(
                         text = "显示调休",
@@ -521,7 +531,7 @@ fun CalendarMonthView(
                         onClick = {
                             isMenuExpanded = false
                             viewModel.toggleShowLegalHoliday()
-                        }
+                        },
                     )
                     MenuItem(
                         text = "班次设置",
@@ -530,12 +540,12 @@ fun CalendarMonthView(
                         onClick = {
                             isMenuExpanded = false
                             onNavigateToShiftSettings()
-                        }
+                        },
                     )
                     HorizontalDivider(
                         thickness = 1.dp,
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp)
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 2.dp),
                     )
                     MenuItem(
                         text = "工具",
@@ -544,7 +554,7 @@ fun CalendarMonthView(
                         onClick = {
                             isMenuExpanded = false
                             onNavigateToTools()
-                        }
+                        },
                     )
                     MenuItem(
                         text = "关于",
@@ -553,7 +563,7 @@ fun CalendarMonthView(
                         onClick = {
                             isMenuExpanded = false
                             onNavigateToAbout()
-                        }
+                        },
                     )
                 }
             }
@@ -561,7 +571,7 @@ fun CalendarMonthView(
 
         if (showDatePicker) {
             val datePickerState = rememberDatePickerState(
-                initialSelectedDateMillis = selectedDate.toEpochMillis()
+                initialSelectedDateMillis = selectedDate.toEpochMillis(),
             )
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
@@ -572,7 +582,7 @@ fun CalendarMonthView(
                                 viewModel.selectDate(millis.toLocalDate())
                             }
                             showDatePicker = false
-                        }
+                        },
                     ) {
                         Text("确定")
                     }
@@ -581,7 +591,7 @@ fun CalendarMonthView(
                     TextButton(onClick = { showDatePicker = false }) {
                         Text("取消")
                     }
-                }
+                },
             ) {
                 DatePicker(state = datePickerState)
             }
@@ -602,7 +612,7 @@ private fun CalendarPagerArea(
     shiftKindAt: (LocalDate) -> ShiftKind?,
     onRowHeightMeasured: ((Int) -> Unit)?,
     pagerState: PagerState,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
 
@@ -627,7 +637,9 @@ private fun CalendarPagerArea(
     val estimatedRowHeightPx = if (screenWidthPx > 0) {
         val cellWidth = (screenWidthPx - horizontalPaddingPx) / 7
         (cellWidth + rowPadding2Px).toInt()
-    } else 0
+    } else {
+        0
+    }
 
     val effectiveRowHeightPx = if (rowHeightPx > 0) rowHeightPx else estimatedRowHeightPx
     val effectiveWeeks = interpolatedWeeks
@@ -639,7 +651,9 @@ private fun CalendarPagerArea(
         } else {
             (rowH * effectiveWeeks).toInt()
         }
-    } else 0
+    } else {
+        0
+    }
 
     val pagerModifier = if (rowHeightPx > 0 && gridHeightPx > 0) {
         Modifier
@@ -661,7 +675,7 @@ private fun CalendarPagerArea(
         showLegalHoliday = showLegalHoliday,
         onRowHeightMeasured = onRowHeightMeasured,
         pagerState = pagerState,
-        modifier = pagerModifier
+        modifier = pagerModifier,
     )
 }
 
@@ -671,7 +685,7 @@ private fun BottomCardArea(
     today: LocalDate,
     rowHeightPx: Int,
     isYearView: Boolean,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
     val dragRangeMinPx = remember { with(density) { DRAG_RANGE_MIN_DP.dp.toPx() } }
@@ -729,7 +743,7 @@ private fun BottomCardArea(
             modifier = modifier.graphicsLayer {
                 translationY = (slideProgress * 300).dp.toPx()
                 alpha = 1f - slideProgress
-            }
+            },
         )
     }
 }
@@ -740,46 +754,52 @@ private fun MenuItem(
     icon: ImageVector,
     selected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Card(
         onClick = onClick,
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh
+            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp)
+            .padding(horizontal = 4.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(20.dp)
+                tint = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+                modifier = Modifier.size(20.dp),
             )
             Spacer(modifier = Modifier.width(12.dp))
             Text(
                 text = text,
-                color = if (selected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurface,
+                color = if (selected) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurface
+                },
                 style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.weight(1f),
             )
             if (selected) {
                 Icon(
                     imageVector = Icons.Filled.Check,
                     contentDescription = "已选择",
                     tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
             }
         }
@@ -791,13 +811,11 @@ private fun MenuItem(
  *
  * 用于 DatePicker 初始选中值，与 [Long.toLocalDate] 成对使用。
  */
-private fun LocalDate.toEpochMillis(): Long =
-    this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+private fun LocalDate.toEpochMillis(): Long = this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
 
 /**
  * 将 epoch 毫秒转换为 UTC 日期的 [LocalDate]。
  *
  * DatePicker 返回选中日期的 UTC 午夜毫秒，经此函数得到本地逻辑日期。
  */
-private fun Long.toLocalDate(): LocalDate =
-    Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date
+private fun Long.toLocalDate(): LocalDate = Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date

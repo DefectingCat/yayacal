@@ -28,24 +28,24 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.SmallFloatingActionButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.SwipeToDismissBox
 import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
@@ -55,11 +55,11 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -68,20 +68,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import kotlin.time.Clock
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
-import kotlin.time.Instant
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -91,16 +90,27 @@ import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
 import plus.rua.project.DateCheckerStorage
+import kotlin.time.Clock
 
-private data class ExpiryRow(val id: Int, val days: Int? = null)
+private data class ExpiryRow(
+    val id: Int,
+    val days: Int? = null,
+)
 
 private sealed class DatePickerTarget {
     data object Production : DatePickerTarget()
-    data class Row(val rowId: Int) : DatePickerTarget()
+
+    data class Row(
+        val rowId: Int,
+    ) : DatePickerTarget()
 }
 
 private enum class ExpiryStatus {
-    UNKNOWN, SAFE, WARNING, URGENT, EXPIRED
+    UNKNOWN,
+    SAFE,
+    WARNING,
+    URGENT,
+    EXPIRED,
 }
 
 @Composable
@@ -131,7 +141,10 @@ private fun ExpiryStatus.containerColor(): Color = when (this) {
  * @param modifier 布局修饰符
  */
 @Composable
-fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
+fun DateCheckerScreen(
+    onBack: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
     val context = LocalContext.current.applicationContext
     val storage = remember { DateCheckerStorage.fromContext(context) }
@@ -145,7 +158,7 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             // clampExpiryDays 兜底:清理本修复前可能持久化的负数旧数据
             (saved?.second ?: defaultRows).mapIndexed { index, days ->
                 ExpiryRow(index, clampExpiryDays(days))
-            }
+            },
         )
     }
     var nextId by remember { mutableIntStateOf(rows.size) }
@@ -169,22 +182,24 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 title = {
                     Text(
                         "日期检查器",
-                        style = MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.SemiBold
-                        )
+                        style =
+                        MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.SemiBold,
+                        ),
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.Filled.ChevronLeft,
-                            contentDescription = "返回"
+                            contentDescription = "返回",
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color.Transparent
-                )
+                colors =
+                TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color.Transparent,
+                ),
             )
         },
         floatingActionButton = {
@@ -201,21 +216,22 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 modifier = Modifier.testTag("date_checker_fab"),
                 shape = CircleShape,
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
                 Icon(
                     imageVector = Icons.Filled.Add,
                     contentDescription = "添加",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = MaterialTheme.colorScheme.onPrimary,
                 )
             }
         },
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
     ) { innerPadding ->
         Box(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
+                .padding(innerPadding),
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
                 ProductionDateCard(
@@ -225,194 +241,210 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                         datePickerTarget = DatePickerTarget.Production
                         showDatePicker = true
                     },
-                    modifier = Modifier.padding(horizontal = 16.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "保质期列表",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "${rows.size} 项",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            if (rows.isEmpty()) {
-                Box(
-                    modifier = Modifier
+                Row(
+                    modifier =
+                    Modifier
                         .fillMaxWidth()
-                        .weight(1f),
-                    contentAlignment = Alignment.Center
+                        .padding(horizontal = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        Image(
-                            painter = painterResource(id = plus.rua.project.shared.R.drawable.ic_empty_state),
-                            contentDescription = "空状态",
-                            modifier = Modifier.size(120.dp)
-                        )
-                        Text(
-                            text = "暂无保质期记录",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                        Text(
-                            text = "点击右下角 + 添加",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                        )
-                    }
+                    Text(
+                        text = "保质期列表",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "${rows.size} 项",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .weight(1f)
-                        .verticalScroll(scrollState)
-                        .animateContentSize(
-                            animationSpec = androidx.compose.animation.core.spring(
-                                stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
-                            )
-                        )
-                        .padding(horizontal = 16.dp, vertical = 4.dp)
-                ) {
-                rows.forEachIndexed { index, row ->
-                    val isBeingDeleted = row.id in pendingDeleteIds
 
-                    key(row.id) {
-                        @Suppress("DEPRECATION") // confirmValueChange in SwipeToDismissBoxState is deprecated in Compose M3
-                        val dismissState = rememberSwipeToDismissBoxState(
-                            confirmValueChange = { newValue ->
-                                newValue == SwipeToDismissBoxValue.EndToStart
-                            }
-                        )
+                Spacer(modifier = Modifier.height(12.dp))
 
-                        androidx.compose.runtime.LaunchedEffect(dismissState.currentValue) {
-                            if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart && !isBeingDeleted) {
-                                pendingDeleteIds = pendingDeleteIds + row.id
-                            }
-                        }
-
-                        var visible by remember { mutableStateOf(false) }
-
-                        androidx.compose.runtime.LaunchedEffect(Unit) {
-                            visible = true
-                        }
-
-                        val expiryDate = row.days?.let { productionDate.plus(DatePeriod(days = it)) }
-                        val daysRemaining = expiryDate?.let { today.daysUntil(it) }
-                        val status = when {
-                            daysRemaining == null -> ExpiryStatus.UNKNOWN
-                            daysRemaining < 0 -> ExpiryStatus.EXPIRED
-                            daysRemaining == 0 -> ExpiryStatus.URGENT
-                            daysRemaining <= 7 -> ExpiryStatus.URGENT
-                            daysRemaining <= 30 -> ExpiryStatus.WARNING
-                            else -> ExpiryStatus.SAFE
-                        }
-
-                        AnimatedVisibility(
-                            visible = visible && !isBeingDeleted,
-                            enter = expandVertically(
-                                expandFrom = Alignment.Bottom,
-                                animationSpec = androidx.compose.animation.core.spring(
-                                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow
-                                )
-                            ) + fadeIn(animationSpec = androidx.compose.animation.core.tween(300)),
-                            exit = shrinkVertically() + fadeOut()
+                if (rows.isEmpty()) {
+                    Box(
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            SwipeToDismissBox(
-                                state = dismissState,
-                                backgroundContent = {
-                                    Box(
-                                        modifier = Modifier
-                                            .fillMaxSize()
-                                            .clip(RoundedCornerShape(16.dp))
-                                            .background(MaterialTheme.colorScheme.errorContainer)
-                                            .padding(horizontal = 20.dp),
-                                        contentAlignment = Alignment.CenterEnd
+                            Image(
+                                painter = painterResource(id = plus.rua.project.shared.R.drawable.ic_empty_state),
+                                contentDescription = "空状态",
+                                modifier = Modifier.size(120.dp),
+                            )
+                            Text(
+                                text = "暂无保质期记录",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = "点击右下角 + 添加",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            )
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .weight(1f)
+                            .verticalScroll(scrollState)
+                            .animateContentSize(
+                                animationSpec =
+                                androidx.compose.animation.core.spring(
+                                    stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow,
+                                ),
+                            ).padding(horizontal = 16.dp, vertical = 4.dp),
+                    ) {
+                        rows.forEachIndexed { index, row ->
+                            val isBeingDeleted = row.id in pendingDeleteIds
+
+                            key(row.id) {
+                                @Suppress("DEPRECATION") // confirmValueChange in SwipeToDismissBoxState is deprecated in Compose M3
+                                val dismissState =
+                                    rememberSwipeToDismissBoxState(
+                                        confirmValueChange = { newValue ->
+                                            newValue == SwipeToDismissBoxValue.EndToStart
+                                        },
+                                    )
+
+                                androidx.compose.runtime.LaunchedEffect(dismissState.currentValue) {
+                                    if (dismissState.currentValue == SwipeToDismissBoxValue.EndToStart && !isBeingDeleted) {
+                                        pendingDeleteIds = pendingDeleteIds + row.id
+                                    }
+                                }
+
+                                var visible by remember { mutableStateOf(false) }
+
+                                androidx.compose.runtime.LaunchedEffect(Unit) {
+                                    visible = true
+                                }
+
+                                val expiryDate = row.days?.let { productionDate.plus(DatePeriod(days = it)) }
+                                val daysRemaining = expiryDate?.let { today.daysUntil(it) }
+                                val status =
+                                    when {
+                                        daysRemaining == null -> ExpiryStatus.UNKNOWN
+                                        daysRemaining < 0 -> ExpiryStatus.EXPIRED
+                                        daysRemaining == 0 -> ExpiryStatus.URGENT
+                                        daysRemaining <= 7 -> ExpiryStatus.URGENT
+                                        daysRemaining <= 30 -> ExpiryStatus.WARNING
+                                        else -> ExpiryStatus.SAFE
+                                    }
+
+                                AnimatedVisibility(
+                                    visible = visible && !isBeingDeleted,
+                                    enter =
+                                    expandVertically(
+                                        expandFrom = Alignment.Bottom,
+                                        animationSpec =
+                                        androidx.compose.animation.core.spring(
+                                            stiffness = androidx.compose.animation.core.Spring.StiffnessMediumLow,
+                                        ),
+                                    ) +
+                                        fadeIn(
+                                            animationSpec =
+                                            androidx.compose.animation.core
+                                                .tween(300),
+                                        ),
+                                    exit = shrinkVertically() + fadeOut(),
+                                ) {
+                                    SwipeToDismissBox(
+                                        state = dismissState,
+                                        backgroundContent = {
+                                            Box(
+                                                modifier =
+                                                Modifier
+                                                    .fillMaxSize()
+                                                    .clip(RoundedCornerShape(16.dp))
+                                                    .background(MaterialTheme.colorScheme.errorContainer)
+                                                    .padding(horizontal = 20.dp),
+                                                contentAlignment = Alignment.CenterEnd,
+                                            ) {
+                                                Text(
+                                                    text = "删除",
+                                                    color = MaterialTheme.colorScheme.onErrorContainer,
+                                                    style = MaterialTheme.typography.labelLarge,
+                                                )
+                                            }
+                                        },
                                     ) {
-                                        Text(
-                                            text = "删除",
-                                            color = MaterialTheme.colorScheme.onErrorContainer,
-                                            style = MaterialTheme.typography.labelLarge
+                                        ExpiryCard(
+                                            days = row.days,
+                                            expiryDate = expiryDate,
+                                            daysRemaining = daysRemaining,
+                                            status = status,
+                                            onDaysChange = { newDays ->
+                                                rows =
+                                                    rows.map {
+                                                        if (it.id == row.id) it.copy(days = newDays) else it
+                                                    }
+                                            },
+                                            onExpiryDateChange = { newDate ->
+                                                val rawDays = productionDate.daysUntil(newDate)
+                                                val newDays = clampExpiryDays(rawDays)
+                                                rows =
+                                                    rows.map {
+                                                        if (it.id == row.id) it.copy(days = newDays) else it
+                                                    }
+                                            },
+                                            onShowDatePicker = {
+                                                datePickerTarget = DatePickerTarget.Row(row.id)
+                                                showDatePicker = true
+                                            },
                                         )
                                     }
                                 }
-                            ) {
-                                ExpiryCard(
-                                    days = row.days,
-                                    expiryDate = expiryDate,
-                                    daysRemaining = daysRemaining,
-                                    status = status,
-                                    onDaysChange = { newDays ->
-                                        rows = rows.map {
-                                            if (it.id == row.id) it.copy(days = newDays) else it
-                                        }
-                                    },
-                                    onExpiryDateChange = { newDate ->
-                                        val rawDays = productionDate.daysUntil(newDate)
-                                        val newDays = clampExpiryDays(rawDays)
-                                        rows = rows.map {
-                                            if (it.id == row.id) it.copy(days = newDays) else it
-                                        }
-                                    },
-                                    onShowDatePicker = {
-                                        datePickerTarget = DatePickerTarget.Row(row.id)
-                                        showDatePicker = true
+
+                                if (isBeingDeleted) {
+                                    androidx.compose.runtime.LaunchedEffect(row.id) {
+                                        delay(400)
+                                        rows = rows.filter { it.id != row.id }
+                                        pendingDeleteIds = pendingDeleteIds - row.id
                                     }
-                                )
+                                }
+                            }
+
+                            if (index < rows.lastIndex) {
+                                Spacer(modifier = Modifier.height(10.dp))
                             }
                         }
 
-                        if (isBeingDeleted) {
-                            androidx.compose.runtime.LaunchedEffect(row.id) {
-                                delay(400)
-                                rows = rows.filter { it.id != row.id }
-                                pendingDeleteIds = pendingDeleteIds - row.id
-                            }
-                        }
-                    }
-
-                    if (index < rows.lastIndex) {
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(80.dp))
                     }
                 }
-
-                Spacer(modifier = Modifier.height(80.dp))
-                }
-            }
             }
 
             FloatingActionButton(
                 onClick = { showResetDialog = true },
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.BottomStart)
                     .padding(start = 16.dp, bottom = 16.dp),
                 shape = CircleShape,
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             ) {
                 Icon(
                     imageVector = Icons.Filled.Refresh,
                     contentDescription = "重置",
-                    tint = MaterialTheme.colorScheme.onPrimary
+                    tint = MaterialTheme.colorScheme.onPrimary,
                 )
             }
         }
@@ -426,9 +458,10 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
             confirmButton = {
                 TextButton(onClick = {
                     productionDate = today
-                    rows = defaultRows.mapIndexed { index, days ->
-                        ExpiryRow(index, days)
-                    }
+                    rows =
+                        defaultRows.mapIndexed { index, days ->
+                            ExpiryRow(index, days)
+                        }
                     nextId = defaultRows.size
                     showResetDialog = false
                 }) {
@@ -439,39 +472,51 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 TextButton(onClick = { showResetDialog = false }) {
                     Text("取消")
                 }
-            }
+            },
         )
     }
 
     if (showDatePicker) {
-        val initialMillis = when (val target = datePickerTarget) {
-            is DatePickerTarget.Production -> productionDate.toEpochMillis()
-            is DatePickerTarget.Row -> {
-                val row = rows.find { it.id == target.rowId }
-                row?.days?.let {
-                    productionDate.plus(DatePeriod(days = it)).toEpochMillis()
-                } ?: productionDate.toEpochMillis()
+        val initialMillis =
+            when (val target = datePickerTarget) {
+                is DatePickerTarget.Production -> {
+                    productionDate.toEpochMillis()
+                }
+
+                is DatePickerTarget.Row -> {
+                    val row = rows.find { it.id == target.rowId }
+                    row?.days?.let {
+                        productionDate.plus(DatePeriod(days = it)).toEpochMillis()
+                    } ?: productionDate.toEpochMillis()
+                }
+
+                null -> {
+                    productionDate.toEpochMillis()
+                }
             }
-            null -> productionDate.toEpochMillis()
-        }
 
         val productionMillis = productionDate.toEpochMillis()
         // Row 日期选择器禁选早于生产日期(到期日不应在生产之前);
         // Production 选择器本身不受限制。当前 BOM 无 SelectableDates.AllDates,
         // 用空实现 object 等价于默认全允许(default 方法均返回 true)。
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialMillis,
-            selectableDates = when (datePickerTarget) {
-                is DatePickerTarget.Row -> object : SelectableDates {
-                    override fun isSelectableDate(utcTimeMillis: Long): Boolean =
-                        utcTimeMillis >= productionMillis
+        val datePickerState =
+            rememberDatePickerState(
+                initialSelectedDateMillis = initialMillis,
+                selectableDates =
+                when (datePickerTarget) {
+                    is DatePickerTarget.Row -> {
+                        object : SelectableDates {
+                            override fun isSelectableDate(utcTimeMillis: Long): Boolean = utcTimeMillis >= productionMillis
 
-                    override fun isSelectableYear(year: Int): Boolean =
-                        year >= productionDate.year
-                }
-                else -> object : SelectableDates {}
-            }
-        )
+                            override fun isSelectableYear(year: Int): Boolean = year >= productionDate.year
+                        }
+                    }
+
+                    else -> {
+                        object : SelectableDates {}
+                    }
+                },
+            )
 
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
@@ -480,14 +525,19 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                     datePickerState.selectedDateMillis?.let { millis ->
                         val selected = millis.toLocalDate()
                         when (val target = datePickerTarget) {
-                            is DatePickerTarget.Production -> productionDate = selected
+                            is DatePickerTarget.Production -> {
+                                productionDate = selected
+                            }
+
                             is DatePickerTarget.Row -> {
                                 val rawDays = productionDate.daysUntil(selected)
                                 val newDays = clampExpiryDays(rawDays)
-                                rows = rows.map {
-                                    if (it.id == target.rowId) it.copy(days = newDays) else it
-                                }
+                                rows =
+                                    rows.map {
+                                        if (it.id == target.rowId) it.copy(days = newDays) else it
+                                    }
                             }
+
                             null -> {}
                         }
                     }
@@ -500,7 +550,7 @@ fun DateCheckerScreen(onBack: () -> Unit, modifier: Modifier = Modifier) {
                 TextButton(onClick = { showDatePicker = false }) {
                     Text("取消")
                 }
-            }
+            },
         ) {
             DatePicker(state = datePickerState)
         }
@@ -512,41 +562,45 @@ private fun ProductionDateCard(
     date: LocalDate,
     isToday: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
-    val gradient = Brush.linearGradient(
-        colors = listOf(
-            MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f)
+    val gradient =
+        Brush.linearGradient(
+            colors =
+            listOf(
+                MaterialTheme.colorScheme.primaryContainer,
+                MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.7f),
+            ),
         )
-    )
 
     Box(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
             .background(gradient)
             .clickable(onClick = onClick)
-            .padding(20.dp)
+            .padding(20.dp),
     ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Box(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .size(48.dp)
                     .clip(CircleShape)
                     .background(
-                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f)
+                        MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.12f),
                     ),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = Icons.Filled.DateRange,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(24.dp),
                 )
             }
 
@@ -554,29 +608,30 @@ private fun ProductionDateCard(
                 Text(
                     text = "生产日期",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
+                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f),
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = date.formatChinese(),
-                    style = MaterialTheme.typography.headlineSmall.copy(
-                        fontWeight = FontWeight.Bold
+                    style =
+                    MaterialTheme.typography.headlineSmall.copy(
+                        fontWeight = FontWeight.Bold,
                     ),
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
                 )
                 if (isToday) {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "今天 · ${date.dayOfWeekChinese()}",
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                     )
                 } else {
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = date.dayOfWeekChinese(),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f)
+                        color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.6f),
                     )
                 }
             }
@@ -593,25 +648,27 @@ private fun ExpiryCard(
     onDaysChange: (Int?) -> Unit,
     onExpiryDateChange: (LocalDate) -> Unit,
     onShowDatePicker: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var daysText by remember(days) { mutableStateOf(days?.toString() ?: "") }
     var dateText by remember(expiryDate) { mutableStateOf(expiryDate?.toString() ?: "") }
 
     Box(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .background(MaterialTheme.colorScheme.surfaceContainerHigh),
     ) {
         Column(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
         ) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 OutlinedTextField(
                     value = daysText,
@@ -621,12 +678,13 @@ private fun ExpiryCard(
                     },
                     label = { Text("天数") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(
+                    keyboardOptions =
+                    KeyboardOptions(
                         keyboardType = KeyboardType.Number,
-                        imeAction = ImeAction.Done
+                        imeAction = ImeAction.Done,
                     ),
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -635,7 +693,7 @@ private fun ExpiryCard(
                     imageVector = Icons.AutoMirrored.Filled.ArrowForward,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
 
                 Spacer(modifier = Modifier.width(8.dp))
@@ -651,66 +709,69 @@ private fun ExpiryCard(
                     },
                     label = { Text("到期日期") },
                     singleLine = true,
-                    keyboardOptions = KeyboardOptions(
+                    keyboardOptions =
+                    KeyboardOptions(
                         keyboardType = KeyboardType.Text,
-                        imeAction = ImeAction.Done
+                        imeAction = ImeAction.Done,
                     ),
                     trailingIcon = {
                         IconButton(
                             onClick = onShowDatePicker,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(32.dp),
                         ) {
                             Icon(
                                 imageVector = Icons.Filled.DateRange,
                                 contentDescription = null,
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(18.dp),
                             )
                         }
                     },
                     modifier = Modifier.weight(1.8f),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
                 )
             }
 
             if (daysRemaining != null) {
                 Spacer(modifier = Modifier.height(12.dp))
 
-                val statusText = when {
-                    daysRemaining < 0 -> "已过期 ${-daysRemaining} 天"
-                    daysRemaining == 0 -> "今天过期"
-                    daysRemaining == 1 -> "明天过期"
-                    else -> "还有 $daysRemaining 天"
-                }
+                val statusText =
+                    when {
+                        daysRemaining < 0 -> "已过期 ${-daysRemaining} 天"
+                        daysRemaining == 0 -> "今天过期"
+                        daysRemaining == 1 -> "明天过期"
+                        else -> "还有 $daysRemaining 天"
+                    }
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Box(
-                        modifier = Modifier
+                        modifier =
+                        Modifier
                             .clip(RoundedCornerShape(8.dp))
                             .background(status.containerColor())
-                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
                     ) {
                         Text(
                             text = statusText,
                             style = MaterialTheme.typography.labelMedium,
                             color = status.color(),
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Medium,
                         )
                     }
 
                     Box(
-                        modifier = Modifier
+                        modifier =
+                        Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(status.color())
+                            .background(status.color()),
                     )
                 }
             }
         }
-
     }
 }
 
@@ -727,18 +788,14 @@ private fun ExpiryCard(
  */
 fun clampExpiryDays(days: Int): Int = days.coerceAtLeast(0)
 
-private fun LocalDate.toEpochMillis(): Long =
-    this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+private fun LocalDate.toEpochMillis(): Long = this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
 
-private fun Long.toLocalDate(): LocalDate =
-    Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date
+private fun Long.toLocalDate(): LocalDate = Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date
 
-private fun LocalDate.formatChinese(): String =
-    "${year}年${month.number}月${day}日"
+private fun LocalDate.formatChinese(): String = "${year}年${month.number}月${day}日"
 
 @Suppress("Unused")
-private fun LocalDate.formatShortChinese(): String =
-    "${month.number}月${day}日"
+private fun LocalDate.formatShortChinese(): String = "${month.number}月${day}日"
 
 private fun LocalDate.dayOfWeekChinese(): String = when (dayOfWeek.ordinal) {
     0 -> "周一"

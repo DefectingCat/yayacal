@@ -56,15 +56,17 @@ fun AnimatedWebp(
         )
     }
 
-    val state = rememberAsyncImageState(
-        options = remember { ImageOptions { repeatCount(-1) } }
-    )
+    val state =
+        rememberAsyncImageState(
+            options = remember { ImageOptions { repeatCount(-1) } },
+        )
 
     AsyncImage(
         uri = uri,
         contentDescription = contentDescription,
         state = state,
-        modifier = modifier.graphicsLayer {
+        modifier =
+        modifier.graphicsLayer {
             scaleX = scale.value
             scaleY = scale.value
             alpha = scale.value.coerceIn(0f, 1f)

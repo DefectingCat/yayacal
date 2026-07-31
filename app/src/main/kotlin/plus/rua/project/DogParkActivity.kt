@@ -10,7 +10,6 @@ import plus.rua.project.ui.theme.YaYaTheme
 private const val TAG = "DogParkActivity"
 
 class DogParkActivity : BaseActivity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -18,7 +17,7 @@ class DogParkActivity : BaseActivity() {
             overrideActivityTransition(
                 OVERRIDE_TRANSITION_OPEN,
                 R.anim.fade_in,
-                R.anim.fade_out
+                R.anim.fade_out,
             )
         }
 
@@ -28,7 +27,7 @@ class DogParkActivity : BaseActivity() {
                     onPlaybackError = {
                         Log.e(TAG, "Playback failed, finishing easter egg")
                         finishWithSlideBack()
-                    }
+                    },
                 )
             }
         }

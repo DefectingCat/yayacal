@@ -14,7 +14,6 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 interface DateRecordDao {
-
     /**
      * 按 ID 查询单条记录的 Flow，用于详情页订阅。
      *

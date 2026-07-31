@@ -9,8 +9,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
-import androidx.compose.ui.graphics.TransformOrigin
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -38,7 +36,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -56,7 +56,11 @@ import plus.rua.project.ShiftKind
 import plus.rua.project.shared.R
 
 enum class DayCellState {
-    NORMAL, OTHER_MONTH, TODAY, SELECTED, SELECTED_TODAY
+    NORMAL,
+    OTHER_MONTH,
+    TODAY,
+    SELECTED,
+    SELECTED_TODAY,
 }
 
 /**
@@ -114,7 +118,7 @@ fun DayCell(
         val computed by produceState(
             initialValue = DayCellInfo("", false, null),
             key1 = date,
-            key2 = lunarCache
+            key2 = lunarCache,
         ) {
             value = lunarCache.getOrCompute(date)
         }
@@ -173,19 +177,20 @@ private fun DayCellImpl(
     val annotationText = lunarData.annotationText
     val isAnnotationHighlight = lunarData.isAnnotationHighlight
     val holidayBadge = lunarData.holidayBadge
-    val currentState = when {
-        isSelected && isToday -> DayCellState.SELECTED_TODAY
-        isSelected -> DayCellState.SELECTED
-        isToday -> DayCellState.TODAY
-        !isCurrentMonth -> DayCellState.OTHER_MONTH
-        else -> DayCellState.NORMAL
-    }
+    val currentState =
+        when {
+            isSelected && isToday -> DayCellState.SELECTED_TODAY
+            isSelected -> DayCellState.SELECTED
+            isToday -> DayCellState.TODAY
+            !isCurrentMonth -> DayCellState.OTHER_MONTH
+            else -> DayCellState.NORMAL
+        }
 
     val transition = updateTransition(targetState = currentState, label = "DayCell")
 
     val revealProgress by transition.animateFloat(
         transitionSpec = { tween(150, easing = FastOutSlowInEasing) },
-        label = "revealProgress"
+        label = "revealProgress",
     ) { state ->
         when (state) {
             DayCellState.SELECTED, DayCellState.SELECTED_TODAY -> 1f
@@ -195,7 +200,7 @@ private fun DayCellImpl(
 
     val contentColor by transition.animateColor(
         transitionSpec = { tween(150, easing = FastOutSlowInEasing) },
-        label = "contentColor"
+        label = "contentColor",
     ) { state ->
         when (state) {
             DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer
@@ -209,7 +214,7 @@ private fun DayCellImpl(
     // 选中今天:实心填充 primaryContainer;其他状态不填充。
     val selectedFillColor by transition.animateColor(
         transitionSpec = { tween(150, easing = FastOutSlowInEasing) },
-        label = "selectedFillColor"
+        label = "selectedFillColor",
     ) { state ->
         when (state) {
             DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.primaryContainer
@@ -220,7 +225,7 @@ private fun DayCellImpl(
     // 选中非今天:绘制描边圆,避免遮挡右上角角标。
     val selectedOutlineAlpha by transition.animateFloat(
         transitionSpec = { tween(150, easing = FastOutSlowInEasing) },
-        label = "selectedOutlineAlpha"
+        label = "selectedOutlineAlpha",
     ) { state ->
         when (state) {
             DayCellState.SELECTED -> 1f
@@ -232,82 +237,114 @@ private fun DayCellImpl(
 
     val lunarColor by transition.animateColor(
         transitionSpec = { tween(150, easing = FastOutSlowInEasing) },
-        label = "lunarColor"
+        label = "lunarColor",
     ) { state ->
         if (isAnnotationHighlight) {
             when (state) {
-                DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(
-                    alpha = 0.85f
-                )
-                DayCellState.SELECTED -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
-                DayCellState.TODAY -> MaterialTheme.colorScheme.primary
-                DayCellState.OTHER_MONTH -> MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
-                DayCellState.NORMAL -> MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                DayCellState.SELECTED_TODAY -> {
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                        alpha = 0.85f,
+                    )
+                }
+
+                DayCellState.SELECTED -> {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                }
+
+                DayCellState.TODAY -> {
+                    MaterialTheme.colorScheme.primary
+                }
+
+                DayCellState.OTHER_MONTH -> {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.35f)
+                }
+
+                DayCellState.NORMAL -> {
+                    MaterialTheme.colorScheme.error.copy(alpha = 0.7f)
+                }
             }
         } else {
             when (state) {
-                DayCellState.SELECTED_TODAY -> MaterialTheme.colorScheme.onPrimaryContainer.copy(
-                    alpha = 0.7f
-                )
-                DayCellState.SELECTED -> MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
-                DayCellState.TODAY -> MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
-                DayCellState.OTHER_MONTH -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.26f)
-                DayCellState.NORMAL -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                DayCellState.SELECTED_TODAY -> {
+                    MaterialTheme.colorScheme.onPrimaryContainer.copy(
+                        alpha = 0.7f,
+                    )
+                }
+
+                DayCellState.SELECTED -> {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)
+                }
+
+                DayCellState.TODAY -> {
+                    MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+                }
+
+                DayCellState.OTHER_MONTH -> {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.26f)
+                }
+
+                DayCellState.NORMAL -> {
+                    MaterialTheme.colorScheme.onSurface.copy(alpha = 0.5f)
+                }
             }
         }
     }
 
-    val holidayBgColor = when (holidayBadge) {
-        "休" -> MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
-        "班" -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
-        else -> Color.Transparent
-    }
+    val holidayBgColor =
+        when (holidayBadge) {
+            "休" -> MaterialTheme.colorScheme.error.copy(alpha = 0.10f)
+            "班" -> MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            else -> Color.Transparent
+        }
 
     val holidayScale by animateFloatAsState(
         targetValue = if (showLegalHoliday && holidayBadge != null) 1f else 0f,
-        animationSpec = tween(
+        animationSpec =
+        tween(
             durationMillis = 200,
             delayMillis = cellIndex * 15,
-            easing = FastOutSlowInEasing
+            easing = FastOutSlowInEasing,
         ),
-        label = "holidayScale"
+        label = "holidayScale",
     )
 
     Box(
-        modifier = modifier.aspectRatio(1f)
+        modifier = modifier.aspectRatio(1f),
     ) {
         // 法定假日背景（最底层，与选中/今天状态叠加）
         if (holidayScale > 0f) {
-            val holidayShape = when {
-                holidayEdgeInfo?.isStart == true && holidayEdgeInfo.isEnd -> RoundedCornerShape(8.dp)
-                holidayEdgeInfo?.isStart == true -> RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
-                holidayEdgeInfo?.isEnd == true -> RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
-                else -> RoundedCornerShape(0.dp)
-            }
+            val holidayShape =
+                when {
+                    holidayEdgeInfo?.isStart == true && holidayEdgeInfo.isEnd -> RoundedCornerShape(8.dp)
+                    holidayEdgeInfo?.isStart == true -> RoundedCornerShape(topStart = 8.dp, bottomStart = 8.dp)
+                    holidayEdgeInfo?.isEnd == true -> RoundedCornerShape(topEnd = 8.dp, bottomEnd = 8.dp)
+                    else -> RoundedCornerShape(0.dp)
+                }
             Box(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxSize()
                     .padding(horizontal = 0.5.dp)
                     .graphicsLayer {
                         scaleX = holidayScale
                         scaleY = holidayScale
                         transformOrigin = TransformOrigin.Center
-                    }
-                    .background(holidayBgColor, holidayShape)
+                    }.background(holidayBgColor, holidayShape),
             )
         }
         Box(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxSize()
                 .semantics {
                     val birthdaySuffix = if (isBirthday) "，生日" else ""
-                    contentDescription = if (isToday) {
-                        "今天 ${date.year}年${date.month.number}月${date.day}日$birthdaySuffix"
-                    } else {
-                        "${date.year}年${date.month.number}月${date.day}日$birthdaySuffix"
-                    }
-                }
-                .clip(CircleShape)
+                    contentDescription =
+                        if (isToday) {
+                            "今天 ${date.year}年${date.month.number}月${date.day}日$birthdaySuffix"
+                        } else {
+                            "${date.year}年${date.month.number}月${date.day}日$birthdaySuffix"
+                        }
+                }.clip(CircleShape)
                 .drawBehind {
                     val maxRadius = size.minDimension / 2f
                     val center = Offset(size.width / 2f, size.height / 2f)
@@ -315,7 +352,7 @@ private fun DayCellImpl(
                         drawCircle(
                             color = selectedFillColor,
                             radius = revealProgress * maxRadius,
-                            center = center
+                            center = center,
                         )
                     }
                     if (revealProgress > 0f && selectedOutlineAlpha > 0f) {
@@ -324,11 +361,10 @@ private fun DayCellImpl(
                             color = selectedOutlineColor.copy(alpha = selectedOutlineAlpha),
                             radius = revealProgress * maxRadius - strokePx / 2f,
                             center = center,
-                            style = Stroke(width = strokePx)
+                            style = Stroke(width = strokePx),
                         )
                     }
-                }
-                .clickable(
+                }.clickable(
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = {
@@ -338,18 +374,18 @@ private fun DayCellImpl(
                             birthdayClickTick += 1
                         }
                         onClick()
-                    }
+                    },
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 Text(
                     text = date.day.toString(),
                     textAlign = TextAlign.Center,
                     color = contentColor,
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
                     text = annotationText,
@@ -358,33 +394,35 @@ private fun DayCellImpl(
                     fontSize = 7.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Clip,
-                    lineHeight = 9.sp
+                    lineHeight = 9.sp,
                 )
             }
         }
         if (shiftKind != null) {
-            val shiftAccentColor = if (shiftKind == ShiftKind.WORK) {
-                MaterialTheme.colorScheme.primary
-            } else {
-                MaterialTheme.colorScheme.error
-            }
+            val shiftAccentColor =
+                if (shiftKind == ShiftKind.WORK) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.error
+                }
             val shiftLabel = if (shiftKind == ShiftKind.WORK) "班" else "休"
             val shiftAlpha = if (isCurrentMonth) 1f else 0.38f
             Box(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.TopEnd)
                     .zIndex(1f)
                     .padding(top = 1.dp, end = 2.dp)
                     .background(MaterialTheme.colorScheme.background, CircleShape)
                     .padding(horizontal = 3.dp, vertical = 2.dp),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 Text(
                     text = shiftLabel,
                     color = shiftAccentColor.copy(alpha = shiftAlpha),
                     fontSize = 9.sp,
                     fontWeight = FontWeight.Bold,
-                    lineHeight = 9.sp
+                    lineHeight = 9.sp,
                 )
             }
         }
@@ -393,7 +431,8 @@ private fun DayCellImpl(
                 painter = painterResource(R.drawable.ic_rose),
                 contentDescription = null,
                 tint = Color.Unspecified,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.TopStart)
                     .zIndex(1f)
                     .padding(start = 2.dp, top = 2.dp)
@@ -403,14 +442,15 @@ private fun DayCellImpl(
                         transformOrigin = TransformOrigin.Center
                         scaleX = roseScale.value
                         scaleY = roseScale.value
-                    }
+                    },
             )
         } else if (isBirthday) {
             Icon(
                 painter = painterResource(R.drawable.ic_birthday_crown),
                 contentDescription = null,
                 tint = Color.Unspecified,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.TopStart)
                     .zIndex(1f)
                     .padding(start = 2.dp, top = 2.dp)
@@ -420,7 +460,7 @@ private fun DayCellImpl(
                         transformOrigin = TransformOrigin.Center
                         scaleX = crownScale.value
                         scaleY = crownScale.value
-                    }
+                    },
             )
         }
     }

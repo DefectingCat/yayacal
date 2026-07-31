@@ -19,7 +19,7 @@ class AboutActivity : BaseActivity() {
                     },
                     onNavigateToDogPark = {
                         startActivityWithFade(Intent(this, DogParkActivity::class.java))
-                    }
+                    },
                 )
             }
         }

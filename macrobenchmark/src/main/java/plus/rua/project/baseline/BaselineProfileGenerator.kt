@@ -1,10 +1,10 @@
 package plus.rua.project.baseline
 
 import android.util.Log
+import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.benchmark.macro.junit4.BaselineProfileRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.uiautomator.By
-import androidx.benchmark.macro.MacrobenchmarkScope
 import androidx.test.uiautomator.Direction
 import androidx.test.uiautomator.UiObject2
 import androidx.test.uiautomator.Until
@@ -56,15 +56,12 @@ import org.junit.runner.RunWith
  */
 @RunWith(AndroidJUnit4::class)
 class BaselineProfileGenerator {
-
     @get:Rule
     val baselineProfileRule = BaselineProfileRule()
 
-    private fun MacrobenchmarkScope.safeFindFab(): UiObject2? =
-        device.wait(Until.findObject(By.res("fab_menu")), 5000)
+    private fun MacrobenchmarkScope.safeFindFab(): UiObject2? = device.wait(Until.findObject(By.res("fab_menu")), 5000)
 
-    private fun MacrobenchmarkScope.safeWaitCalendarPager(timeout: Long = 5000): UiObject2? =
-        device.wait(Until.findObject(By.res("calendar_pager")), timeout)
+    private fun MacrobenchmarkScope.safeWaitCalendarPager(timeout: Long = 5000): UiObject2? = device.wait(Until.findObject(By.res("calendar_pager")), timeout)
 
     @Test
     fun generateBaselineProfile() {
@@ -73,7 +70,7 @@ class BaselineProfileGenerator {
             includeInStartupProfile = false,
             profileBlock = {
                 runCoreUserJourney()
-            }
+            },
         )
     }
 
@@ -84,17 +81,18 @@ class BaselineProfileGenerator {
             includeInStartupProfile = true,
             profileBlock = {
                 runCoreUserJourney()
-            }
+            },
         )
     }
 
     private fun MacrobenchmarkScope.runCoreUserJourney() {
+        @Suppress("ObjectPropertyName") // Android Log tag 惯例
         val TAG = "BaselineProfile"
 
-        // ── 1. 冷启动 ──────────────────────────────────────────
+        // ── 1. 冷启动 ─────────────────────────────────────
         pressHome()
         device.executeShellCommand(
-            "am start -W -n plus.rua.project/.MainActivity"
+            "am start -W -n plus.rua.project/.MainActivity",
         )
         device.waitForIdle()
 
@@ -103,9 +101,11 @@ class BaselineProfileGenerator {
         assertNotNull("FAB 必须存在", fab1)
         fab1!!.click()
         device.waitForIdle()
-        val legalHolidayOn = device.wait(
-            Until.findObject(By.text("显示调休")), 3000
-        )
+        val legalHolidayOn =
+            device.wait(
+                Until.findObject(By.text("显示调休")),
+                3000,
+            )
         assertNotNull("显示调休必须出现", legalHolidayOn)
         legalHolidayOn!!.click()
         device.waitForIdle()
@@ -139,10 +139,12 @@ class BaselineProfileGenerator {
             device.waitForIdle()
         }
 
-        // ── 7. 点击 DayCell ────────────────────────────────────
-        val todayCell = device.wait(
-            Until.findObject(By.descContains("今天")), 3000
-        )
+        // ── 7. 点击 DayCell ─────────────────────────────
+        val todayCell =
+            device.wait(
+                Until.findObject(By.descContains("今天")),
+                3000,
+            )
         if (todayCell != null) {
             todayCell.click()
         } else {
@@ -164,7 +166,7 @@ class BaselineProfileGenerator {
         device.drag(cx, cy, cx, cy - dragDist, 20)
         device.waitForIdle()
 
-        // ── 9. 周视图左右翻页 ──────────────────────────────────
+        // ── 9. 周视图左右翻页 ────────────────────────────
         val weekPager = safeWaitCalendarPager(3000)
         assertNotNull("周视图 CalendarPager 必须存在", weekPager)
         weekPager!!.swipe(Direction.LEFT, 0.5f)
@@ -176,14 +178,16 @@ class BaselineProfileGenerator {
         device.drag(cx, cy - dragDist, cx, cy, 20)
         device.waitForIdle()
 
-        // ── 11. 切换"显示调休"OFF ────────────────────────────────
+        // ── 11. 切换"显示调休"OFF ────────────────────────
         val fab3 = safeFindFab()
         assertNotNull("FAB 必须存在（关闭调休）", fab3)
         fab3!!.click()
         device.waitForIdle()
-        val legalHolidayOff = device.wait(
-            Until.findObject(By.text("显示调休")), 3000
-        )
+        val legalHolidayOff =
+            device.wait(
+                Until.findObject(By.text("显示调休")),
+                3000,
+            )
         assertNotNull("显示调休必须出现", legalHolidayOff)
         legalHolidayOff!!.click()
         device.waitForIdle()
@@ -239,9 +243,11 @@ class BaselineProfileGenerator {
                 toolsMenu.click()
                 device.waitForIdle()
 
-                val dateRecorderItem = device.wait(
-                    Until.findObject(By.res("tool_date_recorder")), 5000
-                ) ?: device.wait(Until.findObject(By.text("日期记录器")), 3000)
+                val dateRecorderItem =
+                    device.wait(
+                        Until.findObject(By.res("tool_date_recorder")),
+                        5000,
+                    ) ?: device.wait(Until.findObject(By.text("日期记录器")), 3000)
 
                 if (dateRecorderItem != null) {
                     dateRecorderItem.click()

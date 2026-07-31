@@ -18,6 +18,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
@@ -25,7 +26,6 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Title
 import androidx.compose.material3.Button
 import androidx.compose.material3.CardDefaults
@@ -68,11 +68,11 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
 import kotlinx.datetime.DayOfWeek
-import kotlin.time.Instant
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
-import kotlinx.datetime.number
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
+import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
 import plus.rua.project.DateRecorderRepository
 import plus.rua.project.RecordEditUiState
@@ -96,20 +96,22 @@ fun RecordEditScreen(
     onBack: () -> Unit,
     photoPath: String?,
     recordId: Long?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current.applicationContext
-    val viewModel: RecordEditViewModel = viewModel(
-        factory = viewModelFactory {
-            initializer {
-                RecordEditViewModel(
-                    repository = DateRecorderRepository.fromContext(context),
-                    photoPath = photoPath,
-                    recordId = recordId
-                )
-            }
-        }
-    )
+    val viewModel: RecordEditViewModel =
+        viewModel(
+            factory =
+            viewModelFactory {
+                initializer {
+                    RecordEditViewModel(
+                        repository = DateRecorderRepository.fromContext(context),
+                        photoPath = photoPath,
+                        recordId = recordId,
+                    )
+                }
+            },
+        )
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
     if (state.finished) {
@@ -123,71 +125,73 @@ fun RecordEditScreen(
                 title = {
                     Text(
                         text = if (recordId != null) "编辑记录" else "新建记录",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
                     )
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回"
+                            contentDescription = "返回",
                         )
                     }
                 },
                 actions = {
                     TextButton(
                         onClick = viewModel::save,
-                        enabled = state.canSave
+                        enabled = state.canSave,
                     ) {
                         Text(
                             text = "保存",
                             fontWeight = FontWeight.Bold,
-                            color = if (state.canSave) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+                            color = if (state.canSave) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                         )
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
             )
         },
         bottomBar = {
             Surface(
                 tonalElevation = 3.dp,
                 color = MaterialTheme.colorScheme.surfaceContainer,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
             ) {
                 Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     Button(
                         onClick = viewModel::save,
                         enabled = state.canSave,
                         shape = RoundedCornerShape(14.dp),
-                        modifier = Modifier
+                        modifier =
+                        Modifier
                             .fillMaxWidth()
                             .height(48.dp)
-                            .testTag("record_edit_save")
+                            .testTag("record_edit_save"),
                     ) {
                         Icon(
                             imageVector = Icons.Outlined.Check,
                             contentDescription = null,
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
                         )
                         Spacer(modifier = Modifier.width(6.dp))
                         Text(
                             text = "保存记录",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold
+                            fontWeight = FontWeight.SemiBold,
                         )
                     }
                 }
             }
         },
-        containerColor = MaterialTheme.colorScheme.surface
+        containerColor = MaterialTheme.colorScheme.surface,
     ) { innerPadding ->
         if (state.loading) {
             Box(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxSize()
                     .padding(innerPadding),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator()
             }
@@ -199,9 +203,10 @@ fun RecordEditScreen(
                 onShootDateChange = viewModel::onShootDateChange,
                 onLinkedDateChange = viewModel::onLinkedDateChange,
                 onClearLinkedDate = viewModel::onClearLinkedDate,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxSize()
-                    .padding(innerPadding)
+                    .padding(innerPadding),
             )
         }
     }
@@ -226,54 +231,59 @@ private fun RecordEditForm(
     onShootDateChange: (LocalDate) -> Unit,
     onLinkedDateChange: (LocalDate) -> Unit,
     onClearLinkedDate: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var showShootDatePicker by remember { mutableStateOf(false) }
     var showLinkedDatePicker by remember { mutableStateOf(false) }
 
     Column(
-        modifier = modifier
+        modifier =
+        modifier
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 16.dp, vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // 照片预览卡片
         state.photoUri?.let { uri ->
             ElevatedCard(
                 shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.elevatedCardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow
+                colors =
+                CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                 ),
                 elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxWidth()
-                    .testTag("record_edit_photo")
+                    .testTag("record_edit_photo"),
             ) {
                 Box(
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 180.dp, max = 260.dp)
+                        .heightIn(min = 180.dp, max = 260.dp),
                 ) {
                     AsyncImage(
                         uri = uri,
                         contentDescription = "记录照片",
                         contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize()
+                        modifier = Modifier.fillMaxSize(),
                     )
 
                     Surface(
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.9f),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier
+                        modifier =
+                        Modifier
                             .align(Alignment.TopStart)
-                            .padding(12.dp)
+                            .padding(12.dp),
                     ) {
                         Text(
                             text = "记录照片",
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.SemiBold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
                 }
@@ -285,27 +295,27 @@ private fun RecordEditForm(
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
                     )
                     Text(
                         text = "基本信息",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
 
@@ -318,7 +328,7 @@ private fun RecordEditForm(
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Outlined.Title,
-                            contentDescription = null
+                            contentDescription = null,
                         )
                     },
                     trailingIcon = {
@@ -330,9 +340,10 @@ private fun RecordEditForm(
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .fillMaxWidth()
-                        .testTag("record_edit_title")
+                        .testTag("record_edit_title"),
                 )
 
                 // 备注输入框
@@ -344,15 +355,16 @@ private fun RecordEditForm(
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.AutoMirrored.Outlined.Notes,
-                            contentDescription = null
+                            contentDescription = null,
                         )
                     },
                     minLines = 3,
                     maxLines = 6,
                     shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .fillMaxWidth()
-                        .testTag("record_edit_note")
+                        .testTag("record_edit_note"),
                 )
             }
         }
@@ -362,27 +374,27 @@ private fun RecordEditForm(
             shape = RoundedCornerShape(20.dp),
             color = MaterialTheme.colorScheme.surfaceContainerLow,
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
+                verticalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.CalendarToday,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(20.dp)
+                        modifier = Modifier.size(20.dp),
                     )
                     Text(
                         text = "日期设定",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onSurface,
                     )
                 }
 
@@ -393,7 +405,7 @@ private fun RecordEditForm(
                     label = "拍摄日期",
                     valueText = formatChineseDateWithWeek(state.shootDate),
                     onClick = { showShootDatePicker = true },
-                    modifier = Modifier.testTag("record_edit_shoot_date")
+                    modifier = Modifier.testTag("record_edit_shoot_date"),
                 )
 
                 // 关联日期选择条目
@@ -405,7 +417,7 @@ private fun RecordEditForm(
                     valueText = state.linkedDate?.let { formatChineseDateWithWeek(it) } ?: "独立记录（未关联日历）",
                     onClick = { showLinkedDatePicker = true },
                     onClear = if (hasLinked) onClearLinkedDate else null,
-                    modifier = Modifier.testTag("record_edit_linked_date")
+                    modifier = Modifier.testTag("record_edit_linked_date"),
                 )
             }
         }
@@ -420,7 +432,7 @@ private fun RecordEditForm(
                 onShootDateChange(it)
                 showShootDatePicker = false
             },
-            onDismiss = { showShootDatePicker = false }
+            onDismiss = { showShootDatePicker = false },
         )
     }
     if (showLinkedDatePicker) {
@@ -430,7 +442,7 @@ private fun RecordEditForm(
                 onLinkedDateChange(it)
                 showLinkedDatePicker = false
             },
-            onDismiss = { showLinkedDatePicker = false }
+            onDismiss = { showLinkedDatePicker = false },
         )
     }
 }
@@ -454,49 +466,49 @@ private fun DatePickerTile(
     valueText: String,
     onClick: () -> Unit,
     onClear: (() -> Unit)? = null,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Surface(
         onClick = onClick,
         shape = RoundedCornerShape(14.dp),
         color = MaterialTheme.colorScheme.surfaceContainerHigh,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-        modifier = modifier.fillMaxWidth()
+        modifier = modifier.fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Surface(
                 shape = RoundedCornerShape(10.dp),
                 color = iconTint.copy(alpha = 0.12f),
-                modifier = Modifier.size(36.dp)
+                modifier = Modifier.size(36.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Icon(
                         imageVector = icon,
                         contentDescription = label,
                         tint = iconTint,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
 
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
+                verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
                     text = valueText,
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = MaterialTheme.colorScheme.onSurface,
                 )
             }
 
@@ -505,7 +517,7 @@ private fun DatePickerTile(
                     Text(
                         text = "清除",
                         style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.error
+                        color = MaterialTheme.colorScheme.error,
                     )
                 }
             } else {
@@ -513,7 +525,7 @@ private fun DatePickerTile(
                     imageVector = Icons.Outlined.ChevronRight,
                     contentDescription = "选择日期",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(20.dp),
                 )
             }
         }
@@ -532,7 +544,7 @@ private fun DatePickerTile(
 private fun DatePickerModal(
     initialDate: LocalDate,
     onConfirm: (LocalDate) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     val initialMillis = initialDate.atStartOfDayIn(TimeZone.currentSystemDefault()).toEpochMilliseconds()
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialMillis)
@@ -543,31 +555,33 @@ private fun DatePickerModal(
                 onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
                         onConfirm(
-                            Instant.fromEpochMilliseconds(millis)
+                            Instant
+                                .fromEpochMilliseconds(millis)
                                 .toLocalDateTime(TimeZone.currentSystemDefault())
-                                .date
+                                .date,
                         )
                     }
-                }
+                },
             ) { Text("确定") }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("取消") }
-        }
+        },
     ) {
         DatePicker(state = datePickerState)
     }
 }
 
 private fun formatChineseDateWithWeek(date: LocalDate): String {
-    val weekStr = when (date.dayOfWeek) {
-        DayOfWeek.MONDAY -> "星期一"
-        DayOfWeek.TUESDAY -> "星期二"
-        DayOfWeek.WEDNESDAY -> "星期三"
-        DayOfWeek.THURSDAY -> "星期四"
-        DayOfWeek.FRIDAY -> "星期五"
-        DayOfWeek.SATURDAY -> "星期六"
-        DayOfWeek.SUNDAY -> "星期日"
-    }
+    val weekStr =
+        when (date.dayOfWeek) {
+            DayOfWeek.MONDAY -> "星期一"
+            DayOfWeek.TUESDAY -> "星期二"
+            DayOfWeek.WEDNESDAY -> "星期三"
+            DayOfWeek.THURSDAY -> "星期四"
+            DayOfWeek.FRIDAY -> "星期五"
+            DayOfWeek.SATURDAY -> "星期六"
+            DayOfWeek.SUNDAY -> "星期日"
+        }
     return "${date.year}年${date.month.number}月${date.day}日 $weekStr"
 }

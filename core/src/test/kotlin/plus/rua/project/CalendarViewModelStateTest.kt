@@ -11,7 +11,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-private class StateTestFixedClock(private val instant: Instant) : Clock {
+private class StateTestFixedClock(
+    private val instant: Instant,
+) : Clock {
     override fun now(): Instant = instant
 }
 
@@ -20,14 +22,11 @@ private class StateTestFixedClock(private val instant: Instant) : Clock {
  * 同步可观察状态相关的逻辑。
  */
 class CalendarViewModelStateTest {
-
     // 固定 today = 2026/5/15
     private val fixedInstant = Instant.parse("2026-05-15T00:00:00Z")
     private val testClock = StateTestFixedClock(fixedInstant)
 
-    private fun createViewModel(): CalendarViewModel {
-        return CalendarViewModel(clock = testClock)
-    }
+    private fun createViewModel(): CalendarViewModel = CalendarViewModel(clock = testClock)
 
     // ---- 初始状态 ----
 

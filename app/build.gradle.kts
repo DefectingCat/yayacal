@@ -8,28 +8,40 @@ plugins {
 
 val baseVersion = findProperty("app.version.base") as? String ?: "1.1.0"
 
-val gitHash = try {
-    providers.exec {
-        commandLine("git", "rev-parse", "--short=5", "HEAD")
-    }.standardOutput.asText.get().trim()
-} catch (_: Exception) {
-    "unknown"
-}
+val gitHash =
+    try {
+        providers
+            .exec {
+                commandLine("git", "rev-parse", "--short=5", "HEAD")
+            }.standardOutput.asText
+            .get()
+            .trim()
+    } catch (_: Exception) {
+        "unknown"
+    }
 
 val buildDate = LocalDateTime.now().format(DateTimeFormatter.ofPattern("ddMMyy"))
-val appVersionName = "${baseVersion}_${gitHash}_${buildDate}"
+val appVersionName = "${baseVersion}_${gitHash}_$buildDate"
 
 android {
     namespace = "plus.rua.project"
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    compileSdk =
+        libs.versions.android.compileSdk
+            .get()
+            .toInt()
 
     defaultConfig {
         applicationId = "plus.rua.project"
-        minSdk = libs.versions.android.minSdk.get().toInt()
-        targetSdk = libs.versions.android.targetSdk.get().toInt()
+        minSdk =
+            libs.versions.android.minSdk
+                .get()
+                .toInt()
+        targetSdk =
+            libs.versions.android.targetSdk
+                .get()
+                .toInt()
         versionCode = 6
         versionName = appVersionName
-
     }
 
     buildTypes {
@@ -38,7 +50,7 @@ android {
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
-                "proguard-rules.pro"
+                "proguard-rules.pro",
             )
             signingConfig = signingConfigs.getByName("debug")
         }
@@ -62,7 +74,6 @@ android {
         }
     }
 
-
     buildFeatures {
         compose = true
         buildConfig = false
@@ -73,23 +84,24 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
-tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
-    compilerOptions {
-        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+    tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile>().configureEach {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21)
+        }
     }
-}
 
     packaging {
         resources {
-            excludes += listOf(
-                "/META-INF/AL2.0",
-                "/META-INF/LGPL2.1",
-                "/META-INF/LICENSE*",
-                "/META-INF/NOTICE*",
-                "META-INF/DEPENDENCIES",
-                "**/*.kotlin_metadata",
-                "**/*.kotlin_module",
-            )
+            excludes +=
+                listOf(
+                    "/META-INF/AL2.0",
+                    "/META-INF/LGPL2.1",
+                    "/META-INF/LICENSE*",
+                    "/META-INF/NOTICE*",
+                    "META-INF/DEPENDENCIES",
+                    "**/*.kotlin_metadata",
+                    "**/*.kotlin_module",
+                )
         }
     }
 

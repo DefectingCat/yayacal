@@ -22,7 +22,7 @@ data class DateRecordDetailUiState(
     val record: DateRecord? = null,
     val photoUri: String? = null,
     val deleted: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
 )
 
 /**
@@ -33,13 +33,14 @@ data class DateRecordDetailUiState(
  */
 class DateRecordDetailViewModel(
     private val repository: DateRecorderRepository,
-    private val recordId: Long
+    private val recordId: Long,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(DateRecordDetailUiState())
     val uiState: StateFlow<DateRecordDetailUiState> = _uiState.asStateFlow()
 
-    init { load() }
+    init {
+        load()
+    }
 
     private fun load() {
         viewModelScope.launch {
@@ -49,7 +50,7 @@ class DateRecordDetailViewModel(
                         it.copy(
                             loading = false,
                             record = record,
-                            photoUri = "file://${repository.absoluteFileOf(record.photoPath).absolutePath}"
+                            photoUri = "file://${repository.absoluteFileOf(record.photoPath).absolutePath}",
                         )
                     }
                 } else {
@@ -66,6 +67,7 @@ class DateRecordDetailViewModel(
 
     /** 删除当前记录及其照片文件。 */
     fun delete() {
+        val record = _uiState.value.record ?: return
         viewModelScope.launch {
             try {
                 repository.deleteWithPhoto(record)

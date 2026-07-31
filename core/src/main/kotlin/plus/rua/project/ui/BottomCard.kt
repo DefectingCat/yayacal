@@ -17,15 +17,15 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -65,25 +65,27 @@ fun BottomCard(
     onExpandDrag: (Float) -> Unit,
     onExpandDragEnd: () -> Unit,
     dragRangePx: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val relativeDesc = relativeDayDescription(selectedDate, today)
 
     val solarDesc = "${selectedDate.month.number}月${selectedDate.day}日"
     val lunarDesc by produceState(
         initialValue = "",
-        key1 = selectedDate
+        key1 = selectedDate,
     ) {
         value = LunarCache.default.formatLunarDate(selectedDate)
     }
-    val shiftMessage = when (shiftKind) {
-        ShiftKind.WORK -> "小小上班，轻松拿下！"
-        ShiftKind.OFF -> "耶耶耶，美美休息！"
-        null -> null
-    }
+    val shiftMessage =
+        when (shiftKind) {
+            ShiftKind.WORK -> "小小上班，轻松拿下！"
+            ShiftKind.OFF -> "耶耶耶，美美休息！"
+            null -> null
+        }
 
     Surface(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
             .testTag("bottom_card")
             .pointerInput(isCollapsed) {
@@ -91,7 +93,7 @@ fun BottomCard(
                     // 折叠状态：下拉恢复到月视图
                     detectVerticalDragGestures(
                         onDragEnd = { onExpandDragEnd() },
-                        onDragCancel = { onExpandDragEnd() }
+                        onDragCancel = { onExpandDragEnd() },
                     ) { _, dragAmount ->
                         val delta = -dragAmount / dragRangePx
                         onExpandDrag(delta)
@@ -100,7 +102,7 @@ fun BottomCard(
                     // 展开状态：上拉折叠到周视图
                     detectVerticalDragGestures(
                         onDragEnd = { onDragEnd() },
-                        onDragCancel = { onDragEnd() }
+                        onDragCancel = { onDragEnd() },
                     ) { _, dragAmount ->
                         val delta = -dragAmount / dragRangePx
                         onDrag(delta)
@@ -109,12 +111,13 @@ fun BottomCard(
             },
         shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
         color = MaterialTheme.colorScheme.surfaceVariant,
-        shadowElevation = 4.dp
+        shadowElevation = 4.dp,
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             // 拖拽把手
             Box(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .padding(top = 8.dp, bottom = 8.dp)
                     .clip(RoundedCornerShape(2.dp))
                     .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f))
@@ -123,33 +126,34 @@ fun BottomCard(
                     .align(Alignment.CenterHorizontally)
                     .semantics {
                         contentDescription = "拖拽以展开或折叠日历"
-                    }
+                    },
             )
             Spacer(modifier = Modifier.height(8.dp))
             // A / B / C 信息行
             Row(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 // 左侧：A（相对天数）和 B（公历日期）在同一行
                 Row(
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = relativeDesc,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = solarDesc,
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        fontSize = 14.sp
+                        fontSize = 14.sp,
                     )
                 }
                 // 右侧：C（农历日期）
@@ -157,23 +161,25 @@ fun BottomCard(
                     text = lunarDesc,
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
                 )
             }
             if (shiftMessage != null) {
                 Text(
                     text = shiftMessage,
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .align(Alignment.CenterHorizontally)
                         .padding(top = 12.dp, bottom = 6.dp),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 14.sp
+                    fontSize = 14.sp,
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
             AnimatedWebp(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxWidth()
                     .height(140.dp)
                     .align(Alignment.CenterHorizontally),

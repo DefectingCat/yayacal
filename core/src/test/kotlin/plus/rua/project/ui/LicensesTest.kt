@@ -7,7 +7,6 @@ import kotlin.test.assertTrue
  * 开放源代码许可列表测试。
  */
 class LicensesTest {
-
     @Test
     fun `licenses list is non empty and contains valid fields`() {
         assertTrue(licenses.isNotEmpty(), "许可列表不应为空")

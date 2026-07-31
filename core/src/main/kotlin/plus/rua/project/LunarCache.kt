@@ -15,7 +15,7 @@ import kotlinx.datetime.number
  * @param maxSize 缓存最大容量，默认 800
  */
 class LunarCache(
-    private val maxSize: Int = MAX_SIZE
+    private val maxSize: Int = MAX_SIZE,
 ) {
     private val mutex = Mutex()
 
@@ -31,6 +31,7 @@ class LunarCache(
         trimIfNeeded()
         computed
     }
+
     /**
      * 批量获取指定日期的信息，一次性加锁并返回 Map。
      *
@@ -132,11 +133,12 @@ class LunarCache(
 
         // 默认：农历日期
         val name = lunarDay.getName()
-        val text = if (name == "初一") {
-            lunarMonthName
-        } else {
-            name
-        }
+        val text =
+            if (name == "初一") {
+                lunarMonthName
+            } else {
+                name
+            }
         return DayCellInfo(text, false, holidayBadge, lunarMonthName, isBirthday, isRoseDay)
     }
 
@@ -161,5 +163,5 @@ data class DayCellInfo(
     val holidayBadge: String?,
     val lunarMonthName: String? = null,
     val isBirthday: Boolean = false,
-    val isRoseDay: Boolean = false
+    val isRoseDay: Boolean = false,
 )

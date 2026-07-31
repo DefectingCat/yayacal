@@ -32,7 +32,7 @@ data class PhotoEditorUiState(
     val displayWidth: Float = 0f,
     val displayHeight: Float = 0f,
     val saving: Boolean = false,
-    val savedPath: String? = null
+    val savedPath: String? = null,
 )
 
 /**
@@ -41,13 +41,14 @@ data class PhotoEditorUiState(
  * @param sourcePath 源图绝对路径
  */
 class PhotoEditorViewModel(
-    private val sourcePath: String
+    private val sourcePath: String,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(PhotoEditorUiState())
     val uiState: StateFlow<PhotoEditorUiState> = _uiState.asStateFlow()
 
-    init { loadSource() }
+    init {
+        loadSource()
+    }
 
     private fun loadSource() {
         viewModelScope.launch(Dispatchers.IO) {
@@ -55,15 +56,16 @@ class PhotoEditorViewModel(
                 val bmp = PhotoProcessor.loadSampled(sourcePath)
                 PhotoEditorState(
                     sourceBitmap = bmp,
-                    sourceAbsolutePath = sourcePath
+                    sourceAbsolutePath = sourcePath,
                 )
             }.onSuccess { state ->
                 _uiState.value = PhotoEditorUiState(loading = false, editorState = state)
             }.onFailure { e ->
-                _uiState.value = PhotoEditorUiState(
-                    loading = false,
-                    error = "加载图片失败：${e.message}"
-                )
+                _uiState.value =
+                    PhotoEditorUiState(
+                        loading = false,
+                        error = "加载图片失败：${e.message}",
+                    )
             }
         }
     }
@@ -71,7 +73,10 @@ class PhotoEditorViewModel(
     /**
      * 更新显示区域尺寸，用于笔触坐标归一化与落盘缩放。
      */
-    fun updateDisplaySize(w: Float, h: Float) {
+    fun updateDisplaySize(
+        w: Float,
+        h: Float,
+    ) {
         _uiState.update { it.copy(displayWidth = w, displayHeight = h) }
     }
 
@@ -100,13 +105,14 @@ class PhotoEditorViewModel(
             if (!it.cropEnabled) return@update it
             // 显式调用 rotate，以便回收中间 Bitmap（rotatedBitmap 属性每次新建且无法引用）
             val rotated = PhotoProcessor.rotate(it.sourceBitmap, it.rotationDegrees)
-            val cropped = PhotoProcessor.crop(
-                bitmap = rotated,
-                left = it.cropLeft!!,
-                top = it.cropTop,
-                right = it.cropRight!!,
-                bottom = it.cropBottom
-            )
+            val cropped =
+                PhotoProcessor.crop(
+                    bitmap = rotated,
+                    left = it.cropLeft!!,
+                    top = it.cropTop,
+                    right = it.cropRight!!,
+                    bottom = it.cropBottom,
+                )
             // 回收旋转中间产物（仅在分配了新 Bitmap 时）
             if (rotated !== it.sourceBitmap && rotated !== cropped && !rotated.isRecycled) {
                 rotated.recycle()
@@ -122,19 +128,24 @@ class PhotoEditorViewModel(
                 cropTop = 0f,
                 cropRight = null,
                 cropBottom = 1f,
-                strokes = emptyList()
+                strokes = emptyList(),
             )
         }
     }
 
     /** 更新裁剪框比例。 */
-    fun updateCrop(left: Float, top: Float, right: Float, bottom: Float) {
+    fun updateCrop(
+        left: Float,
+        top: Float,
+        right: Float,
+        bottom: Float,
+    ) {
         update {
             it.copy(
                 cropLeft = left.coerceIn(0f, 1f),
                 cropTop = top.coerceIn(0f, 1f),
                 cropRight = right.coerceIn(0f, 1f),
-                cropBottom = bottom.coerceIn(0f, 1f)
+                cropBottom = bottom.coerceIn(0f, 1f),
             )
         }
     }
@@ -171,9 +182,10 @@ class PhotoEditorViewModel(
         _uiState.update { it.copy(saving = true) }
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val destFile = File(editor.sourceAbsolutePath).let { src ->
-                    File(src.parentFile, "edited_${System.currentTimeMillis()}.jpg")
-                }
+                val destFile =
+                    File(editor.sourceAbsolutePath).let { src ->
+                        File(src.parentFile, "edited_${System.currentTimeMillis()}.jpg")
+                    }
                 PhotoProcessor.render(
                     source = editor.sourceBitmap,
                     rotationDegrees = editor.rotationDegrees,
@@ -184,7 +196,7 @@ class PhotoEditorViewModel(
                     strokes = editor.strokes,
                     displayWidth = state.displayWidth,
                     displayHeight = state.displayHeight,
-                    destFile = destFile
+                    destFile = destFile,
                 )
             }.onSuccess { path ->
                 _uiState.update { it.copy(saving = false, savedPath = path) }

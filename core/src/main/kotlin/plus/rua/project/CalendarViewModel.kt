@@ -2,7 +2,6 @@ package plus.rua.project
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
@@ -36,7 +36,7 @@ data class CalendarDay(
     val date: LocalDate,
     val isCurrentMonth: Boolean,
     val isToday: Boolean,
-    val isSelected: Boolean
+    val isSelected: Boolean,
 )
 
 /**
@@ -51,7 +51,7 @@ data class CalendarUiState(
     val isYearView: Boolean,
     val yearViewYear: Int,
     val collapseProgress: Float,
-    val showLegalHoliday: Boolean
+    val showLegalHoliday: Boolean,
 )
 
 /**
@@ -61,7 +61,7 @@ data class CalendarUiState(
  */
 class CalendarViewModel(
     private val clock: Clock = Clock.System,
-    private val shiftStorage: ShiftPatternStorage? = null
+    private val shiftStorage: ShiftPatternStorage? = null,
 ) : ViewModel() {
     private val today: LocalDate = clock.todayIn(TimeZone.currentSystemDefault())
 
@@ -69,24 +69,27 @@ class CalendarViewModel(
         // 预计算当前月前后各 1 个月（在协程中异步执行）
         val currentYear = today.year
         val currentMonth = today.month.number
-        val monthsToPrecompute = listOf(
-            currentMonth - 1 to currentYear,
-            currentMonth to currentYear,
-            currentMonth + 1 to currentYear
-        ).map { (month, year) ->
-            val (normalizedMonth, normalizedYear) = when {
-                month < 1 -> 12 to year - 1
-                month > 12 -> 1 to year + 1
-                else -> month to year
+        val monthsToPrecompute =
+            listOf(
+                currentMonth - 1 to currentYear,
+                currentMonth to currentYear,
+                currentMonth + 1 to currentYear,
+            ).map { (month, year) ->
+                val (normalizedMonth, normalizedYear) =
+                    when {
+                        month < 1 -> 12 to year - 1
+                        month > 12 -> 1 to year + 1
+                        else -> month to year
+                    }
+                getMonthGridInfo(normalizedYear, normalizedMonth)
             }
-            getMonthGridInfo(normalizedYear, normalizedMonth)
-        }
 
         viewModelScope.launch(Dispatchers.Default) {
             monthsToPrecompute.forEach { info ->
-                val dates = (0 until info.totalDays).map { i ->
-                    info.startDate.plus(DatePeriod(days = i))
-                }
+                val dates =
+                    (0 until info.totalDays).map { i ->
+                        info.startDate.plus(DatePeriod(days = i))
+                    }
                 LunarCache.default.precompute(dates)
             }
         }
@@ -119,8 +122,7 @@ class CalendarViewModel(
     private val _shiftPattern = MutableStateFlow(loadShiftPattern())
     val shiftPattern: StateFlow<ShiftPattern?> = _shiftPattern.asStateFlow()
 
-    private fun loadShiftPattern(): ShiftPattern =
-        shiftStorage?.load() ?: DEFAULT_PATTERN
+    private fun loadShiftPattern(): ShiftPattern = shiftStorage?.load() ?: DEFAULT_PATTERN
 
     /**
      * 设置页返回后调用,从 storage 重新加载,立即生效。
@@ -133,10 +135,11 @@ class CalendarViewModel(
 
     companion object {
         /** 默认轮班:2026-05-15 起,2 班 2 休循环。 */
-        val DEFAULT_PATTERN = ShiftPattern(
-            anchorDate = LocalDate(2026, 5, 15),
-            cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF)
-        )
+        val DEFAULT_PATTERN =
+            ShiftPattern(
+                anchorDate = LocalDate(2026, 5, 15),
+                cycle = listOf(ShiftKind.WORK, ShiftKind.WORK, ShiftKind.OFF, ShiftKind.OFF),
+            )
     }
 
     /**
@@ -147,26 +150,27 @@ class CalendarViewModel(
     val showLegalHoliday: StateFlow<Boolean> = _showLegalHoliday.asStateFlow()
 
     /** 聚合 UI 状态，减少 Compose 层分散订阅导致的重组。 */
-    val uiState: StateFlow<CalendarUiState> = combine(
-        _selectedDate,
-        _isCollapsed,
-        _isYearView,
-        _yearViewYear,
-        combine(_collapseProgress, _showLegalHoliday) { cp, h -> cp to h }
-    ) { selectedDate, isCollapsed, isYearView, yearViewYear, (collapseProgress, showLegalHoliday) ->
-        CalendarUiState(
-            selectedDate = selectedDate,
-            isCollapsed = isCollapsed,
-            isYearView = isYearView,
-            yearViewYear = yearViewYear,
-            collapseProgress = collapseProgress,
-            showLegalHoliday = showLegalHoliday
+    val uiState: StateFlow<CalendarUiState> =
+        combine(
+            _selectedDate,
+            _isCollapsed,
+            _isYearView,
+            _yearViewYear,
+            combine(_collapseProgress, _showLegalHoliday) { cp, h -> cp to h },
+        ) { selectedDate, isCollapsed, isYearView, yearViewYear, (collapseProgress, showLegalHoliday) ->
+            CalendarUiState(
+                selectedDate = selectedDate,
+                isCollapsed = isCollapsed,
+                isYearView = isYearView,
+                yearViewYear = yearViewYear,
+                collapseProgress = collapseProgress,
+                showLegalHoliday = showLegalHoliday,
+            )
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            CalendarUiState(today, false, false, today.year, 0f, false),
         )
-    }.stateIn(
-        viewModelScope,
-        SharingStarted.WhileSubscribed(5000),
-        CalendarUiState(today, false, false, today.year, 0f, false)
-    )
 
     /**
      * 选中指定日期。
@@ -204,8 +208,12 @@ class CalendarViewModel(
      * 从年视图选择月份后返回月视图。
      */
     fun selectMonthFromYearView(month: Int) {
-        val date = if (_yearViewYear.value == today.year && today.month.number == month) today
-        else LocalDate(_yearViewYear.value, Month(month), 1)
+        val date =
+            if (_yearViewYear.value == today.year && today.month.number == month) {
+                today
+            } else {
+                LocalDate(_yearViewYear.value, Month(month), 1)
+            }
         _selectedDate.value = date
         _isYearView.value = false
     }
@@ -314,7 +322,10 @@ class CalendarViewModel(
      * @param month 月份（1-12）
      * @return 日历网格列表，每项包含日期、是否当月、是否今天、是否选中
      */
-    fun getMonthDays(year: Int, month: Int): List<CalendarDay> {
+    fun getMonthDays(
+        year: Int,
+        month: Int,
+    ): List<CalendarDay> {
         val info = getMonthGridInfo(year, month)
         return (0 until info.totalDays).map { i ->
             val date = info.startDate.plus(DatePeriod(days = i))
@@ -322,7 +333,7 @@ class CalendarViewModel(
                 date = date,
                 isCurrentMonth = date.month.number == month && date.year == year,
                 isToday = date == today,
-                isSelected = date == selectedDate.value
+                isSelected = date == selectedDate.value,
             )
         }
     }

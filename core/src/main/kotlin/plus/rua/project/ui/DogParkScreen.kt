@@ -13,8 +13,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.media3.common.MediaItem
-import androidx.media3.common.Player
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
@@ -34,35 +34,39 @@ import androidx.media3.ui.PlayerView
 @Composable
 fun DogParkScreen(
     onPlaybackError: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
-    val player = remember(context) {
-        ExoPlayer.Builder(context).build().apply {
-            volume = 0f
-            repeatMode = Player.REPEAT_MODE_ONE
-            setMediaItem(MediaItem.fromUri("asset:///video/enter_screen_bg1.mp4"))
-            addListener(object : Player.Listener {
-                override fun onPlayerError(error: PlaybackException) {
-                    onPlaybackError()
+    val player =
+        remember(context) {
+            ExoPlayer.Builder(context).build().apply {
+                volume = 0f
+                repeatMode = Player.REPEAT_MODE_ONE
+                setMediaItem(MediaItem.fromUri("asset:///video/enter_screen_bg1.mp4"))
+                addListener(
+                    object : Player.Listener {
+                        override fun onPlayerError(error: PlaybackException) {
+                            onPlaybackError()
+                        }
+                    },
+                )
+                prepare()
+                if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
+                    play()
                 }
-            })
-            prepare()
-            if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
-                play()
             }
         }
-    }
 
     DisposableEffect(player, lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_RESUME -> player.play()
-                Lifecycle.Event.ON_PAUSE -> player.pause()
-                else -> Unit
+        val observer =
+            LifecycleEventObserver { _, event ->
+                when (event) {
+                    Lifecycle.Event.ON_RESUME -> player.play()
+                    Lifecycle.Event.ON_PAUSE -> player.pause()
+                    else -> Unit
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
 
         onDispose {
@@ -74,10 +78,11 @@ fun DogParkScreen(
     AndroidView(
         factory = { ctx ->
             PlayerView(ctx).apply {
-                layoutParams = FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.MATCH_PARENT
-                )
+                layoutParams =
+                    FrameLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                    )
                 useController = false
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_ZOOM
             }
@@ -87,6 +92,6 @@ fun DogParkScreen(
                 playerView.player = player
             }
         },
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
     )
 }

@@ -13,8 +13,9 @@ import kotlinx.datetime.LocalDate
  * - overrides:逗号分隔的 "日期:值" 对,值 1=WORK,0=OFF
  * - rephaseFlips:逗号分隔的 "翻转日:值:重排起点" 三元组,值 1=WORK,0=OFF
  */
-class ShiftPatternStorage(private val prefs: SharedPreferences) {
-
+class ShiftPatternStorage(
+    private val prefs: SharedPreferences,
+) {
     companion object {
         private const val KEY_ANCHOR = "shift_anchor"
         private const val KEY_CYCLE = "shift_cycle"
@@ -23,21 +24,23 @@ class ShiftPatternStorage(private val prefs: SharedPreferences) {
         private const val KEY_NAME = "shift_name"
         private const val SEP = ","
 
-        fun fromContext(context: Context): ShiftPatternStorage =
-            ShiftPatternStorage(
-                context.getSharedPreferences("shift_pattern", Context.MODE_PRIVATE)
-            )
+        fun fromContext(context: Context): ShiftPatternStorage = ShiftPatternStorage(
+            context.getSharedPreferences("shift_pattern", Context.MODE_PRIVATE),
+        )
     }
 
     fun save(pattern: ShiftPattern) {
         val cycleStr = pattern.cycle.joinToString(SEP) { if (it == ShiftKind.WORK) "1" else "0" }
-        val overridesStr = pattern.overrides.entries
-            .joinToString(SEP) { "${it.key}:${if (it.value == ShiftKind.WORK) 1 else 0}" }
-        val rephaseStr = pattern.rephaseFlips
-            .joinToString(SEP) {
-                "${it.date}:${if (it.flippedTo == ShiftKind.WORK) 1 else 0}:${it.rephaseFrom}"
-            }
-        prefs.edit()
+        val overridesStr =
+            pattern.overrides.entries
+                .joinToString(SEP) { "${it.key}:${if (it.value == ShiftKind.WORK) 1 else 0}" }
+        val rephaseStr =
+            pattern.rephaseFlips
+                .joinToString(SEP) {
+                    "${it.date}:${if (it.flippedTo == ShiftKind.WORK) 1 else 0}:${it.rephaseFrom}"
+                }
+        prefs
+            .edit()
             .putString(KEY_ANCHOR, pattern.anchorDate.toString())
             .putString(KEY_CYCLE, cycleStr)
             .putString(KEY_OVERRIDES, overridesStr)
@@ -51,11 +54,12 @@ class ShiftPatternStorage(private val prefs: SharedPreferences) {
         val cycleStr = prefs.getString(KEY_CYCLE, null) ?: return null
         return try {
             val anchor = LocalDate.parse(anchorStr)
-            val cycle = if (cycleStr.isBlank()) {
-                emptyList()
-            } else {
-                cycleStr.split(SEP).map { if (it.trim() == "1") ShiftKind.WORK else ShiftKind.OFF }
-            }
+            val cycle =
+                if (cycleStr.isBlank()) {
+                    emptyList()
+                } else {
+                    cycleStr.split(SEP).map { if (it.trim() == "1") ShiftKind.WORK else ShiftKind.OFF }
+                }
             val overrides = parseOverrides(prefs.getString(KEY_OVERRIDES, null))
             val rephaseFlips = parseRephase(prefs.getString(KEY_REPHASE, null))
             ShiftPattern(anchor, cycle, overrides, rephaseFlips, name = prefs.getString(KEY_NAME, null) ?: "默认")

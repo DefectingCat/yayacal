@@ -2,14 +2,14 @@ package plus.rua.project
 
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
-import android.graphics.Canvas as AndroidCanvas
-import android.graphics.Color as AndroidColor
 import android.graphics.Matrix
 import android.graphics.Paint
 import androidx.compose.ui.graphics.Color
 import androidx.exifinterface.media.ExifInterface
 import java.io.File
 import java.io.FileOutputStream
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Color as AndroidColor
 
 /**
  * 照片处理工具：加载、旋转、裁剪、合成手写笔触并落盘。
@@ -17,7 +17,6 @@ import java.io.FileOutputStream
  * 所有方法均为纯函数（不持有状态），便于测试与复用。
  */
 object PhotoProcessor {
-
     /**
      * 按目标显示宽度降采样加载 Bitmap，避免大图 OOM，并应用 EXIF 旋转方向。
      *
@@ -29,13 +28,17 @@ object PhotoProcessor {
      * @param reqWidth 期望显示宽度（像素），实际宽度会 >= reqWidth 的最小 2 次幂采样
      * @return 降采样并校正方向后的 Bitmap，加载失败抛异常
      */
-    fun loadSampled(path: String, reqWidth: Int = 1080): Bitmap {
+    fun loadSampled(
+        path: String,
+        reqWidth: Int = 1080,
+    ): Bitmap {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(path, options)
         options.inSampleSize = calculateInSampleSize(options.outWidth, reqWidth)
         options.inJustDecodeBounds = false
-        val bitmap = BitmapFactory.decodeFile(path, options)
-            ?: error("无法加载图片: $path")
+        val bitmap =
+            BitmapFactory.decodeFile(path, options)
+                ?: error("无法加载图片: $path")
         val rotation = readExifRotation(path)
         if (rotation == 0) return bitmap
         val rotated = rotate(bitmap, rotation)
@@ -49,24 +52,25 @@ object PhotoProcessor {
      * 读取 JPEG 的 EXIF orientation 标签，返回对应的顺时针旋转角度。
      * 非 JPEG 或无 EXIF 时返回 0。
      */
-    private fun readExifRotation(path: String): Int {
-        return runCatching {
-            val orientation = ExifInterface(path)
+    private fun readExifRotation(path: String): Int = runCatching {
+        val orientation =
+            ExifInterface(path)
                 .getAttributeInt(
                     ExifInterface.TAG_ORIENTATION,
-                    ExifInterface.ORIENTATION_NORMAL
+                    ExifInterface.ORIENTATION_NORMAL,
                 )
-            when (orientation) {
-                ExifInterface.ORIENTATION_ROTATE_90 -> 90
-                ExifInterface.ORIENTATION_ROTATE_180 -> 180
-                ExifInterface.ORIENTATION_ROTATE_270 -> 270
-                else -> 0
-            }
-        }.getOrDefault(0)
-    }
+        when (orientation) {
+            ExifInterface.ORIENTATION_ROTATE_90 -> 90
+            ExifInterface.ORIENTATION_ROTATE_180 -> 180
+            ExifInterface.ORIENTATION_ROTATE_270 -> 270
+            else -> 0
+        }
+    }.getOrDefault(0)
 
-    private fun calculateInSampleSize(srcWidth: Int, reqWidth: Int): Int =
-        calculateInSampleSizePublic(srcWidth, reqWidth)
+    private fun calculateInSampleSize(
+        srcWidth: Int,
+        reqWidth: Int,
+    ): Int = calculateInSampleSizePublic(srcWidth, reqWidth)
 
     /**
      * 降采样倍数计算（对测试可见）。
@@ -74,7 +78,10 @@ object PhotoProcessor {
      * 选择使 `srcWidth / sample <= reqWidth * 2` 的最小 2 次幂，
      * 保证显示清晰度的同时避免大图 OOM。
      */
-    internal fun calculateInSampleSizePublic(srcWidth: Int, reqWidth: Int): Int {
+    internal fun calculateInSampleSizePublic(
+        srcWidth: Int,
+        reqWidth: Int,
+    ): Int {
         var sample = 1
         while (srcWidth / sample > reqWidth * 2) sample *= 2
         return sample
@@ -87,7 +94,10 @@ object PhotoProcessor {
      * @param degrees 旋转角度（正向任意值，内部取模 360）
      * @return 旋转后的新 Bitmap；0° 时返回原对象
      */
-    fun rotate(bitmap: Bitmap, degrees: Int): Bitmap {
+    fun rotate(
+        bitmap: Bitmap,
+        degrees: Int,
+    ): Bitmap {
         val normalized = degrees % 360
         if (normalized == 0) return bitmap
         val matrix = Matrix().apply { postRotate(normalized.toFloat()) }
@@ -109,7 +119,7 @@ object PhotoProcessor {
         left: Float,
         top: Float,
         right: Float,
-        bottom: Float
+        bottom: Float,
     ): Bitmap {
         val x = (left.coerceIn(0f, 1f) * bitmap.width).toInt()
         val y = (top.coerceIn(0f, 1f) * bitmap.height).toInt()
@@ -148,7 +158,7 @@ object PhotoProcessor {
         strokes: List<HandStroke>,
         displayWidth: Float,
         displayHeight: Float,
-        destFile: File
+        destFile: File,
     ): String {
         // 1. 旋转
         var result = rotate(source, rotationDegrees)
@@ -185,19 +195,20 @@ object PhotoProcessor {
         bitmap: Bitmap,
         strokes: List<HandStroke>,
         displayWidth: Float,
-        displayHeight: Float
+        displayHeight: Float,
     ): Bitmap {
         val mutable = bitmap.copy(Bitmap.Config.ARGB_8888, true)
         val canvas = AndroidCanvas(mutable)
         // 笔触坐标从显示尺寸映射到 Bitmap 尺寸
         val scaleX = bitmap.width / displayWidth
         val scaleY = bitmap.height / displayHeight
-        val paint = Paint().apply {
-            style = Paint.Style.STROKE
-            strokeCap = Paint.Cap.ROUND
-            strokeJoin = Paint.Join.ROUND
-            isAntiAlias = true
-        }
+        val paint =
+            Paint().apply {
+                style = Paint.Style.STROKE
+                strokeCap = Paint.Cap.ROUND
+                strokeJoin = Paint.Join.ROUND
+                isAntiAlias = true
+            }
         strokes.forEach { stroke ->
             if (stroke.points.isEmpty()) return@forEach
             paint.color = stroke.color.toArgb()
@@ -222,6 +233,6 @@ object PhotoProcessor {
         (alpha * 255).toInt(),
         (red * 255).toInt(),
         (green * 255).toInt(),
-        (blue * 255).toInt()
+        (blue * 255).toInt(),
     )
 }

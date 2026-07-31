@@ -22,7 +22,7 @@ enum class ShiftKind { WORK, OFF }
 data class RephaseFlip(
     val date: LocalDate,
     val flippedTo: ShiftKind,
-    val rephaseFrom: LocalDate
+    val rephaseFrom: LocalDate,
 )
 
 /**
@@ -45,7 +45,7 @@ data class ShiftPattern(
     val cycle: List<ShiftKind>,
     val overrides: Map<LocalDate, ShiftKind> = emptyMap(),
     val rephaseFlips: List<RephaseFlip> = emptyList(),
-    val name: String = "默认"
+    val name: String = "默认",
 ) {
     /**
      * 返回 [date] 当天的班次。优先级:overrides → rephaseFlip 当天 → 活跃锚点的 cycle 索引。
@@ -65,11 +65,9 @@ data class ShiftPattern(
         return cycle[idx]
     }
 
-    private fun activeAnchor(date: LocalDate): LocalDate {
-        return rephaseFlips
-            .filter { it.rephaseFrom <= date }
-            .maxByOrNull { it.rephaseFrom }
-            ?.rephaseFrom
-            ?: anchorDate
-    }
+    private fun activeAnchor(date: LocalDate): LocalDate = rephaseFlips
+        .filter { it.rephaseFrom <= date }
+        .maxByOrNull { it.rephaseFrom }
+        ?.rephaseFrom
+        ?: anchorDate
 }

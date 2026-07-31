@@ -37,26 +37,28 @@ fun ImageLightbox(
     photoUri: String?,
     contentDescription: String?,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     if (photoUri == null) return
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(
+        properties =
+        DialogProperties(
             decorFitsSystemWindows = false,
-            usePlatformDefaultWidth = false
-        )
+            usePlatformDefaultWidth = false,
+        ),
     ) {
         Box(
-            modifier = modifier
+            modifier =
+            modifier
                 .fillMaxSize()
                 .background(Color.Black)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
                     indication = null,
-                    onClick = onDismiss
+                    onClick = onDismiss,
                 ),
-            contentAlignment = Alignment.Center
+            contentAlignment = Alignment.Center,
         ) {
             val asyncImageState = rememberAsyncImageState()
             val zoomState = rememberSketchZoomState()
@@ -65,7 +67,7 @@ fun ImageLightbox(
                 contentDescription = contentDescription,
                 state = asyncImageState,
                 zoomState = zoomState,
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             )
         }
     }

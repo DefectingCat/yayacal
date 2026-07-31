@@ -41,14 +41,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
@@ -59,12 +60,11 @@ import kotlinx.datetime.number
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
-import kotlin.math.abs
-import kotlin.time.Clock
-import kotlin.time.Instant
 import plus.rua.project.RephaseFlip
 import plus.rua.project.ShiftKind
 import plus.rua.project.ShiftPattern
+import kotlin.math.abs
+import kotlin.time.Clock
 
 /**
  * 班次设置页用的迷你月历。点某天翻转班/休(仅当天),长按翻转并从次日起重排周期。
@@ -82,7 +82,7 @@ import plus.rua.project.ShiftPattern
 fun ShiftCalendarGrid(
     pattern: ShiftPattern,
     onPatternChange: (ShiftPattern) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
     val initialYear = remember { today.year }
@@ -104,13 +104,13 @@ fun ShiftCalendarGrid(
         modifier = modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
     ) {
         Column(Modifier.padding(8.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = {
                     coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage - 1) }
@@ -121,7 +121,7 @@ fun ShiftCalendarGrid(
                     text = "${viewYear}年 ${viewMonth}月",
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.clickable { showMonthPicker = true }
+                    modifier = Modifier.clickable { showMonthPicker = true },
                 )
                 IconButton(onClick = {
                     coroutineScope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
@@ -138,7 +138,7 @@ fun ShiftCalendarGrid(
                         modifier = Modifier.weight(1f),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
                     )
                 }
             }
@@ -168,10 +168,11 @@ fun ShiftCalendarGrid(
                 HorizontalPager(
                     state = pagerState,
                     beyondViewportPageCount = 0,
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .fillMaxWidth()
                         .height(with(density) { gridHeightPx.toDp() })
-                        .clipToBounds()
+                        .clipToBounds(),
                 ) { page ->
                     val (year, month) = pageToYearMonth(page, initialYear, initialMonth)
                     MonthGrid(
@@ -179,7 +180,7 @@ fun ShiftCalendarGrid(
                         month = month,
                         pattern = pattern,
                         onPatternChange = onPatternChange,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
             }
@@ -188,18 +189,23 @@ fun ShiftCalendarGrid(
 
     if (showMonthPicker) {
         val initialDate = LocalDate(viewYear, Month(viewMonth), 1)
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = initialDate.toEpochMillis()
-        )
+        val datePickerState =
+            rememberDatePickerState(
+                initialSelectedDateMillis = initialDate.toEpochMillis(),
+            )
         DatePickerDialog(
             onDismissRequest = { showMonthPicker = false },
             confirmButton = {
                 TextButton(onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
                         val picked = millis.toLocalDate()
-                        val targetPage = yearMonthToPage(
-                            picked.year, picked.month.number, initialYear, initialMonth
-                        )
+                        val targetPage =
+                            yearMonthToPage(
+                                picked.year,
+                                picked.month.number,
+                                initialYear,
+                                initialMonth,
+                            )
                         coroutineScope.launch { pagerState.animateScrollToPage(targetPage) }
                     }
                     showMonthPicker = false
@@ -207,7 +213,7 @@ fun ShiftCalendarGrid(
             },
             dismissButton = {
                 TextButton(onClick = { showMonthPicker = false }) { Text("取消") }
-            }
+            },
         ) {
             DatePicker(state = datePickerState)
         }
@@ -229,7 +235,7 @@ private fun MonthGrid(
     month: Int,
     pattern: ShiftPattern,
     onPatternChange: (ShiftPattern) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val gridInfo = remember(year, month) { getMonthGridInfo(year, month) }
     Column(modifier) {
@@ -245,7 +251,7 @@ private fun MonthGrid(
                             pattern = pattern,
                             onClick = { onPatternChange(toggleOverride(pattern, date)) },
                             onLongClick = { onPatternChange(toggleFlipAndRephase(pattern, date)) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                     } else {
                         Box(Modifier.weight(1f).aspectRatio(1f))
@@ -262,7 +268,10 @@ private fun MonthGrid(
  * 若该天存在 rephaseFlip(长按产生的翻转并重排),则移除整个 rephaseFlip,
  * 避免留下孤立的"幽灵重排"(只清翻转但保留后续相位重排)。
  */
-private fun toggleOverride(pattern: ShiftPattern, date: LocalDate): ShiftPattern {
+private fun toggleOverride(
+    pattern: ShiftPattern,
+    date: LocalDate,
+): ShiftPattern {
     val existingFlip = pattern.rephaseFlips.find { it.date == date }
     if (existingFlip != null) {
         // 该天是 rephaseFlip 的翻转日:整体移除,避免幽灵重排
@@ -272,8 +281,12 @@ private fun toggleOverride(pattern: ShiftPattern, date: LocalDate): ShiftPattern
     val newVal = if (current == ShiftKind.WORK) ShiftKind.OFF else ShiftKind.WORK
     val tempPattern = pattern.copy(overrides = pattern.overrides - date)
     val base = tempPattern.kindAt(date)
-    val newOverrides = if (newVal == base) pattern.overrides - date
-                       else pattern.overrides + (date to newVal)
+    val newOverrides =
+        if (newVal == base) {
+            pattern.overrides - date
+        } else {
+            pattern.overrides + (date to newVal)
+        }
     return pattern.copy(overrides = newOverrides)
 }
 
@@ -287,7 +300,10 @@ private fun toggleOverride(pattern: ShiftPattern, date: LocalDate): ShiftPattern
  *
  * @param date 被翻转并作为重排起点的日期
  */
-private fun toggleFlipAndRephase(pattern: ShiftPattern, date: LocalDate): ShiftPattern {
+private fun toggleFlipAndRephase(
+    pattern: ShiftPattern,
+    date: LocalDate,
+): ShiftPattern {
     val existing = pattern.rephaseFlips.find { it.date == date }
     if (existing != null) {
         // 撤销:整体移除该 rephaseFlip(原子删除)
@@ -299,8 +315,8 @@ private fun toggleFlipAndRephase(pattern: ShiftPattern, date: LocalDate): ShiftP
     val newVal = if (current == ShiftKind.WORK) ShiftKind.OFF else ShiftKind.WORK
     val rephaseFrom = date.plus(DatePeriod(days = 1))
     return pattern.copy(
-        overrides = pattern.overrides - date,  // 该天改由 rephaseFlip 管辖,移除可能的旧 override
-        rephaseFlips = pattern.rephaseFlips + RephaseFlip(date, newVal, rephaseFrom)
+        overrides = pattern.overrides - date, // 该天改由 rephaseFlip 管辖,移除可能的旧 override
+        rephaseFlips = pattern.rephaseFlips + RephaseFlip(date, newVal, rephaseFrom),
     )
 }
 
@@ -320,69 +336,83 @@ private fun ShiftDayCell(
     pattern: ShiftPattern,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val kind = pattern.kindAt(date)
     // rephaseFlip 的 rephaseFrom = 当天,表示该天为重排起点
     val isRephaseStart = pattern.rephaseFlips.any { it.rephaseFrom == date }
 
     // 背景色与文字色配对,保证对比度(对照 DayCell 的配色风格)
-    val badgeColor = when {
-        isRephaseStart -> MaterialTheme.colorScheme.tertiary
-        kind == ShiftKind.WORK -> MaterialTheme.colorScheme.primary
-        kind == ShiftKind.OFF -> MaterialTheme.colorScheme.error
-        else -> Color.Transparent
-    }
-    val badgeTextColor = when {
-        isRephaseStart -> MaterialTheme.colorScheme.onTertiary
-        kind == ShiftKind.WORK -> MaterialTheme.colorScheme.onPrimary
-        kind == ShiftKind.OFF -> MaterialTheme.colorScheme.onError
-        else -> Color.Transparent
-    }
-    val badgeText = when {
-        isRephaseStart -> when (kind) {
-            ShiftKind.WORK -> "起·班"
-            ShiftKind.OFF -> "起·休"
-            null -> "起"
+    val badgeColor =
+        when {
+            isRephaseStart -> MaterialTheme.colorScheme.tertiary
+            kind == ShiftKind.WORK -> MaterialTheme.colorScheme.primary
+            kind == ShiftKind.OFF -> MaterialTheme.colorScheme.error
+            else -> Color.Transparent
         }
-        kind == ShiftKind.WORK -> "班"
-        kind == ShiftKind.OFF -> "休"
-        else -> ""
-    }
+    val badgeTextColor =
+        when {
+            isRephaseStart -> MaterialTheme.colorScheme.onTertiary
+            kind == ShiftKind.WORK -> MaterialTheme.colorScheme.onPrimary
+            kind == ShiftKind.OFF -> MaterialTheme.colorScheme.onError
+            else -> Color.Transparent
+        }
+    val badgeText =
+        when {
+            isRephaseStart -> {
+                when (kind) {
+                    ShiftKind.WORK -> "起·班"
+                    ShiftKind.OFF -> "起·休"
+                    null -> "起"
+                }
+            }
+
+            kind == ShiftKind.WORK -> {
+                "班"
+            }
+
+            kind == ShiftKind.OFF -> {
+                "休"
+            }
+
+            else -> {
+                ""
+            }
+        }
 
     Box(
-        modifier = modifier
+        modifier =
+        modifier
             .aspectRatio(1f)
             .combinedClickable(onClick = onClick, onLongClick = onLongClick),
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         Text(
             text = date.day.toString(),
             fontSize = 13.sp,
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurface,
         )
         if (badgeText.isNotEmpty()) {
             Box(
-                modifier = Modifier
+                modifier =
+                Modifier
                     .align(Alignment.TopEnd)
                     .padding(top = 2.dp, end = 2.dp)
                     .background(badgeColor, CircleShape)
-                    .padding(horizontal = 3.dp, vertical = 1.dp)
+                    .padding(horizontal = 3.dp, vertical = 1.dp),
             ) {
                 Text(
                     text = badgeText,
                     color = badgeTextColor,
                     fontSize = 8.sp,
                     fontWeight = FontWeight.Bold,
-                    lineHeight = 8.sp
+                    lineHeight = 8.sp,
                 )
             }
         }
     }
 }
 
-private fun LocalDate.toEpochMillis(): Long =
-    this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
+private fun LocalDate.toEpochMillis(): Long = this.atStartOfDayIn(TimeZone.UTC).toEpochMilliseconds()
 
-private fun Long.toLocalDate(): LocalDate =
-    Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date
+private fun Long.toLocalDate(): LocalDate = Instant.fromEpochMilliseconds(this).toLocalDateTime(TimeZone.UTC).date

@@ -62,8 +62,6 @@ import kotlinx.datetime.plus
 import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 import kotlin.math.roundToInt
-import plus.rua.project.composeTraceBeginSection
-import plus.rua.project.composeTraceEndSection
 
 private val WEEKDAY_LABELS = listOf("一", "二", "三", "四", "五", "六", "日")
 
@@ -74,7 +72,7 @@ private data class MiniMonthColors(
     val day: Color,
     val otherMonth: Color,
     val todayBg: Color,
-    val todayText: Color
+    val todayText: Color,
 )
 
 /**
@@ -93,91 +91,100 @@ fun YearGridView(
     today: LocalDate,
     onMonthClick: (Int) -> Unit,
     monthModifier: @Composable (Int) -> Modifier = { Modifier },
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     composeTraceBeginSection("YearGridView:$year")
 
     // P0-F: 主题色在 YearGridView 级别一次性读取并缓存
     val colorScheme = MaterialTheme.colorScheme
-    val colors = remember(colorScheme) {
-        MiniMonthColors(
-            titleSelected = colorScheme.primary,
-            titleNormal = colorScheme.onSurface,
-            weekday = colorScheme.onSurface.copy(alpha = 0.4f),
-            day = colorScheme.onSurface.copy(alpha = 0.6f),
-            otherMonth = colorScheme.onSurface.copy(alpha = 0.2f),
-            todayBg = colorScheme.primaryContainer,
-            todayText = colorScheme.onPrimaryContainer
-        )
-    }
+    val colors =
+        remember(colorScheme) {
+            MiniMonthColors(
+                titleSelected = colorScheme.primary,
+                titleNormal = colorScheme.onSurface,
+                weekday = colorScheme.onSurface.copy(alpha = 0.4f),
+                day = colorScheme.onSurface.copy(alpha = 0.6f),
+                otherMonth = colorScheme.onSurface.copy(alpha = 0.2f),
+                todayBg = colorScheme.primaryContainer,
+                todayText = colorScheme.onPrimaryContainer,
+            )
+        }
 
     // P0-F: 预计算全年 12 个月的日期数据，翻年时复用
-    val monthDays = remember(year) {
-        (1..12).map { generateMiniMonthDays(year, it) }
-    }
+    val monthDays =
+        remember(year) {
+            (1..12).map { generateMiniMonthDays(year, it) }
+        }
 
     // P0-G: 共享 TextMeasurer
     val textMeasurer = rememberTextMeasurer()
     val dayTextStyle = remember { TextStyle(fontSize = 8.sp, lineHeight = 12.sp) }
 
     // P0: 使用 remember 同步预测量所有可能的字符样式，消除 produceState 首帧空白/闪烁
-    val dayLayouts = remember(textMeasurer, dayTextStyle, colors) {
-        val days = 1..31
-        val colorTypes = listOf(0 to colors.day, 1 to colors.todayText, 2 to colors.otherMonth)
-        val map = HashMap<Int, androidx.compose.ui.text.TextLayoutResult>(32 * 3)
-        days.forEach { d ->
-            colorTypes.forEach { (type, c) ->
-                map[d * 3 + type] = textMeasurer.measure(d.toString(), dayTextStyle.copy(color = c))
+    val dayLayouts =
+        remember(textMeasurer, dayTextStyle, colors) {
+            val days = 1..31
+            val colorTypes = listOf(0 to colors.day, 1 to colors.todayText, 2 to colors.otherMonth)
+            val map = HashMap<Int, androidx.compose.ui.text.TextLayoutResult>(32 * 3)
+            days.forEach { d ->
+                colorTypes.forEach { (type, c) ->
+                    map[d * 3 + type] = textMeasurer.measure(d.toString(), dayTextStyle.copy(color = c))
+                }
+            }
+            map
+        }
+
+    val titleLayouts =
+        remember(textMeasurer, colors) {
+            val map = HashMap<Int, androidx.compose.ui.text.TextLayoutResult>(13 * 2)
+            (1..12).forEach { month ->
+                val text = "${month}月"
+                map[month * 2 + 1] =
+                    textMeasurer.measure(
+                        text,
+                        TextStyle(fontSize = 10.sp, color = colors.titleSelected, fontWeight = FontWeight.Bold),
+                    )
+                map[month * 2] =
+                    textMeasurer.measure(
+                        text,
+                        TextStyle(fontSize = 10.sp, color = colors.titleNormal),
+                    )
+            }
+            map
+        }
+
+    val weekdayLayouts =
+        remember(textMeasurer, colors) {
+            WEEKDAY_LABELS.associateWith { label ->
+                textMeasurer.measure(label, TextStyle(fontSize = 8.sp, color = colors.weekday))
             }
         }
-        map
-    }
-
-    val titleLayouts = remember(textMeasurer, colors) {
-        val map = HashMap<Int, androidx.compose.ui.text.TextLayoutResult>(13 * 2)
-        (1..12).forEach { month ->
-            val text = "${month}月"
-            map[month * 2 + 1] = textMeasurer.measure(
-                text,
-                TextStyle(fontSize = 10.sp, color = colors.titleSelected, fontWeight = FontWeight.Bold)
-            )
-            map[month * 2] = textMeasurer.measure(
-                text,
-                TextStyle(fontSize = 10.sp, color = colors.titleNormal)
-            )
-        }
-        map
-    }
-
-    val weekdayLayouts = remember(textMeasurer, colors) {
-        WEEKDAY_LABELS.associateWith { label ->
-            textMeasurer.measure(label, TextStyle(fontSize = 8.sp, color = colors.weekday))
-        }
-    }
 
     val isLandscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val gridRows = if (isLandscape) 3 else 4
     val gridCols = if (isLandscape) 4 else 3
 
     Column(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxSize()
             .testTag("year_grid"),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         // 4×3 月历网格
         // 弹性平分纵向空间，横竖屏自适应
         Column(
-            modifier = Modifier
+            modifier =
+            Modifier
                 .fillMaxWidth()
                 .weight(1f)
                 .padding(start = 4.dp, end = 4.dp, bottom = 44.dp),
-            verticalArrangement = Arrangement.SpaceEvenly
+            verticalArrangement = Arrangement.SpaceEvenly,
         ) {
             (0 until gridRows).forEach { row ->
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     (0 until gridCols).forEach { col ->
                         val month = row * gridCols + col + 1
@@ -193,7 +200,7 @@ fun YearGridView(
                                 titleLayouts = titleLayouts,
                                 weekdayLayouts = weekdayLayouts,
                                 onClick = { onMonthClick(month) },
-                                modifier = Modifier.weight(1f).then(monthModifier(month))
+                                modifier = Modifier.weight(1f).then(monthModifier(month)),
                             )
                         }
                     }
@@ -221,7 +228,7 @@ private fun MiniMonth(
     titleLayouts: Map<Int, androidx.compose.ui.text.TextLayoutResult>,
     weekdayLayouts: Map<String, androidx.compose.ui.text.TextLayoutResult>,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
     val dayRowCount = days.size / 7
@@ -229,56 +236,61 @@ private fun MiniMonth(
     val titleToWeekdayGapPx = with(density) { 4.dp.toPx() }
     val weekdayHeightPx = with(density) { 12.sp.toPx() }
     val dayCellHeightPx = with(density) { (12.sp.toPx() + 4.dp.toPx()) }
-    val totalHeight = with(density) {
-        (titleHeightPx + titleToWeekdayGapPx + weekdayHeightPx + dayRowCount * dayCellHeightPx).toDp()
-    }
+    val totalHeight =
+        with(density) {
+            (titleHeightPx + titleToWeekdayGapPx + weekdayHeightPx + dayRowCount * dayCellHeightPx).toDp()
+        }
 
     var isPressed by remember { mutableStateOf(false) }
     val pressedScale by androidx.compose.animation.core.animateFloatAsState(
         targetValue = if (isPressed) 0.95f else 1.0f,
         animationSpec = spring(stiffness = Spring.StiffnessHigh),
-        label = "mini_month_press_scale"
+        label = "mini_month_press_scale",
     )
 
-    val containsToday = remember(days, today) {
-        days.any { it.isCurrentMonth && it.date == today }
-    }
-    val semanticsDesc = remember(year, month, containsToday) {
-        "$year 年 $month 月" + if (containsToday) "，包含今天" else ""
-    }
+    val containsToday =
+        remember(days, today) {
+            days.any { it.isCurrentMonth && it.date == today }
+        }
+    val semanticsDesc =
+        remember(year, month, containsToday) {
+            "$year 年 $month 月" + if (containsToday) "，包含今天" else ""
+        }
 
     val containerShape = RoundedCornerShape(12.dp)
     val selectedBgColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f)
     val selectedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)
 
-    val containerModifier = if (isSelected) {
-        Modifier
-            .background(color = selectedBgColor, shape = containerShape)
-            .border(width = 1.dp, color = selectedBorderColor, shape = containerShape)
-    } else Modifier
+    val containerModifier =
+        if (isSelected) {
+            Modifier
+                .background(color = selectedBgColor, shape = containerShape)
+                .border(width = 1.dp, color = selectedBorderColor, shape = containerShape)
+        } else {
+            Modifier
+        }
 
     Column(
-        modifier = modifier
+        modifier =
+        modifier
             .then(containerModifier)
             .graphicsLayer {
                 scaleX = pressedScale
                 scaleY = pressedScale
-            }
-            .pointerInput(Unit) {
+            }.pointerInput(Unit) {
                 detectTapGestures(
                     onPress = {
                         isPressed = true
                         tryAwaitRelease()
                         isPressed = false
-                    }
+                    },
                 )
-            }
-            .clickable(onClick = onClick)
+            }.clickable(onClick = onClick)
             .padding(vertical = 4.dp, horizontal = 2.dp)
             .semantics {
                 contentDescription = semanticsDesc
             },
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Canvas(modifier = Modifier.fillMaxWidth().height(totalHeight)) {
             val cellWidth = size.width / 7f
@@ -289,7 +301,7 @@ private fun MiniMonth(
                 val titleX = ((size.width - titleLayout.size.width) / 2f).roundToInt().toFloat()
                 drawText(
                     textLayoutResult = titleLayout,
-                    topLeft = Offset(titleX, 0f)
+                    topLeft = Offset(titleX, 0f),
                 )
             }
 
@@ -301,7 +313,7 @@ private fun MiniMonth(
                     val y = (weekdayY + (weekdayHeightPx - layout.size.height) / 2f).roundToInt().toFloat()
                     drawText(
                         textLayoutResult = layout,
-                        topLeft = Offset(x, y)
+                        topLeft = Offset(x, y),
                     )
                 }
             }
@@ -317,18 +329,19 @@ private fun MiniMonth(
 
                 val isToday = dayData.date == today && dayData.isCurrentMonth
                 val dayNum = if (dayData.isCurrentMonth) dayData.date.day else 0
-                val colorType = when {
-                    !dayData.isCurrentMonth -> 2
-                    isToday -> 1
-                    else -> 0
-                }
+                val colorType =
+                    when {
+                        !dayData.isCurrentMonth -> 2
+                        isToday -> 1
+                        else -> 0
+                    }
 
                 if (isToday) {
                     val radius = (cellWidth.coerceAtMost(dayCellHeightPx) / 2f * 0.8f).roundToInt().toFloat()
                     drawCircle(
                         color = colors.todayBg,
                         radius = radius,
-                        center = Offset(centerX, centerY)
+                        center = Offset(centerX, centerY),
                     )
                 }
 
@@ -336,10 +349,11 @@ private fun MiniMonth(
                     dayLayouts[dayNum * 3 + colorType]?.let { layoutResult ->
                         drawText(
                             textLayoutResult = layoutResult,
-                            topLeft = Offset(
+                            topLeft =
+                            Offset(
                                 x = (centerX - layoutResult.size.width / 2f).roundToInt().toFloat(),
-                                y = (centerY - layoutResult.size.height / 2f).roundToInt().toFloat()
-                            )
+                                y = (centerY - layoutResult.size.height / 2f).roundToInt().toFloat(),
+                            ),
                         )
                     }
                 }
@@ -350,19 +364,23 @@ private fun MiniMonth(
 
 private data class MiniDayData(
     val date: LocalDate,
-    val isCurrentMonth: Boolean
+    val isCurrentMonth: Boolean,
 )
 
-private fun generateMiniMonthDays(year: Int, month: Int): List<MiniDayData> {
+private fun generateMiniMonthDays(
+    year: Int,
+    month: Int,
+): List<MiniDayData> {
     composeTraceBeginSection("generateMiniMonthDays:$year-$month")
     val info = getMonthGridInfo(year, month)
-    val result = (0 until info.totalDays).map { i ->
-        val date = info.startDate.plus(DatePeriod(days = i))
-        MiniDayData(
-            date = date,
-            isCurrentMonth = date.month.number == month && date.year == year
-        )
-    }
+    val result =
+        (0 until info.totalDays).map { i ->
+            val date = info.startDate.plus(DatePeriod(days = i))
+            MiniDayData(
+                date = date,
+                isCurrentMonth = date.month.number == month && date.year == year,
+            )
+        }
     composeTraceEndSection()
     return result
 }
@@ -382,12 +400,13 @@ fun YearHeader(
     year: Int,
     currentYear: Int,
     onYearChange: (Int) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier
+        modifier =
+        modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp, horizontal = 12.dp)
+            .padding(vertical = 8.dp, horizontal = 12.dp),
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             AnimatedContent(
@@ -398,13 +417,13 @@ fun YearHeader(
                     val slideIn = slideInVertically(tween(260)) { height -> if (isForward) -height else height } + fadeIn(tween(180))
                     val slideOut = slideOutVertically(tween(260)) { height -> if (isForward) height else -height } + fadeOut(tween(180))
                     slideIn togetherWith slideOut
-                }
+                },
             ) { y ->
                 Text(
                     text = "${y}年",
                     color = MaterialTheme.colorScheme.onBackground,
                     style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
                 )
             }
             Spacer(modifier = Modifier.weight(1f))
@@ -412,29 +431,30 @@ fun YearHeader(
             val thisYearAlpha by androidx.compose.animation.core.animateFloatAsState(
                 targetValue = if (showThisYear) 1f else 0f,
                 animationSpec = tween(200),
-                label = "this_year_alpha"
+                label = "this_year_alpha",
             )
             val thisYearScale by androidx.compose.animation.core.animateFloatAsState(
                 targetValue = if (showThisYear) 1f else 0.8f,
                 animationSpec = spring(stiffness = Spring.StiffnessMedium),
-                label = "this_year_scale"
+                label = "this_year_scale",
             )
             Surface(
                 onClick = { if (showThisYear) onYearChange(currentYear) },
                 shape = RoundedCornerShape(12.dp),
                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
-                modifier = Modifier.graphicsLayer {
+                modifier =
+                Modifier.graphicsLayer {
                     alpha = thisYearAlpha
                     scaleX = thisYearScale
                     scaleY = thisYearScale
-                }
+                },
             ) {
                 Text(
                     text = "今年",
                     color = MaterialTheme.colorScheme.primary,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                 )
             }
         }
@@ -447,12 +467,12 @@ fun YearHeader(
                 val slideOut = slideOutVertically(tween(260)) { height -> if (isForward) height else -height } + fadeOut(tween(180))
                 slideIn togetherWith slideOut
             },
-            modifier = Modifier.padding(top = 4.dp)
+            modifier = Modifier.padding(top = 4.dp),
         ) { y ->
             Text(
                 text = lunarYearLabel(y),
                 color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.6f),
-                style = MaterialTheme.typography.bodySmall
+                style = MaterialTheme.typography.bodySmall,
             )
         }
     }

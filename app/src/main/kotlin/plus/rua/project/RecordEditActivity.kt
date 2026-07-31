@@ -18,15 +18,17 @@ class RecordEditActivity : BaseActivity() {
         super.onCreate(savedInstanceState)
 
         val photoPath = intent?.getStringExtra(DateRecorderNav.EXTRA_TEMP_PHOTO_PATH)
-        val recordId = intent?.getLongExtra(DateRecorderNav.EXTRA_RECORD_ID, -1L)
-            ?.takeIf { it >= 0 }
+        val recordId =
+            intent
+                ?.getLongExtra(DateRecorderNav.EXTRA_RECORD_ID, -1L)
+                ?.takeIf { it >= 0 }
 
         setContent {
             YaYaTheme {
                 RecordEditScreen(
                     onBack = { finishWithSlideBack() },
                     photoPath = photoPath,
-                    recordId = recordId
+                    recordId = recordId,
                 )
             }
         }

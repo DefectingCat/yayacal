@@ -25,10 +25,10 @@ class CameraActivity : BaseActivity() {
                         startActivityWithSlide(
                             Intent(this, PhotoEditorActivity::class.java).apply {
                                 putExtra(DateRecorderNav.EXTRA_TEMP_PHOTO_PATH, tempPath)
-                            }
+                            },
                         )
                         finishWithSlideBack()
-                    }
+                    },
                 )
             }
         }

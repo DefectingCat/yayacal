@@ -8,13 +8,13 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.number
 import kotlinx.datetime.todayIn
 import java.io.File
 import kotlin.time.Clock
-import kotlin.time.Instant
 
 /**
  * 记录编辑页面 UI 状态。
@@ -41,7 +41,7 @@ data class RecordEditUiState(
     val canSave: Boolean = false,
     val finished: Boolean = false,
     val error: String? = null,
-    val isExistingRecord: Boolean = false
+    val isExistingRecord: Boolean = false,
 )
 
 /**
@@ -54,9 +54,8 @@ data class RecordEditUiState(
 class RecordEditViewModel(
     private val repository: DateRecorderRepository,
     private val photoPath: String?,
-    private val recordId: Long?
+    private val recordId: Long?,
 ) : ViewModel() {
-
     private val _uiState = MutableStateFlow(RecordEditUiState())
     val uiState: StateFlow<RecordEditUiState> = _uiState.asStateFlow()
 
@@ -64,6 +63,7 @@ class RecordEditViewModel(
     private var titleManuallyEdited = false
     private var existingCreatedAt: Instant? = null
     private var originalPhotoRelativePath: String? = null
+
     init {
         if (recordId != null) {
             loadExistingRecord(recordId)
@@ -76,15 +76,16 @@ class RecordEditViewModel(
         requireNotNull(photoPath) { "新建模式必须提供 photoPath" }
         val file = File(photoPath)
         val today = Clock.System.todayIn(TimeZone.currentSystemDefault())
-        _uiState.value = RecordEditUiState(
-            loading = false,
-            title = formatLocalDate(today),
-            shootDate = today,
-            photoUri = "file://${file.absolutePath}",
-            photoAbsolutePath = file.absolutePath,
-            canSave = true,
-            isExistingRecord = false
-        )
+        _uiState.value =
+            RecordEditUiState(
+                loading = false,
+                title = formatLocalDate(today),
+                shootDate = today,
+                photoUri = "file://${file.absolutePath}",
+                photoAbsolutePath = file.absolutePath,
+                canSave = true,
+                isExistingRecord = false,
+            )
     }
 
     private fun loadExistingRecord(id: Long) {
@@ -94,23 +95,25 @@ class RecordEditViewModel(
                 if (record != null) {
                     existingCreatedAt = record.createdAt
                     originalPhotoRelativePath = record.photoPath
-                    val absFile = if (photoPath != null) {
-                        File(photoPath)
-                    } else {
-                        repository.absoluteFileOf(record.photoPath)
-                    }
+                    val absFile =
+                        if (photoPath != null) {
+                            File(photoPath)
+                        } else {
+                            repository.absoluteFileOf(record.photoPath)
+                        }
                     titleManuallyEdited = true
-                    _uiState.value = RecordEditUiState(
-                        loading = false,
-                        title = record.title,
-                        note = record.note,
-                        shootDate = record.shootDate,
-                        linkedDate = record.linkedDate,
-                        photoUri = "file://${absFile.absolutePath}",
-                        photoAbsolutePath = absFile.absolutePath,
-                        canSave = true,
-                        isExistingRecord = true
-                    )
+                    _uiState.value =
+                        RecordEditUiState(
+                            loading = false,
+                            title = record.title,
+                            note = record.note,
+                            shootDate = record.shootDate,
+                            linkedDate = record.linkedDate,
+                            photoUri = "file://${absFile.absolutePath}",
+                            photoAbsolutePath = absFile.absolutePath,
+                            canSave = true,
+                            isExistingRecord = true,
+                        )
                 } else {
                     // 记录不存在（已被删除），直接结束
                     _uiState.update { it.copy(loading = false, finished = true) }
@@ -163,9 +166,9 @@ class RecordEditViewModel(
                             shootDate = state.shootDate,
                             linkedDate = state.linkedDate,
                             photoPath = relPath,
-                            createdAt = existingCreatedAt ?: Instant.fromEpochMilliseconds(System.currentTimeMillis())
+                            createdAt = existingCreatedAt ?: Instant.fromEpochMilliseconds(System.currentTimeMillis()),
                         ),
-                        oldPhotoPath = originalPhotoRelativePath
+                        oldPhotoPath = originalPhotoRelativePath,
                     )
                 } else {
                     repository.insert(
@@ -176,8 +179,8 @@ class RecordEditViewModel(
                             shootDate = state.shootDate,
                             linkedDate = state.linkedDate,
                             photoPath = relPath,
-                            createdAt = Instant.fromEpochMilliseconds(System.currentTimeMillis())
-                        )
+                            createdAt = Instant.fromEpochMilliseconds(System.currentTimeMillis()),
+                        ),
                     )
                 }
                 _uiState.update { it.copy(finished = true) }
@@ -193,6 +196,4 @@ class RecordEditViewModel(
  *
  * @param date 待格式化的日期
  */
-internal fun formatLocalDate(date: LocalDate): String {
-    return "${date.year}-${date.month.number.toString().padStart(2, '0')}-${date.day.toString().padStart(2, '0')}"
-}
+internal fun formatLocalDate(date: LocalDate): String = "${date.year}-${date.month.number.toString().padStart(2, '0')}-${date.day.toString().padStart(2, '0')}"

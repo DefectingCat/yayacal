@@ -55,7 +55,8 @@ fun SplashScreen(
         Image(
             painter = iconPainter,
             contentDescription = null,
-            modifier = Modifier
+            modifier =
+            Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = iconTopPadding.coerceAtLeast(statusBarHeight))
                 .size(SplashIconSize),

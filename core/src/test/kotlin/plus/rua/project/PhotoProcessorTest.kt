@@ -8,9 +8,10 @@ import kotlin.test.assertEquals
  *
  * 仅覆盖纯计算部分（[PhotoProcessor.calculateInSampleSizePublic]），
  * 涉及 Bitmap/IO 的部分依赖 Android 框架，需 instrumented 测试。
+ * crop() 的边界守卫（零宽高/反转框）已在生产代码中加入，但无法在纯 JVM
+ * 测试中验证，因为 Bitmap.getWidth/getHeight 不被 Android SDK mock。
  */
 class PhotoProcessorTest {
-
     @Test
     fun sampleSize_smallImage_returns1() {
         // 源宽 500，要求 1080 → 不需降采样

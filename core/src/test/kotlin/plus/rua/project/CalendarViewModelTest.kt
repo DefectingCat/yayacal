@@ -11,17 +11,17 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-private class FixedClock(private val instant: Instant) : Clock {
+private class FixedClock(
+    private val instant: Instant,
+) : Clock {
     override fun now(): Instant = instant
 }
 
 class CalendarViewModelTest {
-
     private val fixedInstant = Instant.parse("2026-05-15T00:00:00Z")
     private val testClock = FixedClock(fixedInstant)
-    private fun createViewModel(): CalendarViewModel {
-        return CalendarViewModel(clock = testClock)
-    }
+
+    private fun createViewModel(): CalendarViewModel = CalendarViewModel(clock = testClock)
 
     // ---- getIsoWeekNumber ----
 
@@ -59,6 +59,20 @@ class CalendarViewModelTest {
     fun getIsoWeekNumber_week_53_year() {
         val vm = createViewModel()
         assertEquals(53, vm.getIsoWeekNumber(LocalDate(2020, 12, 31)))
+    }
+
+    @Test
+    fun getIsoWeekNumber_early_january_previous_year_week() {
+        // 2021-01-01 是周五，属于 2020 年第 53 周（非 2021 年第 1 周）
+        val vm = createViewModel()
+        assertEquals(53, vm.getIsoWeekNumber(LocalDate(2021, 1, 1)))
+    }
+
+    @Test
+    fun getIsoWeekNumber_early_january_2023_week_52() {
+        // 2023-01-01 是周日，属于 2022 年第 52 周
+        val vm = createViewModel()
+        assertEquals(52, vm.getIsoWeekNumber(LocalDate(2023, 1, 1)))
     }
 
     // ---- getMonthDays ----
@@ -134,7 +148,7 @@ class CalendarViewModelTest {
 
     @Test
     fun shiftPattern_noStorage_returnsDefault() {
-        val vm = createViewModel()   // 不传 storage
+        val vm = createViewModel() // 不传 storage
         assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
         assertEquals(ShiftKind.OFF, vm.shiftKindAt(LocalDate(2026, 5, 17)))
     }
@@ -147,8 +161,8 @@ class CalendarViewModelTest {
         storage.save(
             ShiftPattern(
                 anchorDate = LocalDate(2026, 1, 1),
-                cycle = listOf(ShiftKind.WORK, ShiftKind.OFF)
-            )
+                cycle = listOf(ShiftKind.WORK, ShiftKind.OFF),
+            ),
         )
         val vm = CalendarViewModel(clock = testClock, shiftStorage = storage)
         // 初始即从 storage 读
@@ -168,8 +182,8 @@ class CalendarViewModelTest {
         storage.save(
             ShiftPattern(
                 anchorDate = LocalDate(2026, 1, 1),
-                cycle = listOf(ShiftKind.WORK, ShiftKind.OFF)
-            )
+                cycle = listOf(ShiftKind.WORK, ShiftKind.OFF),
+            ),
         )
         // refresh 前:VM 还持有旧 pattern
         assertEquals(ShiftKind.WORK, vm.shiftKindAt(LocalDate(2026, 5, 15)))
@@ -184,28 +198,39 @@ class CalendarViewModelTest {
 }
 
 private class CalendarVmTestPrefs : SharedPreferences {
-
     private val data = mutableMapOf<String, Any?>()
 
     override fun getAll(): Map<String, *> = data.toMap()
 
-    override fun getString(key: String, defValue: String?): String? =
-        data[key] as? String ?: defValue
+    override fun getString(
+        key: String,
+        defValue: String?,
+    ): String? = data[key] as? String ?: defValue
 
-    override fun getStringSet(key: String, defValues: Set<String>?): Set<String>? =
-        data[key] as? Set<String> ?: defValues
+    override fun getStringSet(
+        key: String,
+        defValues: Set<String>?,
+    ): Set<String>? = data[key] as? Set<String> ?: defValues
 
-    override fun getInt(key: String, defValue: Int): Int =
-        data[key] as? Int ?: defValue
+    override fun getInt(
+        key: String,
+        defValue: Int,
+    ): Int = data[key] as? Int ?: defValue
 
-    override fun getLong(key: String, defValue: Long): Long =
-        data[key] as? Long ?: defValue
+    override fun getLong(
+        key: String,
+        defValue: Long,
+    ): Long = data[key] as? Long ?: defValue
 
-    override fun getFloat(key: String, defValue: Float): Float =
-        data[key] as? Float ?: defValue
+    override fun getFloat(
+        key: String,
+        defValue: Float,
+    ): Float = data[key] as? Float ?: defValue
 
-    override fun getBoolean(key: String, defValue: Boolean): Boolean =
-        data[key] as? Boolean ?: defValue
+    override fun getBoolean(
+        key: String,
+        defValue: Boolean,
+    ): Boolean = data[key] as? Boolean ?: defValue
 
     override fun contains(key: String): Boolean = data.containsKey(key)
 
@@ -216,23 +241,45 @@ private class CalendarVmTestPrefs : SharedPreferences {
     override fun unregisterOnSharedPreferenceChangeListener(listener: SharedPreferences.OnSharedPreferenceChangeListener?) {}
 }
 
-private class CalendarVmTestPrefsEditor(private val data: MutableMap<String, Any?>) : SharedPreferences.Editor {
-
+private class CalendarVmTestPrefsEditor(
+    private val data: MutableMap<String, Any?>,
+) : SharedPreferences.Editor {
     private val pending = mutableMapOf<String, Any?>()
     private var clearPending = false
 
-    override fun putString(key: String, value: String?): SharedPreferences.Editor = apply {
+    override fun putString(
+        key: String,
+        value: String?,
+    ): SharedPreferences.Editor = apply {
         pending[key] = value
     }
 
-    override fun putStringSet(key: String, values: Set<String>?): SharedPreferences.Editor = apply {
+    override fun putStringSet(
+        key: String,
+        values: Set<String>?,
+    ): SharedPreferences.Editor = apply {
         pending[key] = values
     }
 
-    override fun putInt(key: String, value: Int): SharedPreferences.Editor = apply { pending[key] = value }
-    override fun putLong(key: String, value: Long): SharedPreferences.Editor = apply { pending[key] = value }
-    override fun putFloat(key: String, value: Float): SharedPreferences.Editor = apply { pending[key] = value }
-    override fun putBoolean(key: String, value: Boolean): SharedPreferences.Editor = apply { pending[key] = value }
+    override fun putInt(
+        key: String,
+        value: Int,
+    ): SharedPreferences.Editor = apply { pending[key] = value }
+
+    override fun putLong(
+        key: String,
+        value: Long,
+    ): SharedPreferences.Editor = apply { pending[key] = value }
+
+    override fun putFloat(
+        key: String,
+        value: Float,
+    ): SharedPreferences.Editor = apply { pending[key] = value }
+
+    override fun putBoolean(
+        key: String,
+        value: Boolean,
+    ): SharedPreferences.Editor = apply { pending[key] = value }
 
     override fun remove(key: String): SharedPreferences.Editor = apply { pending[key] = null }
 

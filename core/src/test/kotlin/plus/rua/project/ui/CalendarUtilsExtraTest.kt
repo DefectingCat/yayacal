@@ -12,7 +12,6 @@ import kotlin.test.assertTrue
  * - [formatLunarDate]
  */
 class CalendarUtilsExtraTest {
-
     // ---- calculateWeeksCountForPage ----
 
     @Test
@@ -28,7 +27,7 @@ class CalendarUtilsExtraTest {
         val today = LocalDate(2026, 5, 15)
         assertEquals(
             calculateWeeksCount(2026, 6),
-            calculateWeeksCountForPage(START_PAGE + 1, today)
+            calculateWeeksCountForPage(START_PAGE + 1, today),
         )
     }
 
@@ -38,7 +37,7 @@ class CalendarUtilsExtraTest {
         val today = LocalDate(2026, 5, 15)
         assertEquals(
             calculateWeeksCount(2026, 4),
-            calculateWeeksCountForPage(START_PAGE - 1, today)
+            calculateWeeksCountForPage(START_PAGE - 1, today),
         )
     }
 
@@ -48,7 +47,7 @@ class CalendarUtilsExtraTest {
         val today = LocalDate(2026, 12, 10)
         assertEquals(
             calculateWeeksCount(2027, 1),
-            calculateWeeksCountForPage(START_PAGE + 1, today)
+            calculateWeeksCountForPage(START_PAGE + 1, today),
         )
     }
 
@@ -58,7 +57,7 @@ class CalendarUtilsExtraTest {
         val today = LocalDate(2026, 1, 10)
         assertEquals(
             calculateWeeksCount(2025, 12),
-            calculateWeeksCountForPage(START_PAGE - 1, today)
+            calculateWeeksCountForPage(START_PAGE - 1, today),
         )
     }
 
@@ -68,7 +67,7 @@ class CalendarUtilsExtraTest {
         // +12 -> May 2027
         assertEquals(
             calculateWeeksCount(2027, 5),
-            calculateWeeksCountForPage(START_PAGE + 12, today)
+            calculateWeeksCountForPage(START_PAGE + 12, today),
         )
     }
 

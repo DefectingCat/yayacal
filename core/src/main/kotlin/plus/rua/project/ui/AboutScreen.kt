@@ -71,7 +71,7 @@ fun AboutScreen(
     onBack: () -> Unit,
     onNavigateToLicenses: () -> Unit,
     onNavigateToDogPark: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
     var clickCount by remember { mutableIntStateOf(0) }
@@ -83,13 +83,13 @@ fun AboutScreen(
     }
 
     Box(
-        modifier = modifier.fillMaxSize()
+        modifier = modifier.fillMaxSize(),
     ) {
         Image(
             painter = painterResource(id = plus.rua.project.shared.R.drawable.xiaogou_bg1),
             contentDescription = null,
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         )
 
         Scaffold(
@@ -100,24 +100,26 @@ fun AboutScreen(
                         IconButton(onClick = onBack) {
                             Icon(
                                 imageVector = Icons.Filled.ChevronLeft,
-                                contentDescription = "返回"
+                                contentDescription = "返回",
                             )
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = Color.Transparent
-                    )
+                    colors =
+                    TopAppBarDefaults.topAppBarColors(
+                        containerColor = Color.Transparent,
+                    ),
                 )
             },
             containerColor = Color.Transparent,
-            modifier = Modifier.fillMaxSize()
+            modifier = Modifier.fillMaxSize(),
         ) { innerPadding ->
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier
+                modifier =
+                Modifier
                     .fillMaxSize()
                     .padding(innerPadding)
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = 24.dp),
             ) {
                 Spacer(modifier = Modifier.height(48.dp))
 
@@ -125,16 +127,17 @@ fun AboutScreen(
                 AsyncImage(
                     uri = appIconUri,
                     contentDescription = "应用图标",
-                    modifier = Modifier
+                    modifier =
+                    Modifier
                         .size(80.dp)
-                        .clip(RoundedCornerShape(16.dp))
+                        .clip(RoundedCornerShape(16.dp)),
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
 
                 Text(
                     text = AppInfo.NAME,
-                    style = MaterialTheme.typography.titleLarge
+                    style = MaterialTheme.typography.titleLarge,
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -150,12 +153,12 @@ fun AboutScreen(
                                 Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
                             }
                         }
-                    }
+                    },
                 ) {
                     Text(
                         text = "版本：${getAppVersion()}",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
 

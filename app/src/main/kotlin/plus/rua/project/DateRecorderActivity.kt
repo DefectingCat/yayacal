@@ -22,9 +22,9 @@ class DateRecorderActivity : BaseActivity() {
                         startActivityWithSlide(
                             Intent(this, RecordDetailActivity::class.java).apply {
                                 putExtra(DateRecorderNav.EXTRA_RECORD_ID, id)
-                            }
+                            },
                         )
-                    }
+                    },
                 )
             }
         }

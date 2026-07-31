@@ -13,7 +13,9 @@ spotless {
     kotlin {
         target("**/src/**/*.kt")
         targetExclude("${layout.buildDirectory}/**/*.kt")
-        ktlint()
+        ktlint().editorConfigOverride(
+            mapOf("ktlint_standard_max-line-length" to "disabled"),
+        )
         trimTrailingWhitespace()
         endWithNewline()
     }

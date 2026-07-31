@@ -21,7 +21,7 @@ data class HandStroke(
     val color: Color,
     val widthPx: Float,
     val points: List<Offset> = emptyList(),
-    val isFinished: Boolean = false
+    val isFinished: Boolean = false,
 )
 
 /**
@@ -51,15 +51,19 @@ data class PhotoEditorState(
     val cropBottom: Float = 1f,
     val strokes: List<HandStroke> = emptyList(),
     val strokeColor: Color = Color.Red,
-    val strokeWidthPx: Float = 16f
+    val strokeWidthPx: Float = 16f,
 ) {
     /** 当前是否已启用裁剪 */
     val cropEnabled: Boolean get() = cropLeft != null && cropRight != null
 
     /** 当前旋转后的 Bitmap（不含裁剪/手写），用于显示预览 */
     val rotatedBitmap: Bitmap
-        get() = if (rotationDegrees % 360 == 0) sourceBitmap
-        else PhotoProcessor.rotate(sourceBitmap, rotationDegrees)
+        get() =
+            if (rotationDegrees % 360 == 0) {
+                sourceBitmap
+            } else {
+                PhotoProcessor.rotate(sourceBitmap, rotationDegrees)
+            }
 }
 
 /**
@@ -68,7 +72,7 @@ data class PhotoEditorState(
 fun strokeDraw(widthPx: Float) = Stroke(
     width = widthPx,
     cap = StrokeCap.Round,
-    join = StrokeJoin.Round
+    join = StrokeJoin.Round,
 )
 
 /**
@@ -96,11 +100,12 @@ fun HandStroke.toPath(): Path {
  */
 fun PhotoEditorState.withAddedPoint(offset: Offset): PhotoEditorState {
     val last = strokes.lastOrNull()
-    val newStrokes = if (last == null || last.points.isEmpty() || last.isFinished) {
-        strokes + HandStroke(strokeColor, strokeWidthPx, listOf(offset))
-    } else {
-        strokes.dropLast(1) + last.copy(points = last.points + offset)
-    }
+    val newStrokes =
+        if (last == null || last.points.isEmpty() || last.isFinished) {
+            strokes + HandStroke(strokeColor, strokeWidthPx, listOf(offset))
+        } else {
+            strokes.dropLast(1) + last.copy(points = last.points + offset)
+        }
     return copy(strokes = newStrokes)
 }
 

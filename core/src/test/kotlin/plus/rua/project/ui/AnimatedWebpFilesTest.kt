@@ -1,9 +1,9 @@
 package plus.rua.project.ui
 
+import org.junit.Test
 import java.io.File
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
-import org.junit.Test
 
 /**
  * 守卫：运行期使用的 WebP 文件列表必须与 assets/animations/ 目录实际内容一致。
@@ -16,17 +16,18 @@ import org.junit.Test
  * 本测试的核心价值是锁定「两者一致」这个不变量，使上述回归一旦发生即立即失败。
  */
 class AnimatedWebpFilesTest {
-
     private val animationsDir = File("src/main/assets/animations")
 
     @Test
     fun webpFilesMatchDirectoryContents() {
         assertTrue(animationsDir.exists(), "assets/animations 目录应存在: ${animationsDir.absolutePath}")
 
-        val onDisk = animationsDir.listFiles { f -> f.extension.equals("webp", ignoreCase = true) }
-            ?.map { it.name }
-            ?.sorted()
-            ?: emptyList()
+        val onDisk =
+            animationsDir
+                .listFiles { f -> f.extension.equals("webp", ignoreCase = true) }
+                ?.map { it.name }
+                ?.sorted()
+                ?: emptyList()
         assertTrue(onDisk.isNotEmpty(), "assets/animations 不应为空（若失败请检查 Git LFS / checkout 完整性）")
 
         // WEBP_FILES 由构建期 BuildConfig 注入（见 core/build.gradle.kts 的 buildConfigField）
