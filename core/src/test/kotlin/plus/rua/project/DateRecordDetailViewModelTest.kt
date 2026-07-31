@@ -53,7 +53,7 @@ class DateRecordDetailViewModelTest {
     @Test
     fun load_populatesRecordState_whenRecordExists() = runTest(testDispatcher) {
         val dao = DetailFakeDao(testRecord)
-        val repository = DateRecorderRepository(dao, File("build/tmp/record_detail_test"))
+        val repository = DateRecorderRepository(dao, File("build/tmp/record_detail_test"), testDispatcher)
         val vm = DateRecordDetailViewModel(repository, recordId = 100L)
 
         backgroundScope.launch { vm.uiState.collect {} }
@@ -71,7 +71,7 @@ class DateRecordDetailViewModelTest {
     @Test
     fun load_setsLoadingFalse_whenRecordNotFound() = runTest(testDispatcher) {
         val dao = DetailFakeDao(null)
-        val repository = DateRecorderRepository(dao, File("build/tmp/record_detail_test"))
+        val repository = DateRecorderRepository(dao, File("build/tmp/record_detail_test"), testDispatcher)
         val vm = DateRecordDetailViewModel(repository, recordId = 999L)
 
         backgroundScope.launch { vm.uiState.collect {} }
@@ -84,7 +84,7 @@ class DateRecordDetailViewModelTest {
     @Test
     fun delete_triggersRepositoryDelete_andSetsDeletedState() = runTest(testDispatcher) {
         val dao = DetailFakeDao(testRecord)
-        val repository = DateRecorderRepository(dao, File("build/tmp/record_detail_test"))
+        val repository = DateRecorderRepository(dao, File("build/tmp/record_detail_test"), testDispatcher)
         val vm = DateRecordDetailViewModel(repository, recordId = 100L)
 
         backgroundScope.launch { vm.uiState.collect {} }
@@ -92,12 +92,6 @@ class DateRecordDetailViewModelTest {
 
         vm.delete()
         testScheduler.advanceUntilIdle()
-
-        var retries = 0
-        while (!vm.uiState.value.deleted && retries < 50) {
-            Thread.sleep(20)
-            retries++
-        }
 
         assertTrue(vm.uiState.value.deleted)
         assertEquals(listOf(100L), dao.deletedIds)

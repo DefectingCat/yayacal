@@ -158,13 +158,9 @@ class RecordEditViewModel(
                         linkedDate = state.linkedDate,
                         photoPath = relPath,
                         createdAt = existingCreatedAt ?: Instant.fromEpochMilliseconds(System.currentTimeMillis())
-                    )
+                    ),
+                    oldPhotoPath = originalPhotoRelativePath
                 )
-                originalPhotoRelativePath?.let { oldPath ->
-                    if (oldPath != relPath) {
-                        repository.deletePhotoFile(oldPath)
-                    }
-                }
             } else {
                 repository.insert(
                     DateRecord(

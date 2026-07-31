@@ -39,7 +39,7 @@ class RecordEditViewModelTest {
     }
 
     private fun newViewModel(): RecordEditViewModel {
-        val repository = DateRecorderRepository(FakeDateRecordDao(), File("build/tmp/record_edit_test"))
+        val repository = DateRecorderRepository(FakeDateRecordDao(), File("build/tmp/record_edit_test"), testDispatcher)
         return RecordEditViewModel(repository, photoPath = "/tmp/fake_photo.jpg", recordId = null)
     }
 
@@ -87,8 +87,7 @@ class RecordEditViewModelTest {
             createdAt = Instant.fromEpochMilliseconds(100000L)
         )
         val dao = FakeDateRecordDao(existingRecord)
-        val repository = DateRecorderRepository(dao, rootDir)
-
+        val repository = DateRecorderRepository(dao, rootDir, testDispatcher)
         val vm = RecordEditViewModel(repository, photoPath = null, recordId = 5L)
         testScheduler.advanceUntilIdle()
         val state = vm.uiState.value
@@ -111,8 +110,7 @@ class RecordEditViewModelTest {
             createdAt = Instant.fromEpochMilliseconds(100000L)
         )
         val dao = FakeDateRecordDao(existingRecord)
-        val repository = DateRecorderRepository(dao, rootDir)
-
+        val repository = DateRecorderRepository(dao, rootDir, testDispatcher)
         val newPhotoFile = File(rootDir, "Pictures/date_recorder/edited.jpg")
         val vm = RecordEditViewModel(repository, photoPath = newPhotoFile.absolutePath, recordId = 5L)
         testScheduler.advanceUntilIdle()

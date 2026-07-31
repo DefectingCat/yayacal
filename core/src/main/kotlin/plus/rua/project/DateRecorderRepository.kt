@@ -1,8 +1,10 @@
 package plus.rua.project
 
 import android.content.Context
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 
@@ -17,7 +19,8 @@ import java.io.File
  */
 class DateRecorderRepository(
     private val dao: DateRecordDao,
-    private val filesDir: File
+    private val filesDir: File,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) {
 
     /** 照片存放的子目录（相对 filesDir） */
@@ -46,16 +49,21 @@ class DateRecorderRepository(
     suspend fun insert(record: DateRecord): Long = dao.insert(record)
 
     /**
-     * 更新一条记录。编辑信息/替换照片后调用。
+     * 更新一条记录。编辑信息/替换照片后调用。若传入 oldPhotoPath 且与新照片路径不同，自动清理旧照片文件。
      */
-    suspend fun update(record: DateRecord) = dao.update(record)
+    suspend fun update(record: DateRecord, oldPhotoPath: String? = null) = withContext(ioDispatcher) {
+        dao.update(record)
+        if (oldPhotoPath != null && oldPhotoPath != record.photoPath) {
+            deletePhotoFile(oldPhotoPath)
+        }
+    }
 
     /**
      * 按 ID 批量删除记录，并同步删除对应照片文件。
      *
      * @param records 待删除记录列表（需要各自的 photoPath 来清理文件）
      */
-    suspend fun deleteWithPhotos(records: List<DateRecord>) = withContext(Dispatchers.IO) {
+    suspend fun deleteWithPhotos(records: List<DateRecord>) = withContext(ioDispatcher) {
         records.forEach { deletePhotoFile(it.photoPath) }
         dao.deleteByIds(records.map { it.id })
     }
@@ -65,7 +73,7 @@ class DateRecorderRepository(
      *
      * @param record 待删除记录（需要其 photoPath 来清理文件）
      */
-    suspend fun deleteWithPhoto(record: DateRecord) = withContext(Dispatchers.IO) {
+    suspend fun deleteWithPhoto(record: DateRecord) = withContext(ioDispatcher) {
         deletePhotoFile(record.photoPath)
         dao.deleteByIds(listOf(record.id))
     }
@@ -76,7 +84,9 @@ class DateRecorderRepository(
      * @return 照片文件，路径相对 filesDir
      */
     fun createPhotoFile(): File {
-        val name = "rec_${System.currentTimeMillis()}"
+        val timestamp = System.currentTimeMillis()
+        val nonce = (1000..9999).random()
+        val name = "rec_${timestamp}_${nonce}"
         return File(photoDir, "$name.jpg")
     }
 
@@ -97,6 +107,23 @@ class DateRecorderRepository(
      */
     internal fun deletePhotoFile(relativePath: String) {
         runCatching { absoluteFileOf(relativePath).delete() }
+    }
+    /**
+     * 扫描照片目录并清理无任何数据库记录引用的孤立照片文件。
+     * @return 清理的孤立文件数量
+     */
+    suspend fun cleanOrphanedPhotos(): Int = withContext(ioDispatcher) {
+        val activePhotos = dao.getAllFlow().first().map { it.photoPath }.toSet()
+        var deletedCount = 0
+        photoDir.listFiles()?.forEach { file ->
+            val relPath = relativePathOf(file)
+            if (relPath !in activePhotos) {
+                if (file.delete()) {
+                    deletedCount++
+                }
+            }
+        }
+        deletedCount
     }
 
     companion object {
