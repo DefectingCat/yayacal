@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -353,10 +354,17 @@ private fun RecordEditForm(
                     label = { Text("记录笔记 / 备注") },
                     placeholder = { Text("记录当天的所思所想、天气或难忘瞬间...") },
                     leadingIcon = {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.Notes,
-                            contentDescription = null,
-                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .padding(top = 16.dp),
+                            contentAlignment = Alignment.TopCenter,
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.Notes,
+                                contentDescription = null,
+                            )
+                        }
                     },
                     minLines = 3,
                     maxLines = 6,
