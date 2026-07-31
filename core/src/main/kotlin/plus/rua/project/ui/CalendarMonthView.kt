@@ -124,14 +124,17 @@ import plus.rua.project.ShiftPatternStorage
  * 折叠时日历从月视图收缩为周视图（1行），BottomCard 同步上移填充空间。
  * 通过左下角 FAB 菜单切换月/年视图。
  *
+ * @param onNavigateToAbout 点击「关于」时触发
+ * @param onNavigateToTools 点击「工具箱」时触发
+ * @param onNavigateToShiftSettings 点击「班次设置」时触发
  * @param modifier 外部布局修饰符
  */
 @Composable
 fun CalendarMonthView(
-    modifier: Modifier = Modifier,
     onNavigateToAbout: () -> Unit = {},
     onNavigateToTools: () -> Unit = {},
-    onNavigateToShiftSettings: () -> Unit = {}
+    onNavigateToShiftSettings: () -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current.applicationContext
     val viewModel: CalendarViewModel = viewModel(
@@ -149,12 +152,15 @@ fun CalendarMonthView(
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) viewModel.refreshShiftPattern()
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.refreshShiftPattern()
+                today = Clock.System.todayIn(TimeZone.currentSystemDefault())
+            }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+    var today by remember { mutableStateOf(Clock.System.todayIn(TimeZone.currentSystemDefault())) }
 
     val uiState by viewModel.uiState.collectAsState()
     val shiftPattern by viewModel.shiftPattern.collectAsState()

@@ -10,6 +10,9 @@ import androidx.compose.ui.platform.LocalContext
 
 /**
  * YaYa 应用主题，Android 12+ 使用系统动态颜色，低版本回退到 Material 3 默认方案。
+ *
+ * @param darkTheme 是否使用深色主题
+ * @param content 主题包裹的内容
  */
 @Composable
 fun YaYaTheme(

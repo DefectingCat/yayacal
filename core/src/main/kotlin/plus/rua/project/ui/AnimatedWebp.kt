@@ -36,9 +36,9 @@ internal val WEBP_FILES: List<String> = BuildConfig.WEBP_FILES.toList()
  */
 @Composable
 fun AnimatedWebp(
-    modifier: Modifier = Modifier,
     contentDescription: String? = null,
     seed: Any? = null,
+    modifier: Modifier = Modifier,
 ) {
     val webpFile = remember(seed) { WEBP_FILES.random() }
     val uri = remember(webpFile) { getWebpUri(webpFile) }

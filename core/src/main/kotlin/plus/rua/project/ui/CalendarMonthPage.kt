@@ -119,7 +119,7 @@ fun CalendarMonthPage(
         )
     ) {
         weeks.forEachIndexed { weekIndex, week ->
-            key(weekIndex) {
+            key(week.first().date) {
                 WeekRow(
                     weekIndex = weekIndex,
                     week = week,

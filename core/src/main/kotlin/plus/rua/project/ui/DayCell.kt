@@ -90,7 +90,7 @@ fun DayCell(
     holidayEdgeInfo: HolidayEdgeInfo? = null,
     cellIndex: Int = 0,
     onClick: () -> Unit,
-    interactionSource: MutableInteractionSource = remember { MutableInteractionSource() },
+    interactionSource: MutableInteractionSource,
     lunarCache: LunarCache = LunarCache.default,
     lunarData: DayCellInfo? = null,
     modifier: Modifier = Modifier,
