@@ -19,7 +19,9 @@ kotlinx-coroutines = "1.11.0"
 ksp = "2.3.10"
 profileinstaller = "1.4.1"
 room = "2.8.4"
-sketch = "4.4.0"
+sketch = "4.6.0"
+# sketch 各模块（含 sketch-animated-webp）必须版本一致：zoomimage-compose-sketch4 会
+# 传递拉入更新的 sketch-core，若与 animated 模块错位，动图解码器注册失效，WebP 静帧化（无报错）。
 spotless = "8.8.0"
 tyme4kt = "1.5.0"
 versions = "0.54.0"
