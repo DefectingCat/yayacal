@@ -134,7 +134,7 @@ fun AnniversaryScreen(
                 milestoneLabel = milestone.label,
                 milestoneDaysLeft = milestone.daysLeft,
                 milestoneIsToday = milestone.isToday,
-                modifier = Modifier.testTag("anniversary_together"),
+                modifier = Modifier.testTag("anniversary_together").entrance(0),
             )
 
             BirthdayCard(
@@ -145,7 +145,7 @@ fun AnniversaryScreen(
                 icon = Icons.Outlined.Cake,
                 iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                 iconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.testTag("anniversary_duck"),
+                modifier = Modifier.testTag("anniversary_duck").entrance(1),
             )
 
             BirthdayCard(
@@ -156,7 +156,7 @@ fun AnniversaryScreen(
                 icon = Icons.Outlined.Pets,
                 iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 iconColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.testTag("anniversary_dog"),
+                modifier = Modifier.testTag("anniversary_dog").entrance(2),
             )
 
             Spacer(modifier = Modifier.height(16.dp))

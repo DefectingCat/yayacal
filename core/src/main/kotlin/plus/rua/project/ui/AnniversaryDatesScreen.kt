@@ -92,7 +92,7 @@ fun AnniversaryDatesScreen(
         ) {
             TogetherDateCard(
                 date = AnniversaryDates.TOGETHER.toString(),
-                modifier = Modifier.testTag("anniversary_date_together"),
+                modifier = Modifier.testTag("anniversary_date_together").entrance(0),
             )
             BirthdayDateCard(
                 title = "鸭鸭生日",
@@ -100,7 +100,7 @@ fun AnniversaryDatesScreen(
                 icon = Icons.Outlined.Cake,
                 iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
                 iconColor = MaterialTheme.colorScheme.onSecondaryContainer,
-                modifier = Modifier.testTag("anniversary_date_duck"),
+                modifier = Modifier.testTag("anniversary_date_duck").entrance(1),
             )
             BirthdayDateCard(
                 title = "小狗生日",
@@ -108,7 +108,7 @@ fun AnniversaryDatesScreen(
                 icon = Icons.Outlined.Pets,
                 iconContainerColor = MaterialTheme.colorScheme.tertiaryContainer,
                 iconColor = MaterialTheme.colorScheme.onTertiaryContainer,
-                modifier = Modifier.testTag("anniversary_date_dog"),
+                modifier = Modifier.testTag("anniversary_date_dog").entrance(2),
             )
         }
     }
