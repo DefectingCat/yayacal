@@ -57,6 +57,9 @@
         <activity
             android:name=".AnniversaryActivity"
             android:exported="false" />
+        <activity
+            android:name=".AnniversaryDatesActivity"
+            android:exported="false" />
 
         <activity
             android:name=".DateRecorderActivity"

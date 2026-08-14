@@ -16,6 +16,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.outlined.Cake
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Pets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -38,12 +39,9 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.number
 import kotlinx.datetime.todayIn
 import plus.rua.project.AnniversaryDates
 import plus.rua.project.daysTogether
@@ -58,17 +56,21 @@ import kotlin.time.Clock
  * 纪念日页面：只读展示「在一起」天数与两个生日的倒数。
  *
  * 页面不提供任何编辑入口，数据固定来自 [plus.rua.project.AnniversaryDates]：
- * - 在一起：2025-11-04 起的经过天数（差值口径）+ 下一个里程碑
+ * - 在一起：经过天数（差值口径）+ 下一个里程碑
  * - 鸭鸭生日：阳历 9 月 4 日，滚动到下一次
  * - 小狗生日：农历正月廿一，每年用 tyme 换算后滚动到下一次
  *
+ * 具体日期不在此页展示，统一由纪念日期内页汇总（TopAppBar 右侧日历图标进入）。
+ *
  * @param onBack 返回回调
+ * @param onNavigateToDates 点击右上角日历图标时触发，进入纪念日期内页
  * @param modifier 布局修饰符
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnniversaryScreen(
     onBack: () -> Unit,
+    onNavigateToDates: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
@@ -102,6 +104,14 @@ fun AnniversaryScreen(
                         )
                     }
                 },
+                actions = {
+                    IconButton(onClick = onNavigateToDates) {
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarMonth,
+                            contentDescription = "纪念日期",
+                        )
+                    }
+                },
                 colors =
                 TopAppBarDefaults.topAppBarColors(
                     containerColor = Color.Transparent,
@@ -121,7 +131,6 @@ fun AnniversaryScreen(
         ) {
             TogetherCard(
                 days = togetherDays,
-                startDate = AnniversaryDates.TOGETHER,
                 milestoneLabel = milestone.label,
                 milestoneDaysLeft = milestone.daysLeft,
                 milestoneIsToday = milestone.isToday,
@@ -131,7 +140,6 @@ fun AnniversaryScreen(
             BirthdayCard(
                 title = "鸭鸭生日",
                 dateLabel = "阳历 ${AnniversaryDates.DUCK_BIRTHDAY_MONTH} 月 ${AnniversaryDates.DUCK_BIRTHDAY_DAY} 日",
-                targetDate = duckBirthday.targetDate,
                 daysLeft = duckBirthday.daysLeft,
                 isToday = duckBirthday.isToday,
                 icon = Icons.Outlined.Cake,
@@ -143,7 +151,6 @@ fun AnniversaryScreen(
             BirthdayCard(
                 title = "小狗生日",
                 dateLabel = AnniversaryDates.DOG_LUNAR_LABEL,
-                targetDate = dogBirthday.targetDate,
                 daysLeft = dogBirthday.daysLeft,
                 isToday = dogBirthday.isToday,
                 icon = Icons.Outlined.Pets,
@@ -162,7 +169,6 @@ fun AnniversaryScreen(
  * 大数字展示经过天数，右侧配随机鸭子动画。
  *
  * @param days 在一起经过天数
- * @param startDate 起始日期
  * @param milestoneLabel 下一个里程碑名（如「365 天」）
  * @param milestoneDaysLeft 距下一个里程碑天数
  * @param milestoneIsToday 里程碑是否就是今天
@@ -171,7 +177,6 @@ fun AnniversaryScreen(
 @Composable
 private fun TogetherCard(
     days: Int,
-    startDate: LocalDate,
     milestoneLabel: String,
     milestoneDaysLeft: Int,
     milestoneIsToday: Boolean,
@@ -227,12 +232,6 @@ private fun TogetherCard(
                     )
                 }
 
-                Text(
-                    text = "自 ${formatSolarDate(startDate)} 起",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.75f),
-                )
-
                 MilestonePill(
                     label = milestoneLabel,
                     daysLeft = milestoneDaysLeft,
@@ -287,11 +286,10 @@ private fun MilestonePill(
 }
 
 /**
- * 生日卡片：倒数天数 + 目标日期，当天命中显示皇冠庆祝态。
+ * 生日卡片：倒数天数 + 原始日期文案，当天命中显示皇冠庆祝态。
  *
  * @param title 卡片标题（如「鸭鸭生日」）
  * @param dateLabel 原始日期文案（如「阳历 9 月 4 日」「农历正月廿一」）
- * @param targetDate 下一次生日对应的阳历日期
  * @param daysLeft 距今天数
  * @param isToday 生日是否就是今天
  * @param icon 图标
@@ -303,7 +301,6 @@ private fun MilestonePill(
 private fun BirthdayCard(
     title: String,
     dateLabel: String,
-    targetDate: LocalDate,
     daysLeft: Int,
     isToday: Boolean,
     icon: ImageVector,
@@ -356,7 +353,7 @@ private fun BirthdayCard(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    text = "$dateLabel · ${formatSolarDate(targetDate)}",
+                    text = dateLabel,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -417,10 +414,3 @@ private fun BirthdayCard(
         }
     }
 }
-
-/**
- * 格式化阳历日期为「2025 年 11 月 4 日」。
- *
- * @param date 日期
- */
-private fun formatSolarDate(date: LocalDate): String = "${date.year} 年 ${date.month.number} 月 ${date.day} 日"
