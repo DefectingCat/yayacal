@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 纪念日页面：新增只读纪念日工具页，展示「在一起」累计天数（自 2025-11-04 起）与下一个里程碑倒数（100/365/520/1000/1314 天节点及整周年），以及鸭鸭生日（阳历 9 月 4 日）与小狗生日（农历正月廿一）的逐年倒数；农历生日每年经 tyme4kt 重新换算，跨年与腊月缺日均正确滚动。
+
 ## [1.6.1] - 2026-07-31
 
 ### Changed
