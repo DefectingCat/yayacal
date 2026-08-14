@@ -133,3 +133,17 @@ Other docs: `DEVELOPMENT.md` (perf/profile workflow + trace marker catalog), `RE
 ## Release Process
 
 Driven by the `yayacal-release` skill (`.agents/skills/yayacal-release/SKILL.md`). Flow: bump `app.version.base` in `gradle.properties` + `versionCode` in `app/build.gradle.kts` → update `CHANGELOG.md` from `git log <last-tag>..HEAD` → commit exactly `release: vx.y.z` → lightweight tag `vx.y.z` → push `main --tags` → `assembleRelease` → `gh release create` with extracted notes. Release only from clean `main`; keep debug signing (no release keystore). Note: the skill's doc links to `github.com/xfy/yayacal` — the actual remote is `DefectingCat/yayacal`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues are tracked in GitHub Issues on `DefectingCat/yayacal`, via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles map to same-named labels (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: `CONTEXT.md` + `docs/adr/` at the repo root. See `docs/agents/domain.md`.
