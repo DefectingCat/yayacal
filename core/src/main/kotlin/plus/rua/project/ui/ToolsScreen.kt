@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.Card
@@ -47,6 +48,7 @@ import androidx.compose.ui.unit.dp
  *
  * @param onBack 返回回调
  * @param onNavigateToDateChecker 跳转到日期检查器回调
+ * @param onNavigateToAnniversary 跳转到纪念日回调
  * @param onNavigateToDateRecorder 跳转到日期记录器回调
  * @param modifier 布局修饰符
  */
@@ -54,6 +56,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun ToolsScreen(
     onBack: () -> Unit,
+    onNavigateToAnniversary: () -> Unit,
     onNavigateToDateChecker: () -> Unit,
     onNavigateToDateRecorder: () -> Unit,
     modifier: Modifier = Modifier,
@@ -115,6 +118,16 @@ fun ToolsScreen(
 
             // 工具分类 2：时光记录
             SectionHeader(title = "记录与回忆")
+            ToolCard(
+                title = "纪念日",
+                description = "在一起的天数与生日的倒数，温柔记录每个重要日子",
+                tag = "时光倒数",
+                icon = Icons.Outlined.Favorite,
+                iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                iconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                onClick = onNavigateToAnniversary,
+                modifier = Modifier.testTag("tool_anniversary"),
+            )
 
             ToolCard(
                 title = "日期记录器",

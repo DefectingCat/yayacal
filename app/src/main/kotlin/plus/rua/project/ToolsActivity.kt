@@ -14,6 +14,9 @@ class ToolsActivity : BaseActivity() {
             YaYaTheme {
                 ToolsScreen(
                     onBack = { finishWithSlideBack() },
+                    onNavigateToAnniversary = {
+                        startActivityWithSlide(Intent(this, AnniversaryActivity::class.java))
+                    },
                     onNavigateToDateChecker = {
                         startActivityWithSlide(Intent(this, DateCheckerActivity::class.java))
                     },
