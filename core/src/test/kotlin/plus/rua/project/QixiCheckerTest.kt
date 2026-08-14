@@ -61,8 +61,7 @@ class QixiCheckerTest {
         assertFalse(checker.isQixiToday())
     }
 
-    private fun fixedClockAt(instant: String): Clock =
-        object : Clock {
-            override fun now(): Instant = Instant.parse(instant)
-        }
+    private fun fixedClockAt(instant: String): Clock = object : Clock {
+        override fun now(): Instant = Instant.parse(instant)
+    }
 }

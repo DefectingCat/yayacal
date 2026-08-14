@@ -125,6 +125,7 @@ dependencies {
 
     implementation(platform(libs.compose.bom))
     implementation(libs.androidx.activity.compose)
+    implementation(libs.compose.foundation)
     implementation(libs.androidx.profileinstaller)
     debugImplementation(libs.compose.uiToolingPreview)
     debugImplementation(libs.compose.uiTooling)
