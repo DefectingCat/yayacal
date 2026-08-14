@@ -105,10 +105,15 @@ class LunarCache(
         val lunarDay = solarDay.getLunarDay()
         val lunarMonth = lunarDay.getLunarMonth()
         val lunarMonthName = lunarMonth.getName()
-        // 阳历生日：每年 9 月 4 日
-        val isSolarBirthday = date.month.number == 9 && date.day == 4
-        // 农历生日：每年正月二十一（tyme4kt 中正月 indexInYear = 0）
-        val isLunarBirthday = lunarMonth.getIndexInYear() == 0 && lunarDay.day == 21
+        // 阳历生日：每年 9 月 4 日（单一数据源见 [AnniversaryDates]）
+        val isSolarBirthday =
+            date.month.number == AnniversaryDates.DUCK_BIRTHDAY_MONTH &&
+                date.day == AnniversaryDates.DUCK_BIRTHDAY_DAY
+        // 农历生日：每年正月廿一；tyme4kt 中正月 indexInYear = 0，
+        // 农历日直接取 day 属性
+        val isLunarBirthday =
+            lunarMonth.getIndexInYear() == AnniversaryDates.DOG_LUNAR_MONTH - 1 &&
+                lunarDay.day == AnniversaryDates.DOG_LUNAR_DAY
         val isBirthday = isSolarBirthday || isLunarBirthday
         // 玫瑰日：每年 10 月 16 日
         val isRoseDay = date.month.number == 10 && date.day == 16
