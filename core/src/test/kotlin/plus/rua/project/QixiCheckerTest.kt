@@ -17,9 +17,10 @@ import kotlin.time.Instant
 class QixiCheckerTest {
     @Test
     fun isQixi_knownQixiDates_returnsTrue() {
-        // 2024 / 2025 / 2026 三年的七夕公历日期
+        // 2024 / 2025 / 2026 三年的七夕公历日期，外加 2006 年（该年有闰七月）的正七夕
         val qixiDates =
             listOf(
+                LocalDate(2006, 7, 31),
                 LocalDate(2024, 8, 10),
                 LocalDate(2025, 8, 29),
                 LocalDate(2026, 8, 19),
@@ -44,8 +45,7 @@ class QixiCheckerTest {
 
     @Test
     fun isQixi_leapSeventhMonth_returnsFalse() {
-        // 2006 年闰七月：七月初七 = 2006-07-31（正七夕），闰七月初七 = 2006-08-30（不算）
-        assertTrue(QixiChecker.isQixi(LocalDate(2006, 7, 31)))
+        // 2006 年闰七月初七 = 2006-08-30，不算七夕
         assertFalse(QixiChecker.isQixi(LocalDate(2006, 8, 30)))
     }
 
