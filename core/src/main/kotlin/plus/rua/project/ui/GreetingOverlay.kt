@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import plus.rua.project.BirthdayChecker
+import plus.rua.project.ConfessionChecker
 import plus.rua.project.QixiChecker
 import kotlin.math.sin
 import plus.rua.project.shared.R as CoreR
@@ -156,6 +157,34 @@ private val PresetQixiParticles: List<ConfettiParticle> =
         ConfettiParticle(0.50f, 0.04f, Color(0xFFFF758F), 13f, 10f, -15f, 0.7f, ParticleType.HEART, 0.4f),
         ConfettiParticle(0.30f, 0.08f, Color(0xFFD8BBFF), 7f, 0f, 10f, 0.5f, ParticleType.DOT, 0.6f),
         ConfettiParticle(0.70f, 0.07f, Color(0xFFFFCCD5), 11f, -10f, 15f, 0.5f, ParticleType.HEART, 0.2f),
+    )
+
+/**
+ * 预设的表白日浪漫阳光沙滩粒子集合（心形、阳光星芒、贝壳彩带与金色微光点）。
+ */
+private val PresetConfessionParticles: List<ConfettiParticle> =
+    listOf(
+        ConfettiParticle(0.12f, 0.10f, Color(0xFFFF758F), 14f, 15f, 25f, 1.0f, ParticleType.HEART, 0.1f),
+        ConfettiParticle(0.88f, 0.08f, Color(0xFFF4A261), 15f, -20f, -30f, 1.2f, ParticleType.STAR, 0.5f),
+        ConfettiParticle(0.06f, 0.22f, Color(0xFFFFB4A2), 11f, 45f, 40f, 0.8f, ParticleType.CONFETTI_RECT, 0.9f),
+        ConfettiParticle(0.94f, 0.20f, Color(0xFFFF8FA3), 13f, -30f, -35f, 1.1f, ParticleType.HEART, 0.3f),
+        ConfettiParticle(0.18f, 0.04f, Color(0xFFFFD166), 10f, 0f, 15f, 0.7f, ParticleType.STAR, 0.7f),
+        ConfettiParticle(0.82f, 0.04f, Color(0xFFA2D2FF), 8f, 0f, 12f, 0.9f, ParticleType.DOT, 0.2f),
+        ConfettiParticle(0.05f, 0.36f, Color(0xFFFFD166), 13f, 25f, -25f, 1.0f, ParticleType.STAR, 0.8f),
+        ConfettiParticle(0.95f, 0.34f, Color(0xFFFF758F), 15f, -40f, 30f, 1.3f, ParticleType.HEART, 0.4f),
+        ConfettiParticle(0.14f, 0.46f, Color(0xFFE2C2FF), 10f, 50f, 35f, 0.9f, ParticleType.CONFETTI_RECT, 0.6f),
+        ConfettiParticle(0.86f, 0.44f, Color(0xFFF4A261), 12f, -15f, -20f, 0.8f, ParticleType.STAR, 0.0f),
+        ConfettiParticle(0.25f, 0.40f, Color(0xFFFFB4A2), 7f, 0f, 10f, 0.6f, ParticleType.DOT, 0.5f),
+        ConfettiParticle(0.75f, 0.38f, Color(0xFFFF8FA3), 8f, 0f, 12f, 0.7f, ParticleType.DOT, 0.3f),
+        ConfettiParticle(0.10f, 0.60f, Color(0xFFFF758F), 14f, 25f, 20f, 1.0f, ParticleType.HEART, 0.2f),
+        ConfettiParticle(0.90f, 0.58f, Color(0xFFFFD166), 12f, -10f, -15f, 0.9f, ParticleType.STAR, 0.7f),
+        ConfettiParticle(0.06f, 0.74f, Color(0xFFFFCCD5), 11f, 45f, 25f, 0.8f, ParticleType.CONFETTI_RECT, 0.4f),
+        ConfettiParticle(0.94f, 0.72f, Color(0xFFFF8FA3), 14f, -45f, -30f, 1.1f, ParticleType.HEART, 0.8f),
+        ConfettiParticle(0.20f, 0.82f, Color(0xFFF4A261), 7f, 0f, 10f, 0.5f, ParticleType.DOT, 0.1f),
+        ConfettiParticle(0.80f, 0.80f, Color(0xFFFFD166), 8f, 0f, 10f, 0.6f, ParticleType.DOT, 0.9f),
+        ConfettiParticle(0.50f, 0.03f, Color(0xFFFF758F), 12f, 15f, -15f, 0.7f, ParticleType.HEART, 0.4f),
+        ConfettiParticle(0.32f, 0.06f, Color(0xFFA2D2FF), 6f, 0f, 10f, 0.5f, ParticleType.DOT, 0.6f),
+        ConfettiParticle(0.68f, 0.06f, Color(0xFFFFB4A2), 6f, 0f, 10f, 0.5f, ParticleType.DOT, 0.2f),
     )
 
 /**
@@ -665,6 +694,264 @@ fun BirthdayGreetingOverlay(modifier: Modifier = Modifier) {
                         fontSize = 13.5.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFF7C3E2E),
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.5.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 表白日问候遮罩：每年公历 11 月 4 日每次冷启动后全屏盖在主界面上。
+ *
+ * 壁纸（线条小狗阳光沙滩爱心框）铺满全屏，搭配浪漫心形与阳光金星粒子浮动动效、
+ * 半透明温润暖白质感卡片、立体爱心与「我喜欢你！」艺术字（站酷快乐体子集，OFL），以及底部轻触提示。
+ * 入场采用级联弹跳与浮入动效，点击任意处或按返回键以 300ms 淡出退出。非表白日不渲染任何内容。
+ * 可见状态随进程存续：旋转等配置变更不会重新弹出，冷启动重新判定。
+ *
+ * @param modifier 外部传入的 Modifier
+ */
+@Composable
+fun ConfessionGreetingOverlay(modifier: Modifier = Modifier) {
+    val entranceProgress = remember { Animatable(0f) }
+    val cardScale = remember { Animatable(0.88f) }
+    val heartProgress = remember { Animatable(0f) }
+    val textProgress = remember { Animatable(0f) }
+    val subtitleProgress = remember { Animatable(0f) }
+    val hintAlpha = remember { Animatable(0f) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "ConfessionAtmosphere")
+    val shimmerPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.28318f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "ConfessionShimmerPhase",
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "ConfessionPulseAlpha",
+    )
+
+    LaunchedEffect(Unit) {
+        launch {
+            entranceProgress.animateTo(1f, tween(800, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            cardScale.animateTo(1f, tween(500, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            delay(100)
+            heartProgress.animateTo(1f, tween(450, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            delay(220)
+            textProgress.animateTo(1f, tween(460, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            delay(360)
+            subtitleProgress.animateTo(1f, tween(420, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            delay(600)
+            hintAlpha.animateTo(1f, tween(400, easing = LinearEasing))
+        }
+    }
+
+    GreetingOverlayShell(
+        active = ConfessionChecker().isConfessionToday(),
+        wallpaper = CoreR.drawable.confession_wallpaper,
+        topPadding = 44.dp,
+        modifier = modifier,
+        backgroundOverlay = {
+            ConfettiSparklesCanvas(
+                particles = PresetConfessionParticles,
+                entranceProgress = entranceProgress.value,
+                shimmerPhase = shimmerPhase,
+            )
+        },
+        bottomContent = {
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = Color(0xE6FFFFFF),
+                border = BorderStroke(1.dp, Color(0x60FFD6BA)),
+                shadowElevation = 4.dp,
+                modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 36.dp)
+                    .graphicsLayer {
+                        alpha = hintAlpha.value * pulseAlpha
+                    },
+            ) {
+                Text(
+                    text = "✨ 轻触屏幕开启心动一天 ✨",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF7A685F),
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
+        },
+    ) {
+        Surface(
+            shape = RoundedCornerShape(32.dp),
+            color = Color(0xF7FFFDF8),
+            border =
+            BorderStroke(
+                width = 1.5.dp,
+                brush =
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xCCFFD6A5),
+                        Color(0x99FFAAA0),
+                        Color(0xCCFFD6A5),
+                    ),
+                ),
+            ),
+            modifier =
+            Modifier
+                .padding(horizontal = 20.dp)
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 12.dp,
+                    shape = RoundedCornerShape(32.dp),
+                    ambientColor = Color(0x33E07A5F),
+                    spotColor = Color(0x33F4A261),
+                )
+                .graphicsLayer {
+                    alpha = entranceProgress.value
+                    scaleX = cardScale.value
+                    scaleY = cardScale.value
+                    translationY = (1f - entranceProgress.value) * -20.dp.toPx()
+                },
+        ) {
+            Column(
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // 顶部微标：11.04 · CONFESSION DAY
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFFF0E6),
+                    border = BorderStroke(1.dp, Color(0xFFFFD8C4)),
+                    modifier =
+                    Modifier.graphicsLayer {
+                        alpha = heartProgress.value
+                        translationY = (1f - heartProgress.value) * -8.dp.toPx()
+                    },
+                ) {
+                    Text(
+                        text = "✨ 11.04 · CONFESSION DAY ✨",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFE76F51),
+                        letterSpacing = 1.4.sp,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.5.dp),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 立体爱心与两翼暖金星芒
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier =
+                    Modifier.graphicsLayer {
+                        alpha = heartProgress.value
+                        val bounceScale = 0.7f + 0.3f * heartProgress.value
+                        scaleX = bounceScale
+                        scaleY = bounceScale
+                        translationY = (heartProgress.value - 1f) * 16.dp.toPx() + sin(shimmerPhase) * 2.5.dp.toPx()
+                    },
+                ) {
+                    Text(
+                        text = "✦",
+                        color = Color(0xFFF4A261),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_heart),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(52.dp),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "✦",
+                        color = Color(0xFFF4A261),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // 艺术字「我喜欢你！」（站酷快乐体）
+                Text(
+                    text = "我喜欢你！",
+                    color = GreetingTextColor,
+                    fontFamily = GreetingFontFamily,
+                    fontSize = 54.sp,
+                    textAlign = TextAlign.Center,
+                    style =
+                    TextStyle(
+                        shadow =
+                        Shadow(
+                            color = Color(0x38E5383B),
+                            offset = Offset(0f, 3.5f),
+                            blurRadius = 7f,
+                        ),
+                    ),
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha = textProgress.value
+                            val textScale = 0.8f + 0.2f * textProgress.value
+                            scaleX = textScale
+                            scaleY = textScale
+                            translationY = (1f - textProgress.value) * 16.dp.toPx()
+                        },
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 浪漫祝福胶囊标签：阳光、海浪，还有最爱的你
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFFFF2EB),
+                    border = BorderStroke(1.dp, Color(0xFFFFD9C7)),
+                    modifier =
+                    Modifier.graphicsLayer {
+                        alpha = subtitleProgress.value
+                        val subScale = 0.85f + 0.15f * subtitleProgress.value
+                        scaleX = subScale
+                        scaleY = subScale
+                        translationY = (1f - subtitleProgress.value) * 12.dp.toPx()
+                    },
+                ) {
+                    Text(
+                        text = "✨ 阳光、海浪，还有最爱的你 ✨",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF8C4A32),
                         letterSpacing = 0.8.sp,
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.5.dp),
                     )
