@@ -10,7 +10,7 @@ import kotlin.time.Clock
 /**
  * [BirthdayChecker] 的纯 JVM 单测。
  *
- * 覆盖范围：公历 9 月 14 日正例（跨年份）、前后相邻日期反例、
+ * 覆盖范围：公历 9 月 4 日正例（跨年份）、前后相邻日期反例、
  * 以及通过注入固定时钟的 [BirthdayChecker.isBirthdayToday] 路径。
  */
 class BirthdayCheckerTest {
@@ -19,9 +19,9 @@ class BirthdayCheckerTest {
         // 固定公历日期，任意年份均成立
         val birthdayDates =
             listOf(
-                LocalDate(2025, 9, 14),
-                LocalDate(2026, 9, 14),
-                LocalDate(2030, 9, 14),
+                LocalDate(2025, 9, 4),
+                LocalDate(2026, 9, 4),
+                LocalDate(2030, 9, 4),
             )
         birthdayDates.forEach { date ->
             assertTrue(BirthdayChecker.isBirthday(date), "$date 应为生日")
@@ -32,10 +32,10 @@ class BirthdayCheckerTest {
     fun isBirthday_adjacentDates_returnsFalse() {
         val notBirthday =
             listOf(
-                LocalDate(2026, 9, 13), // 前一天
-                LocalDate(2026, 9, 15), // 后一天
-                LocalDate(2026, 8, 14), // 前一月同日
-                LocalDate(2026, 10, 14), // 后一月同日
+                LocalDate(2026, 9, 3), // 前一天
+                LocalDate(2026, 9, 5), // 后一天
+                LocalDate(2026, 8, 4), // 前一月同日
+                LocalDate(2026, 10, 4), // 后一月同日
             )
         notBirthday.forEach { date ->
             assertFalse(BirthdayChecker.isBirthday(date), "$date 不应为生日")
@@ -44,13 +44,13 @@ class BirthdayCheckerTest {
 
     @Test
     fun isBirthdayToday_fixedClockOnBirthday_returnsTrue() {
-        val checker = BirthdayChecker(clock = fixedClockAt("2026-09-14T12:00:00Z"))
+        val checker = BirthdayChecker(clock = fixedClockAt("2026-09-04T12:00:00Z"))
         assertTrue(checker.isBirthdayToday())
     }
 
     @Test
     fun isBirthdayToday_fixedClockNotOnBirthday_returnsFalse() {
-        val checker = BirthdayChecker(clock = fixedClockAt("2026-09-13T12:00:00Z"))
+        val checker = BirthdayChecker(clock = fixedClockAt("2026-09-03T12:00:00Z"))
         assertFalse(checker.isBirthdayToday())
     }
 

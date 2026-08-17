@@ -32,7 +32,7 @@ class MainActivity : BaseActivity() {
                     )
                     // 七夕当天冷启动盖全屏问候层，其余日期不渲染
                     QixiGreetingOverlay()
-                    // 生日（公历 9 月 14 日）当天冷启动盖全屏问候层，其余日期不渲染
+                    // 生日（公历 9 月 4 日）当天冷启动盖全屏问候层，其余日期不渲染
                     BirthdayGreetingOverlay()
                 }
             }
