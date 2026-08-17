@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
 import plus.rua.project.ui.BirthdayGreetingOverlay
 import plus.rua.project.ui.CalendarMonthView
+import plus.rua.project.ui.QixiGreetingOverlay
 import plus.rua.project.ui.theme.YaYaTheme
 
 class MainActivity : BaseActivity() {
