@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -40,6 +41,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -122,7 +124,7 @@ fun BirthdayGreetingOverlay(modifier: Modifier = Modifier) {
     GreetingOverlayShell(
         active = BirthdayChecker().isBirthdayToday(),
         wallpaper = CoreR.drawable.birthday_wallpaper,
-        topPadding = 88.dp,
+        topPadding = 112.dp,
         modifier = modifier,
     ) {
         Icon(
@@ -145,6 +147,7 @@ fun BirthdayGreetingOverlay(modifier: Modifier = Modifier) {
             color = GreetingTextColor,
             fontFamily = GreetingFontFamily,
             fontSize = 60.sp,
+            textAlign = TextAlign.Center,
             style =
             TextStyle(
                 shadow =
@@ -155,10 +158,13 @@ fun BirthdayGreetingOverlay(modifier: Modifier = Modifier) {
                 ),
             ),
             modifier =
-            Modifier.graphicsLayer {
-                alpha = textProgress.value
-                translationY = (1f - textProgress.value) * 20.dp.toPx()
-            },
+            Modifier
+                .fillMaxWidth()
+                .graphicsLayer {
+                    alpha = textProgress.value
+                    translationX = 16.dp.toPx()
+                    translationY = (1f - textProgress.value) * 20.dp.toPx()
+                },
         )
     }
 }
@@ -212,6 +218,7 @@ private fun GreetingOverlayShell(
             Column(
                 modifier =
                 Modifier
+                    .fillMaxWidth()
                     .align(Alignment.TopCenter)
                     .statusBarsPadding()
                     .padding(top = topPadding),
