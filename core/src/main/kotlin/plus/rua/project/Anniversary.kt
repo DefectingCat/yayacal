@@ -395,3 +395,159 @@ fun getAllMilestoneProgress(
         )
     }
 }
+
+/**
+ * 恋爱时长统计分解（天数、周数、小时数与年月文案）。
+ *
+ * @param totalDays 总相伴天数
+ * @param totalWeeks 总相伴周数
+ * @param totalHours 总相伴小时数
+ * @param formattedText 年月日文本，如「相伴约 9 个月 13 天」
+ */
+data class LoveTimeBreakdown(
+    val totalDays: Int,
+    val totalWeeks: Int,
+    val totalHours: Long,
+    val formattedText: String,
+)
+
+/**
+ * 计算恋爱时长详细分解统计。
+ *
+ * @param today 今天
+ * @param start 起始日，默认为 [AnniversaryDates.TOGETHER]
+ */
+fun getLoveTimeBreakdown(
+    today: LocalDate,
+    start: LocalDate = AnniversaryDates.TOGETHER,
+): LoveTimeBreakdown {
+    val totalDays = if (today >= start) start.daysUntil(today) else 0
+    val totalWeeks = totalDays / 7
+    val totalHours = totalDays.toLong() * 24L
+
+    val formattedText =
+        if (today < start) {
+            "即将开启"
+        } else {
+            var months = (today.year - start.year) * 12 + (today.month.number - start.month.number)
+            if (today.day < start.day) {
+                months--
+            }
+            if (months <= 0) {
+                "相伴 $totalDays 天"
+            } else {
+                val years = months / 12
+                val remMonths = months % 12
+                val anchorDate = start.plus(DatePeriod(months = months))
+                val remDays = anchorDate.daysUntil(today)
+                buildString {
+                    append("相伴约 ")
+                    if (years > 0) append("$years 年 ")
+                    if (remMonths > 0) append("$remMonths 个月 ")
+                    if (remDays > 0 || (years == 0 && remMonths == 0)) append("$remDays 天")
+                }.trim()
+            }
+        }
+
+    return LoveTimeBreakdown(
+        totalDays = totalDays,
+        totalWeeks = totalWeeks,
+        totalHours = totalHours,
+        formattedText = formattedText,
+    )
+}
+
+/**
+ * 阶段里程碑进度摘要。
+ *
+ * @param currentDays 当前已相伴天数
+ * @param prevMilestoneLabel 上一个里程碑标签
+ * @param prevMilestoneDays 上一个里程碑对应相伴天数
+ * @param nextMilestoneLabel 下一个里程碑标签
+ * @param nextMilestoneDays 下一个里程碑对应相伴天数
+ * @param daysLeft 距下一个里程碑天数
+ * @param progress 当前区间进度（0f..1f）
+ * @param isToday 下一个里程碑是否就是今天
+ * @param targetDate 下一个里程碑达成日期
+ */
+data class MilestoneProgressSummary(
+    val currentDays: Int,
+    val prevMilestoneLabel: String,
+    val prevMilestoneDays: Int,
+    val nextMilestoneLabel: String,
+    val nextMilestoneDays: Int,
+    val daysLeft: Int,
+    val progress: Float,
+    val isToday: Boolean,
+    val targetDate: LocalDate,
+)
+
+/**
+ * 计算当前阶段恋爱里程碑进度摘要。
+ *
+ * @param today 今天
+ * @param start 起始日，默认为 [AnniversaryDates.TOGETHER]
+ */
+fun getMilestoneProgressSummary(
+    today: LocalDate,
+    start: LocalDate = AnniversaryDates.TOGETHER,
+): MilestoneProgressSummary {
+    val currentDays = if (today >= start) start.daysUntil(today) else 0
+    val dayMilestonePairs =
+        listOf(
+            Pair("100 天", 99),
+            Pair("365 天 (1周年)", 364),
+            Pair("520 天", 519),
+            Pair("1000 天", 999),
+            Pair("1314 天", 1313),
+        )
+
+    var prevLabel = "初见相伴"
+    var prevDays = 0
+    var nextLabel = dayMilestonePairs[0].first
+    var nextDays = dayMilestonePairs[0].second
+
+    var found = false
+    for ((label, targetDays) in dayMilestonePairs) {
+        if (currentDays <= targetDays) {
+            nextLabel = label
+            nextDays = targetDays
+            found = true
+            break
+        }
+        prevLabel = label
+        prevDays = targetDays
+    }
+
+    if (!found) {
+        var year = (currentDays / 365) + 1
+        var targetDate = start.plus(DatePeriod(years = year))
+        while (targetDate < today) {
+            year++
+            targetDate = start.plus(DatePeriod(years = year))
+        }
+        prevLabel = "${year - 1} 周年"
+        prevDays = start.daysUntil(start.plus(DatePeriod(years = year - 1)))
+        nextLabel = "$year 周年"
+        nextDays = start.daysUntil(targetDate)
+    }
+
+    val targetDate = start.plus(DatePeriod(days = nextDays))
+    val isToday = today == targetDate
+    val daysLeft = if (today <= targetDate) today.daysUntil(targetDate) else 0
+    val totalSpan = (nextDays - prevDays).coerceAtLeast(1)
+    val elapsedInSpan = (currentDays - prevDays).coerceIn(0, totalSpan)
+    val progress = (elapsedInSpan.toFloat() / totalSpan.toFloat()).coerceIn(0f, 1f)
+
+    return MilestoneProgressSummary(
+        currentDays = currentDays,
+        prevMilestoneLabel = prevLabel,
+        prevMilestoneDays = prevDays,
+        nextMilestoneLabel = nextLabel,
+        nextMilestoneDays = nextDays,
+        daysLeft = daysLeft,
+        progress = progress,
+        isToday = isToday,
+        targetDate = targetDate,
+    )
+}

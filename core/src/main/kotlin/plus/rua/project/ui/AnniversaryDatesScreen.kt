@@ -164,7 +164,7 @@ fun AnniversaryDatesScreen(
         ) {
             // 1. 在一起起始主卡
             TogetherHeroCard(
-                togetherDate = AnniversaryDates.TOGETHER.toString(),
+                togetherDate = "${AnniversaryDates.TOGETHER.year}.${AnniversaryDates.TOGETHER.month.number.toString().padStart(2, '0')}.${AnniversaryDates.TOGETHER.day.toString().padStart(2, '0')}",
                 detailInfo = togetherDetail,
                 daysCount = togetherDays,
                 nextMilestoneLabel = nextMilestoneInfo.label,

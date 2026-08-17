@@ -207,4 +207,25 @@ class AnniversaryTest {
         assertFalse(m365.isPassed)
         assertEquals(81, m365.daysLeft)
     }
+
+    @Test
+    fun getLoveTimeBreakdown_on2026_08_17_matchesExpected() {
+        val breakdown = getLoveTimeBreakdown(LocalDate(2026, 8, 17))
+        assertEquals(286, breakdown.totalDays)
+        assertEquals(40, breakdown.totalWeeks)
+        assertEquals(286 * 24L, breakdown.totalHours)
+        assertEquals("相伴约 9 个月 13 天", breakdown.formattedText)
+    }
+
+    @Test
+    fun getMilestoneProgressSummary_on2026_08_17_showsProgressTo365Days() {
+        val summary = getMilestoneProgressSummary(LocalDate(2026, 8, 17))
+        assertEquals(286, summary.currentDays)
+        assertEquals("100 天", summary.prevMilestoneLabel)
+        assertEquals("365 天 (1周年)", summary.nextMilestoneLabel)
+        assertEquals(78, summary.daysLeft)
+        assertFalse(summary.isToday)
+        assertEquals(LocalDate(2026, 11, 3), summary.targetDate)
+        assertTrue(summary.progress in 0.70f..0.71f)
+    }
 }
