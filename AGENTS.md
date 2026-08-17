@@ -119,6 +119,18 @@ Other docs: `DEVELOPMENT.md` (perf/profile workflow + trace marker catalog), `RE
 - **Gradle caches on:** configuration cache + build cache + parallel (`gradle.properties`). R8 full mode enabled.
 - **Build types:** `debug` (default, trace on) · `release` (R8 + resource shrink, trace off, debug-signed) · `trace` (release + trace markers) · `benchmark` (release base, **no** minify — so generated profile names aren't obfuscated).
 - **Profiling needs a device/emulator** with GPU acceleration (software renderer can't produce `gfxinfo` framestats). Real benchmarks need a physical device on a release target.
+- **macOS 上流畅启动本机模拟器**（`Pixel_10` AVD，gpu host 直通 + 固定资源，冷启动约 5s）：
+
+  emulator -avd Pixel_10 \
+    -no-snapshot \
+    -no-boot-anim \
+    -gpu host \
+    -accel on \
+    -cores 4 \
+    -memory 2048 \
+    -partition-size 2048
+  ```
+
  - **CI/CD:** GitHub Actions pipeline (`.github/workflows/ci.yml`) runs unit tests and debug builds on push/PR, and publishes release APK on `v*` tags.
 
 ## Testing & QA
