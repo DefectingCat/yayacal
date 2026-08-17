@@ -2,9 +2,12 @@ package plus.rua.project
 
 import com.tyme.lunar.LunarDay
 import com.tyme.lunar.LunarMonth
+import com.tyme.solar.SolarDay
 import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.DayOfWeek
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.daysUntil
+import kotlinx.datetime.number
 import kotlinx.datetime.plus
 
 /**
@@ -34,6 +37,18 @@ object AnniversaryDates {
 
     /** 恋爱天数里程碑（按「第 N 天」口径，即起始日为第 1 天）。 */
     val DAY_MILESTONES = listOf(100, 365, 520, 1000, 1314)
+
+    /** 玫瑰日：每年 10 月 16 日。 */
+    const val ROSE_DAY_MONTH = 10
+
+    /** 玫瑰日日期。 */
+    const val ROSE_DAY_DAY = 16
+
+    /** 农历七夕节：七月初七。 */
+    const val QIXI_LUNAR_MONTH = 7
+
+    /** 七夕节农历日。 */
+    const val QIXI_LUNAR_DAY = 7
 }
 
 /**
@@ -115,7 +130,7 @@ fun nextLunarAnniversary(
     lunarMonth: Int,
     lunarDay: Int,
 ): LocalDate {
-    val todayLunarMonth = LunarDay.fromYmd(today.year, today.monthNumber, today.day).getLunarMonth()
+    val todayLunarMonth = LunarDay.fromYmd(today.year, today.month.number, today.day).getLunarMonth()
     val todayLunarYear = todayLunarMonth.getLunarYear().year
     repeat(3) { offset ->
         val year = todayLunarYear + offset
@@ -172,4 +187,211 @@ fun nextMilestone(
                 isToday = it.date == today,
             )
         }
+}
+
+/**
+ * 纪念日期的文化与天文详情信息（用于纪念日期展示页）。
+ *
+ * @param solarDateText 公历日期字符串，如「2025 年 11 月 04 日」
+ * @param weekdayText 星期几，如「星期二」
+ * @param lunarGanzhiText 农历完整文案（含干支），如「农历乙巳年九月十五」
+ * @param lunarMonthDayText 农历月日简写，如「九月十五」
+ * @param constellationText 星座带符号，如「天蝎座 ♏」
+ * @param solarTermText 节气名，如「霜降」
+ */
+data class DateDetailInfo(
+    val solarDateText: String,
+    val weekdayText: String,
+    val lunarGanzhiText: String,
+    val lunarMonthDayText: String,
+    val constellationText: String,
+    val solarTermText: String,
+)
+
+/**
+ * 下一次纪念日/生日的预告信息。
+ *
+ * @param targetSolarDate 下一次发生时的公历日期
+ * @param daysLeft 距今天数（0 为当天）
+ * @param isToday 是否恰为今天
+ * @param targetSolarFormatted 下一次公历格式化字符串，如「2026年9月4日 星期五」
+ * @param targetLunarFormatted 下一次对应的农历文本，如「农历丙午年七月廿三」
+ */
+data class UpcomingAnniversaryInfo(
+    val targetSolarDate: LocalDate,
+    val daysLeft: Int,
+    val isToday: Boolean,
+    val targetSolarFormatted: String,
+    val targetLunarFormatted: String,
+)
+
+/**
+ * 恋爱里程碑进度项。
+ *
+ * @param label 里程碑标签，如「100 天」「1 周年 (365天)」
+ * @param tagline 浪漫寄语，如「初心相伴」「岁岁同行」
+ * @param targetDate 达成日期
+ * @param isPassed 是否已达成
+ * @param isToday 是否就是今天
+ * @param daysLeft 距今天数（未达成为正数，已达成为 0）
+ */
+data class MilestoneProgressInfo(
+    val label: String,
+    val tagline: String,
+    val targetDate: LocalDate,
+    val isPassed: Boolean,
+    val isToday: Boolean,
+    val daysLeft: Int,
+)
+
+/**
+ * 将公历日期转换为带有 emoji 符号的星座名称。
+ */
+fun getConstellationWithSymbol(date: LocalDate): String {
+    val solarDay = SolarDay.fromYmd(date.year, date.month.number, date.day)
+    val name = solarDay.getConstellation().getName()
+    val symbol =
+        when (name) {
+            "白羊" -> "♈"
+            "金牛" -> "♉"
+            "双子" -> "♊"
+            "巨蟹" -> "♋"
+            "狮子" -> "♌"
+            "处女" -> "♍"
+            "天秤" -> "♎"
+            "天蝎" -> "♏"
+            "射手" -> "♐"
+            "摩羯" -> "♑"
+            "水瓶" -> "♒"
+            "双鱼" -> "♓"
+            else -> ""
+        }
+    return "${name}座 $symbol".trim()
+}
+
+/**
+ * 获取日期的中文星期名称（如「星期二」）。
+ */
+fun getChineseWeekday(date: LocalDate): String = when (date.dayOfWeek) {
+    DayOfWeek.MONDAY -> "星期一"
+    DayOfWeek.TUESDAY -> "星期二"
+    DayOfWeek.WEDNESDAY -> "星期三"
+    DayOfWeek.THURSDAY -> "星期四"
+    DayOfWeek.FRIDAY -> "星期五"
+    DayOfWeek.SATURDAY -> "星期六"
+    DayOfWeek.SUNDAY -> "星期日"
+}
+
+/**
+ * 格式化农历干支年月日文本（如「农历乙巳年九月十五」）。
+ */
+fun formatGanzhiLunarDate(date: LocalDate): String {
+    val solarDay = SolarDay.fromYmd(date.year, date.month.number, date.day)
+    val lunarDay = solarDay.getLunarDay()
+    val lunarMonth = lunarDay.getLunarMonth()
+    val sixtyCycleYear = lunarMonth.getLunarYear().getSixtyCycle().getName()
+    val leapPrefix = if (lunarMonth.isLeap()) "闰" else ""
+    return "农历${sixtyCycleYear}年${leapPrefix}${lunarMonth.getName()}${lunarDay.getName()}"
+}
+
+/**
+ * 获取指定公历日期的详细文化/天文属性。
+ */
+fun getDateDetailInfo(date: LocalDate): DateDetailInfo {
+    val solarDay = SolarDay.fromYmd(date.year, date.month.number, date.day)
+    val lunarDay = solarDay.getLunarDay()
+    val lunarMonth = lunarDay.getLunarMonth()
+    val sixtyCycleYear = lunarMonth.getLunarYear().getSixtyCycle().getName()
+    val leapPrefix = if (lunarMonth.isLeap()) "闰" else ""
+    val lunarGanzhi = "农历${sixtyCycleYear}年${leapPrefix}${lunarMonth.getName()}${lunarDay.getName()}"
+    val lunarMonthDay = "${leapPrefix}${lunarMonth.getName()}${lunarDay.getName()}"
+    val constellation = getConstellationWithSymbol(date)
+    val term = solarDay.getTerm().getName()
+    val weekday = getChineseWeekday(date)
+    val solarText = "${date.year} 年 ${date.month.number} 月 ${date.day} 日"
+
+    return DateDetailInfo(
+        solarDateText = solarText,
+        weekdayText = weekday,
+        lunarGanzhiText = lunarGanzhi,
+        lunarMonthDayText = lunarMonthDay,
+        constellationText = constellation,
+        solarTermText = term,
+    )
+}
+
+/**
+ * 阳历纪念日的下一次预告计算。
+ */
+fun getUpcomingSolarAnniversaryInfo(
+    today: LocalDate,
+    month: Int,
+    day: Int,
+): UpcomingAnniversaryInfo {
+    val target = nextSolarAnniversary(today, month, day)
+    val daysLeft = today.daysUntil(target)
+    val weekday = getChineseWeekday(target)
+    val solarText = "${target.year} 年 ${target.month.number} 月 ${target.day} 日 $weekday"
+    val lunarText = formatGanzhiLunarDate(target)
+
+    return UpcomingAnniversaryInfo(
+        targetSolarDate = target,
+        daysLeft = daysLeft,
+        isToday = target == today,
+        targetSolarFormatted = solarText,
+        targetLunarFormatted = lunarText,
+    )
+}
+
+/**
+ * 农历纪念日（如农历生日、七夕）的下一次预告计算。
+ */
+fun getUpcomingLunarAnniversaryInfo(
+    today: LocalDate,
+    lunarMonth: Int,
+    lunarDay: Int,
+): UpcomingAnniversaryInfo {
+    val target = nextLunarAnniversary(today, lunarMonth, lunarDay)
+    val daysLeft = today.daysUntil(target)
+    val weekday = getChineseWeekday(target)
+    val solarText = "${target.year} 年 ${target.month.number} 月 ${target.day} 日 $weekday"
+    val lunarText = formatGanzhiLunarDate(target)
+
+    return UpcomingAnniversaryInfo(
+        targetSolarDate = target,
+        daysLeft = daysLeft,
+        isToday = target == today,
+        targetSolarFormatted = solarText,
+        targetLunarFormatted = lunarText,
+    )
+}
+
+/**
+ * 获取恋爱全里程碑进度列表。
+ */
+fun getAllMilestoneProgress(
+    today: LocalDate,
+    start: LocalDate = AnniversaryDates.TOGETHER,
+): List<MilestoneProgressInfo> {
+    val milestones =
+        listOf(
+            Triple("100 天", "初心相伴", start.plus(DatePeriod(days = 99))),
+            Triple("365 天 (1周年)", "四季流转", start.plus(DatePeriod(days = 364))),
+            Triple("520 天", "热烈相爱", start.plus(DatePeriod(days = 519))),
+            Triple("1000 天", "千日相守", start.plus(DatePeriod(days = 999))),
+            Triple("1314 天", "一生一世", start.plus(DatePeriod(days = 1313))),
+        )
+    return milestones.map { (label, tagline, date) ->
+        val isPassed = date < today
+        val isToday = date == today
+        val daysLeft = if (date >= today) today.daysUntil(date) else 0
+        MilestoneProgressInfo(
+            label = label,
+            tagline = tagline,
+            targetDate = date,
+            isPassed = isPassed,
+            isToday = isToday,
+            daysLeft = daysLeft,
+        )
+    }
 }
