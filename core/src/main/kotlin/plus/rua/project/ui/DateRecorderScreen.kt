@@ -106,6 +106,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
@@ -773,7 +774,13 @@ private fun RecordGrid(
             }
         }
 
-    SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
+    // sharedBounds 在宿主覆盖层绘制卡片；裁剪宿主，避免已滚动卡片在视图切换时越过内容区。
+    SharedTransitionLayout(
+        modifier =
+        Modifier
+            .fillMaxSize()
+            .clipToBounds(),
+    ) {
         AnimatedContent(
             targetState = viewMode,
             label = "date_recorder_view_mode_transition",
