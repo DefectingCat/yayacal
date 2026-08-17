@@ -5,8 +5,8 @@ import android.os.Bundle
 import androidx.activity.compose.ReportDrawn
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.Box
+import plus.rua.project.ui.BirthdayGreetingOverlay
 import plus.rua.project.ui.CalendarMonthView
-import plus.rua.project.ui.QixiGreetingOverlay
 import plus.rua.project.ui.theme.YaYaTheme
 
 class MainActivity : BaseActivity() {
@@ -31,6 +31,8 @@ class MainActivity : BaseActivity() {
                     )
                     // 七夕当天冷启动盖全屏问候层，其余日期不渲染
                     QixiGreetingOverlay()
+                    // 生日（公历 9 月 14 日）当天冷启动盖全屏问候层，其余日期不渲染
+                    BirthdayGreetingOverlay()
                 }
             }
         }
