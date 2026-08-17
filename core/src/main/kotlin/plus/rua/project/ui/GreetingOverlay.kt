@@ -122,7 +122,7 @@ fun BirthdayGreetingOverlay(modifier: Modifier = Modifier) {
     GreetingOverlayShell(
         active = BirthdayChecker().isBirthdayToday(),
         wallpaper = CoreR.drawable.birthday_wallpaper,
-        topPadding = 52.dp,
+        topPadding = 88.dp,
         modifier = modifier,
     ) {
         Icon(
