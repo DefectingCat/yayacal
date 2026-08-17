@@ -26,3 +26,4 @@ docs/superpowers/*
 !docs/superpowers/specs/
 .worktrees/
 .zcode/
+.scratch/
