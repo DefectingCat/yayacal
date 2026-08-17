@@ -87,6 +87,7 @@ private enum class ParticleType {
     STAR,
     CONFETTI_RECT,
     DOT,
+    HEART,
 }
 
 private data class ConfettiParticle(
@@ -102,9 +103,9 @@ private data class ConfettiParticle(
 )
 
 /**
- * 预设的庆祝粒子集合（彩带碎屑、闪烁星芒与柔光点），固定位置避免每帧绘制产生对象分配。
+ * 预设的生日庆祝粒子集合（彩带碎屑、闪烁星芒与柔光点）。
  */
-private val PresetParticles: List<ConfettiParticle> =
+private val PresetBirthdayParticles: List<ConfettiParticle> =
     listOf(
         ConfettiParticle(0.10f, 0.10f, Color(0xFFFFD166), 14f, 15f, 25f, 1.0f, ParticleType.STAR, 0.1f),
         ConfettiParticle(0.90f, 0.08f, Color(0xFFFF758F), 16f, -20f, -35f, 1.2f, ParticleType.STAR, 0.5f),
@@ -130,36 +131,288 @@ private val PresetParticles: List<ConfettiParticle> =
     )
 
 /**
+ * 预设的七夕浪漫粒子集合（心形、浪漫星芒、雨滴微光点）。
+ */
+private val PresetQixiParticles: List<ConfettiParticle> =
+    listOf(
+        ConfettiParticle(0.10f, 0.12f, Color(0xFFFF758F), 14f, 15f, 25f, 1.0f, ParticleType.HEART, 0.1f),
+        ConfettiParticle(0.90f, 0.10f, Color(0xFFFFB4D9), 16f, -15f, -30f, 1.2f, ParticleType.HEART, 0.5f),
+        ConfettiParticle(0.08f, 0.25f, Color(0xFFA2D2FF), 9f, 0f, 15f, 0.8f, ParticleType.DOT, 0.9f),
+        ConfettiParticle(0.92f, 0.22f, Color(0xFFD8BBFF), 13f, 20f, 30f, 1.1f, ParticleType.STAR, 0.3f),
+        ConfettiParticle(0.15f, 0.05f, Color(0xFFFFD166), 11f, 0f, 20f, 0.7f, ParticleType.STAR, 0.7f),
+        ConfettiParticle(0.85f, 0.05f, Color(0xFFFF8FA3), 12f, -10f, -20f, 0.9f, ParticleType.HEART, 0.2f),
+        ConfettiParticle(0.06f, 0.40f, Color(0xFFFFCCD5), 14f, 25f, -25f, 1.0f, ParticleType.HEART, 0.8f),
+        ConfettiParticle(0.94f, 0.38f, Color(0xFFC77DFF), 12f, -40f, 35f, 1.3f, ParticleType.STAR, 0.4f),
+        ConfettiParticle(0.12f, 0.52f, Color(0xFFBDE0FE), 8f, 0f, 15f, 0.9f, ParticleType.DOT, 0.6f),
+        ConfettiParticle(0.88f, 0.50f, Color(0xFFFF758F), 13f, -15f, -25f, 0.8f, ParticleType.HEART, 0.0f),
+        ConfettiParticle(0.22f, 0.44f, Color(0xFFFFD166), 10f, 0f, 15f, 0.6f, ParticleType.STAR, 0.5f),
+        ConfettiParticle(0.78f, 0.42f, Color(0xFFD8BBFF), 8f, 0f, 12f, 0.7f, ParticleType.DOT, 0.3f),
+        ConfettiParticle(0.10f, 0.65f, Color(0xFFFF8FA3), 14f, 20f, 20f, 1.0f, ParticleType.HEART, 0.2f),
+        ConfettiParticle(0.90f, 0.62f, Color(0xFFA2D2FF), 9f, 0f, 15f, 0.9f, ParticleType.DOT, 0.7f),
+        ConfettiParticle(0.05f, 0.78f, Color(0xFFC77DFF), 12f, 35f, 25f, 0.8f, ParticleType.STAR, 0.4f),
+        ConfettiParticle(0.95f, 0.76f, Color(0xFFFFB4D9), 15f, -20f, -30f, 1.1f, ParticleType.HEART, 0.8f),
+        ConfettiParticle(0.18f, 0.86f, Color(0xFFBDE0FE), 8f, 0f, 10f, 0.5f, ParticleType.DOT, 0.1f),
+        ConfettiParticle(0.82f, 0.84f, Color(0xFFFFD166), 10f, 0f, 12f, 0.6f, ParticleType.STAR, 0.9f),
+        ConfettiParticle(0.50f, 0.04f, Color(0xFFFF758F), 13f, 10f, -15f, 0.7f, ParticleType.HEART, 0.4f),
+        ConfettiParticle(0.30f, 0.08f, Color(0xFFD8BBFF), 7f, 0f, 10f, 0.5f, ParticleType.DOT, 0.6f),
+        ConfettiParticle(0.70f, 0.07f, Color(0xFFFFCCD5), 11f, -10f, 15f, 0.5f, ParticleType.HEART, 0.2f),
+    )
+
+/**
  * 七夕问候遮罩：七夕当天（农历七月初七，闰七月不算）每次冷启动后全屏盖在主界面上。
  *
- * 壁纸铺满全屏并居中裁剪，顶部展示「七夕快乐！」艺术字（站酷快乐体子集，OFL）。
- * 点击任意处或按返回键以 300ms 淡出退出；不点击则一直展示。非七夕日期不渲染任何内容。
+ * 壁纸（线条小狗雨天撑伞）铺满全屏，搭配浪漫心形与星芒粒子浮动动效、半透明玫瑰奶白质感卡片、
+ * 盛开玫瑰与「七夕快乐！」艺术字（站酷快乐体子集，OFL），以及底部轻触提示。
+ * 入场采用级联弹跳与浮入动效，点击任意处或按返回键以 300ms 淡出退出。非七夕日期不渲染任何内容。
  * 可见状态随进程存续：旋转等配置变更不会重新弹出，冷启动重新判定。
  *
  * @param modifier 外部传入的 Modifier
  */
 @Composable
 fun QixiGreetingOverlay(modifier: Modifier = Modifier) {
+    val entranceProgress = remember { Animatable(0f) }
+    val cardScale = remember { Animatable(0.88f) }
+    val roseProgress = remember { Animatable(0f) }
+    val textProgress = remember { Animatable(0f) }
+    val subtitleProgress = remember { Animatable(0f) }
+    val hintAlpha = remember { Animatable(0f) }
+
+    val infiniteTransition = rememberInfiniteTransition(label = "QixiAtmosphere")
+    val shimmerPhase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 6.28318f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(4000, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart,
+        ),
+        label = "QixiShimmerPhase",
+    )
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.55f,
+        targetValue = 0.95f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1200, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "QixiPulseAlpha",
+    )
+
+    LaunchedEffect(Unit) {
+        launch {
+            entranceProgress.animateTo(1f, tween(800, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            cardScale.animateTo(1f, tween(500, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            delay(100)
+            roseProgress.animateTo(1f, tween(450, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            delay(220)
+            textProgress.animateTo(1f, tween(460, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            delay(360)
+            subtitleProgress.animateTo(1f, tween(420, easing = EmphasizedDecelerateEasing))
+        }
+        launch {
+            delay(600)
+            hintAlpha.animateTo(1f, tween(400, easing = LinearEasing))
+        }
+    }
+
     GreetingOverlayShell(
         active = QixiChecker().isQixiToday(),
         wallpaper = CoreR.drawable.qixi_wallpaper,
+        topPadding = 44.dp,
         modifier = modifier,
+        backgroundOverlay = {
+            ConfettiSparklesCanvas(
+                particles = PresetQixiParticles,
+                entranceProgress = entranceProgress.value,
+                shimmerPhase = shimmerPhase,
+            )
+        },
+        bottomContent = {
+            Surface(
+                shape = RoundedCornerShape(22.dp),
+                color = Color(0xE6FFFFFF),
+                border = BorderStroke(1.dp, Color(0x60FFD6E0)),
+                shadowElevation = 4.dp,
+                modifier =
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 36.dp)
+                    .graphicsLayer {
+                        alpha = hintAlpha.value * pulseAlpha
+                    },
+            ) {
+                Text(
+                    text = "✨ 轻触屏幕开启美好一天 ✨",
+                    fontSize = 12.5.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color(0xFF7A6870),
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp),
+                )
+            }
+        },
     ) {
-        Text(
-            text = "七夕快乐！",
-            color = GreetingTextColor,
-            fontFamily = GreetingFontFamily,
-            fontSize = 60.sp,
-            style =
-            TextStyle(
-                shadow =
-                Shadow(
-                    color = Color(0x33000000),
-                    offset = Offset(0f, 2f),
-                    blurRadius = 4f,
+        Surface(
+            shape = RoundedCornerShape(32.dp),
+            color = Color(0xF7FFFDFE),
+            border =
+            BorderStroke(
+                width = 1.5.dp,
+                brush =
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xCCFFD6E0),
+                        Color(0x99CDB4DB),
+                        Color(0xCCFFD6E0),
+                    ),
                 ),
             ),
-        )
+            modifier =
+            Modifier
+                .padding(horizontal = 20.dp)
+                .fillMaxWidth()
+                .shadow(
+                    elevation = 12.dp,
+                    shape = RoundedCornerShape(32.dp),
+                    ambientColor = Color(0x33E07A5F),
+                    spotColor = Color(0x33CDB4DB),
+                )
+                .graphicsLayer {
+                    alpha = entranceProgress.value
+                    scaleX = cardScale.value
+                    scaleY = cardScale.value
+                    translationY = (1f - entranceProgress.value) * -20.dp.toPx()
+                },
+        ) {
+            Column(
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 22.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                // 顶部微标：07.07 · QIXI FESTIVAL
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFFF0F3),
+                    border = BorderStroke(1.dp, Color(0xFFFFCCD5)),
+                    modifier =
+                    Modifier.graphicsLayer {
+                        alpha = roseProgress.value
+                        translationY = (1f - roseProgress.value) * -8.dp.toPx()
+                    },
+                ) {
+                    Text(
+                        text = "✨ 07.07 · QIXI FESTIVAL ✨",
+                        fontSize = 11.5.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD81E5B),
+                        letterSpacing = 1.4.sp,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.5.dp),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 盛开玫瑰与两翼粉金星芒
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier =
+                    Modifier.graphicsLayer {
+                        alpha = roseProgress.value
+                        val bounceScale = 0.7f + 0.3f * roseProgress.value
+                        scaleX = bounceScale
+                        scaleY = bounceScale
+                        translationY = (roseProgress.value - 1f) * 16.dp.toPx() + sin(shimmerPhase) * 2.5.dp.toPx()
+                    },
+                ) {
+                    Text(
+                        text = "✦",
+                        color = Color(0xFFFF758F),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Icon(
+                        painter = painterResource(CoreR.drawable.ic_rose),
+                        contentDescription = null,
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(52.dp),
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "✦",
+                        color = Color(0xFFFF758F),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                // 艺术字「七夕快乐！」（站酷快乐体）
+                Text(
+                    text = "七夕快乐！",
+                    color = GreetingTextColor,
+                    fontFamily = GreetingFontFamily,
+                    fontSize = 54.sp,
+                    textAlign = TextAlign.Center,
+                    style =
+                    TextStyle(
+                        shadow =
+                        Shadow(
+                            color = Color(0x38E5383B),
+                            offset = Offset(0f, 3.5f),
+                            blurRadius = 7f,
+                        ),
+                    ),
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            alpha = textProgress.value
+                            val textScale = 0.8f + 0.2f * textProgress.value
+                            scaleX = textScale
+                            scaleY = textScale
+                            translationY = (1f - textProgress.value) * 16.dp.toPx()
+                        },
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // 浪漫祝福胶囊标签：浪漫不止七夕 · 有你便是晴天
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = Color(0xFFFFF0F3),
+                    border = BorderStroke(1.dp, Color(0xFFFFCCD5)),
+                    modifier =
+                    Modifier.graphicsLayer {
+                        alpha = subtitleProgress.value
+                        val subScale = 0.85f + 0.15f * subtitleProgress.value
+                        scaleX = subScale
+                        scaleY = subScale
+                        translationY = (1f - subtitleProgress.value) * 12.dp.toPx()
+                    },
+                ) {
+                    Text(
+                        text = "✨ 浪漫不止七夕 · 有你便是晴天 ✨",
+                        fontSize = 13.5.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFF8B3A4A),
+                        letterSpacing = 0.8.sp,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 6.5.dp),
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -234,6 +487,7 @@ fun BirthdayGreetingOverlay(modifier: Modifier = Modifier) {
         modifier = modifier,
         backgroundOverlay = {
             ConfettiSparklesCanvas(
+                particles = PresetBirthdayParticles,
                 entranceProgress = entranceProgress.value,
                 shimmerPhase = shimmerPhase,
             )
@@ -425,6 +679,7 @@ fun BirthdayGreetingOverlay(modifier: Modifier = Modifier) {
  */
 @Composable
 private fun ConfettiSparklesCanvas(
+    particles: List<ConfettiParticle>,
     entranceProgress: Float,
     shimmerPhase: Float,
     modifier: Modifier = Modifier,
@@ -433,7 +688,7 @@ private fun ConfettiSparklesCanvas(
         val canvasWidth = size.width
         val canvasHeight = size.height
 
-        for (particle in PresetParticles) {
+        for (particle in particles) {
             val wobbleX = sin(shimmerPhase * particle.floatSpeed + particle.phase) * 8.dp.toPx()
             val wobbleY = (1f - entranceProgress) * 40.dp.toPx() + sin(shimmerPhase * 0.7f + particle.phase) * 4.dp.toPx()
 
@@ -474,8 +729,71 @@ private fun ConfettiSparklesCanvas(
                         center = Offset(px, py),
                     )
                 }
+
+                ParticleType.HEART -> {
+                    val s = particle.sizeDp.dp.toPx() * (0.8f + 0.2f * entranceProgress)
+                    drawHeart(
+                        center = Offset(px, py),
+                        size = s,
+                        color = pColor,
+                        rotationDeg = particle.rotationDeg + shimmerPhase * particle.rotationSpeed,
+                    )
+                }
             }
         }
+    }
+}
+
+private fun DrawScope.drawHeart(
+    center: Offset,
+    size: Float,
+    color: Color,
+    rotationDeg: Float = 0f,
+) {
+    rotate(rotationDeg, pivot = center) {
+        val path =
+            Path().apply {
+                val width = size
+                val height = size
+                val left = center.x - width / 2f
+                val top = center.y - height / 2f
+
+                moveTo(center.x, top + height * 0.28f)
+                cubicTo(
+                    center.x - width * 0.15f,
+                    top,
+                    left,
+                    top + height * 0.08f,
+                    left,
+                    top + height * 0.38f,
+                )
+                cubicTo(
+                    left,
+                    top + height * 0.65f,
+                    center.x - width * 0.2f,
+                    top + height * 0.82f,
+                    center.x,
+                    top + height,
+                )
+                cubicTo(
+                    center.x + width * 0.2f,
+                    top + height * 0.82f,
+                    left + width,
+                    top + height * 0.65f,
+                    left + width,
+                    top + height * 0.38f,
+                )
+                cubicTo(
+                    left + width,
+                    top + height * 0.08f,
+                    center.x + width * 0.15f,
+                    top,
+                    center.x,
+                    top + height * 0.28f,
+                )
+                close()
+            }
+        drawPath(path, color)
     }
 }
 
