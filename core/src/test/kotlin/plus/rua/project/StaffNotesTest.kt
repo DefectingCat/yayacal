@@ -106,6 +106,23 @@ class StaffNotesTest {
     }
 
     @Test
+    fun generator_anyDirection_optionsHaveDistinctSolfege() {
+        // 回归：B4(step 6) 与 B5(step 13) 唱名同为 si，
+        // 曾导致「看谱认唱名」选项出现两个 si、「听名找位置」出现两个正确答案
+        val generator = StaffQuiz.Generator(random = Random(2026))
+        repeat(200) {
+            StaffQuiz.Direction.entries.forEach { direction ->
+                val question = generator.next(direction)
+                assertEquals(
+                    question.options.size,
+                    question.options.map { it.solfege }.distinct().size,
+                    "选项唱名重复：${question.options}",
+                )
+            }
+        }
+    }
+
+    @Test
     fun generator_excludeStep_neverRepeatsPreviousAnswer() {
         val generator = StaffQuiz.Generator(random = Random(7))
         var previous: Int? = null

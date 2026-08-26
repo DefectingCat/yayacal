@@ -102,7 +102,11 @@ object StaffQuiz {
     }
 
     /**
-     * 一道练习题。不变量：[answer] 在 [options] 中恰好出现一次，options 互不重复。
+     * 一道练习题。
+     *
+     * 不变量：[answer] 在 [options] 中恰好出现一次；options 的唱名互不重复——
+     * 同一唱名的不同八度（如 B4/B5）在「看谱认唱名」里是相同选项、
+     * 在「听名找位置」里是多个正确答案，两种方向都是歧义题，必须排除。
      */
     data class Question(
         val direction: Direction,
@@ -127,11 +131,13 @@ object StaffQuiz {
     ) {
         init {
             require(optionCount >= 2) { "选项至少 2 个" }
-            require(range.count() >= optionCount) { "范围内音符数必须不少于选项数" }
+            require(distinctDegrees(range).size >= optionCount) {
+                "范围内不同唱名数必须不少于选项数"
+            }
         }
 
         /**
-         * 生成下一题。
+         * 生成下一题。干扰项与答案唱名互不相同（允许同唱名类内随机选八度）。
          *
          * @param direction 练习方向
          * @param excludeStep 上一题答案的 step，避免连续两题相同；传 null 不排除
@@ -140,10 +146,12 @@ object StaffQuiz {
             val pool = range.toList()
             val candidates = if (excludeStep != null) pool - excludeStep else pool
             val answer = StaffNote(candidates.random(random))
+            val answerDegree = answer.step.mod(DEGREE_COUNT)
             val distractors =
-                (pool - answer.step)
+                (distinctDegrees(range) - answerDegree)
                     .shuffled(random)
                     .take(optionCount - 1)
+                    .map { degree -> pool.filter { it.mod(DEGREE_COUNT) == degree }.random(random) }
             val options =
                 (distractors + answer.step)
                     .shuffled(random)
@@ -151,4 +159,11 @@ object StaffQuiz {
             return Question(direction, answer, options)
         }
     }
+
+    /** 唱名类总数（C 大调自然音阶 7 个）。 */
+    private const val DEGREE_COUNT = 7
+
+    /** 范围内实际出现的唱名类（step mod 7）。 */
+    private fun distinctDegrees(range: IntRange): List<Int> =
+        range.map { it.mod(DEGREE_COUNT) }.distinct()
 }
