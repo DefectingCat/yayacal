@@ -45,8 +45,10 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -107,7 +109,8 @@ private const val QUIZ_TAB_INDEX = 1
  * 五线谱练习页面：认识钢琴高音谱表的教学 + 双向识谱练习。
  *
  * 「教学」：五线谱基础讲解、线/间结构图解、音名/唱名/简谱对照、
- * 可点按的 do~si 音阶阶梯与钢琴键盘（点按联动查看音名/唱名/谱面位置）。
+ * 可点按的 do~si 音阶阶梯与钢琴键盘（点按联动查看音名/唱名/谱面位置），
+ * 以及逐步引导的「互动小课堂」：点音符作答，答错报音名并给位置提示，答对自动进阶。
  * 「练习」：两种方向 —— 看谱认唱名（上方音符、下方选唱名）、
  * 听名找位置（上方唱名、下方选五线谱上的音符），答错会标出正确答案。
  * 每个交互都有克制的过渡动画：Tab/题目滑动切换、选项逐个弹入、
@@ -215,7 +218,11 @@ fun StaffPracticeScreen(
                 modifier = Modifier.fillMaxSize(),
             ) { tab ->
                 when (tab) {
-                    0 -> TeachingTab(Modifier.fillMaxSize())
+                    0 ->
+                        TeachingTab(
+                            onGoQuiz = { tabIndex = QUIZ_TAB_INDEX },
+                            modifier = Modifier.fillMaxSize(),
+                        )
                     else -> QuizTab(Modifier.fillMaxSize())
                 }
             }
@@ -226,7 +233,10 @@ fun StaffPracticeScreen(
 // region 教学
 
 @Composable
-private fun TeachingTab(modifier: Modifier = Modifier) {
+private fun TeachingTab(
+    onGoQuiz: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     // 一个八度的音阶阶梯：C4(do) ~ C5(do)
     val teachingNotes = remember { (0..7).map(::StaffNote) }
     var selected by remember { mutableStateOf(StaffNote(0)) }
@@ -269,6 +279,10 @@ private fun TeachingTab(modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        LessonCard(title = "互动小课堂") {
+            GuidedLesson(onGoQuiz = onGoQuiz)
         }
 
         LessonCard(title = "点一点，认识 do ~ si") {
@@ -656,6 +670,244 @@ private fun positionText(step: Int): String {
         else -> "上加${cnNumeral((offset - 7) / 2)}间"
     }
 }
+
+// region 互动小课堂
+
+/** 互动小课堂的一步；[target] 为 null 表示纯讲解步（点「下一步」继续）。 */
+private data class LessonStep(
+    val prompt: String,
+    val target: StaffNote? = null,
+    val hint: String? = null,
+)
+
+private val lessonSteps =
+    listOf(
+        LessonStep("欢迎来到互动小课堂！接下来我会一步步带你在高音谱表上找音，点错也没关系。"),
+        LessonStep(
+            "先找到 do（中央 C）",
+            target = StaffNote(0),
+            hint = "提示：do 躲在下加一线上——五线谱最下方那条短短的小线。",
+        ),
+        LessonStep(
+            "这次找 mi",
+            target = StaffNote(2),
+            hint = "提示：mi 在第一线——最下面那条横线。",
+        ),
+        LessonStep(
+            "找一找 sol",
+            target = StaffNote(4),
+            hint = "提示：sol 在第二线，从下往上数第二条横线。",
+        ),
+        LessonStep(
+            "来点难的：高音 do",
+            target = StaffNote(7),
+            hint = "提示：它是 do 的高八度，住在第三间。",
+        ),
+        LessonStep(
+            "最后一题：si",
+            target = StaffNote(6),
+            hint = "提示：si 在第三线——正中间那条线。",
+        ),
+    )
+
+private val lessonPraises = listOf("对了！", "很好！", "漂亮！", "没错！")
+
+/**
+ * 互动小课堂：逐步引导用户在五线谱上点出指定音符。
+ *
+ * 点对显示绿色光晕并自动进入下一步；点错显示红色光晕，
+ * 报出点错的音名并给出位置提示。全部完成后可重新开始或跳转练习页。
+ *
+ * @param onGoQuiz 完成页「去练习挑战」点击回调
+ * @param modifier 布局修饰符
+ */
+@Composable
+private fun GuidedLesson(
+    onGoQuiz: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val lessonNotes = remember { (0..7).map(::StaffNote) }
+    var stepIndex by remember { mutableIntStateOf(0) }
+    var completed by remember { mutableStateOf(false) }
+    var attempts by remember { mutableIntStateOf(0) }
+    var lastWrong by remember { mutableStateOf<StaffNote?>(null) }
+    var justCorrect by remember { mutableStateOf(false) }
+    var praise by remember { mutableStateOf(lessonPraises.first()) }
+
+    val step = lessonSteps.getOrNull(stepIndex)
+
+    fun onNoteTap(note: StaffNote) {
+        val target = step?.target ?: return
+        if (justCorrect) return
+        if (note == target) {
+            praise = lessonPraises.random()
+            lastWrong = null
+            justCorrect = true
+        } else {
+            attempts++
+            lastWrong = note
+        }
+    }
+
+    // 点对停留片刻后进入下一步；最后一步则进入完成页
+    LaunchedEffect(justCorrect) {
+        if (justCorrect) {
+            delay(900)
+            justCorrect = false
+            attempts = 0
+            if (stepIndex >= lessonSteps.lastIndex) {
+                completed = true
+            } else {
+                stepIndex++
+            }
+        }
+    }
+    // 点错的红色光晕短暂停留后消失
+    LaunchedEffect(lastWrong) {
+        if (lastWrong != null) {
+            delay(800)
+            lastWrong = null
+        }
+    }
+
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // 进度条 + 步数
+        val progress by animateFloatAsState(
+            if (completed) 1f else stepIndex / lessonSteps.size.toFloat(),
+            tween(400, easing = EmphasizedDecelerate),
+            label = "lessonProgress",
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text =
+                if (completed) {
+                    "完成"
+                } else {
+                    "${(stepIndex + 1).coerceAtMost(lessonSteps.size)}/${lessonSteps.size}"
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        if (completed) {
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "教学完成！",
+                    style =
+                    MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    text = "你已经能自己在五线谱上找到 do、mi、sol、si 和高音 do 了。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    FilledTonalButton(
+                        onClick = {
+                            completed = false
+                            stepIndex = 0
+                            attempts = 0
+                            lastWrong = null
+                            justCorrect = false
+                        },
+                    ) {
+                        Text("再学一遍")
+                    }
+                    Button(onClick = onGoQuiz) {
+                        Text("去练习挑战")
+                    }
+                }
+            }
+        } else if (step != null) {
+            // 引导语：换步时交叉淡入 + 上移
+            AnimatedContent(
+                targetState = stepIndex,
+                transitionSpec = {
+                    (
+                        fadeIn(tween(200)) +
+                            slideInVertically(
+                                tween(260, easing = EmphasizedDecelerate),
+                            ) { it / 5 }
+                    ) togetherWith fadeOut(tween(140))
+                },
+                label = "lessonPrompt",
+            ) { index ->
+                Text(
+                    text = lessonSteps[index].prompt,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+
+            StaffCanvas(
+                notes = lessonNotes,
+                selectedNote = if (justCorrect) step.target else lastWrong,
+                haloTint =
+                if (justCorrect) {
+                    CorrectContainer
+                } else {
+                    MaterialTheme.colorScheme.error
+                },
+                onNoteClick = if (step.target != null) ::onNoteTap else null,
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(170.dp),
+            )
+
+            if (step.target == null) {
+                FilledTonalButton(
+                    onClick = { stepIndex++ },
+                    modifier = Modifier.align(Alignment.End),
+                ) {
+                    Text("下一步")
+                }
+            } else {
+                // 反馈行：答对夸奖 / 答错报音名 + 位置提示（首次答错后才出现）
+                val wrong = lastWrong
+                val feedback: Pair<String, Color>? =
+                    when {
+                        justCorrect -> praise to MaterialTheme.colorScheme.primary
+                        wrong != null ->
+                            "那是 ${wrong.solfege.label}（${positionText(wrong.step)}），再找找看。" to
+                                MaterialTheme.colorScheme.error
+                        attempts > 0 && step.hint != null ->
+                            step.hint to MaterialTheme.colorScheme.onSurfaceVariant
+                        else -> null
+                    }
+                AnimatedContent(
+                    targetState = feedback,
+                    transitionSpec = { fadeIn(tween(180)) togetherWith fadeOut(tween(120)) },
+                    label = "lessonFeedback",
+                ) { current ->
+                    Text(
+                        text = current?.first ?: "点一点五线谱上的音符",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = current?.second ?: MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+    }
+}
+
+// endregion
 
 // endregion
 
@@ -1122,7 +1374,8 @@ private fun StaffOption(
  * 五线谱画布：画五条线、加线、符头（倾斜椭圆）、符干与可选唱名标签。
  *
  * @param notes 要画的音符（1 个居中，多个横向均分）
- * @param selectedNote 选中音符（画三级色光晕并轻微弹跳）
+ * @param selectedNote 选中音符（画光晕并轻微弹跳）
+ * @param haloTint 选中光晕颜色；null 使用三级色
  * @param noteColor 音符颜色
  * @param labelFor 每个音符底部标签；null 不画标签
  * @param onNoteClick 点按音符回调；null 不可点按
@@ -1134,6 +1387,7 @@ private fun StaffCanvas(
     notes: List<StaffNote>,
     modifier: Modifier = Modifier,
     selectedNote: StaffNote? = null,
+    haloTint: Color? = null,
     noteColor: Color = MaterialTheme.colorScheme.onSurface,
     labelFor: ((StaffNote) -> String)? = null,
     onNoteClick: ((StaffNote) -> Unit)? = null,
@@ -1141,7 +1395,7 @@ private fun StaffCanvas(
     popKey: Any? = null,
 ) {
     val lineColor = MaterialTheme.colorScheme.outlineVariant
-    val haloColor = MaterialTheme.colorScheme.tertiary
+    val haloColor = haloTint ?: MaterialTheme.colorScheme.tertiary
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
     val textMeasurer = rememberTextMeasurer()
     val labelStyle =
