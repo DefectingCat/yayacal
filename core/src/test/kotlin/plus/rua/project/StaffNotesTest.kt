@@ -90,6 +90,22 @@ class StaffNotesTest {
         assertEquals(listOf(10, 12), StaffGeometry.ledgerOffsets(14))
     }
 
+    @Test
+    fun clef_bass_geometry_andLedgerOffsets() {
+        // 低音谱表下一线为 G2 (step -10)
+        assertEquals(0, Clef.BASS.halfUnitsFromBottomLine(-10))
+        // 第四线为 F3 (step -4)
+        assertEquals(6, Clef.BASS.halfUnitsFromBottomLine(-4))
+        // 第五线为 A3 (step -2)
+        assertEquals(8, Clef.BASS.halfUnitsFromBottomLine(-2))
+        // 中央 C4 (step 0) 为上加一线
+        assertEquals(10, Clef.BASS.halfUnitsFromBottomLine(0))
+        assertEquals(listOf(10), Clef.BASS.ledgerOffsets(0))
+        // 低音 C2 (step -14) 为下加二线
+        assertEquals(-4, Clef.BASS.halfUnitsFromBottomLine(-14))
+        assertEquals(listOf(-2, -4), Clef.BASS.ledgerOffsets(-14))
+    }
+
     // endregion
 
     // region StaffQuiz 出题器
@@ -162,6 +178,45 @@ class StaffNotesTest {
                 second.next(StaffQuiz.Direction.NOTE_TO_SOLFEGE),
             )
         }
+    }
+
+    @Test
+    fun generator_bassClef_optionsAndAnswersWithinBassRange() {
+        val generator =
+            StaffQuiz.Generator(
+                clefMode = StaffQuiz.QuizClefMode.BASS,
+                difficulty = StaffQuiz.QuizDifficulty.BASIC,
+                random = Random(123),
+            )
+        repeat(50) {
+            val question = generator.next(StaffQuiz.Direction.NOTE_TO_SOLFEGE)
+            assertEquals(Clef.BASS, question.clef)
+            assertTrue(question.answer.step in -10..-2, "低音基础答案越界：${question.answer.step}")
+            question.options.forEach { option ->
+                assertTrue(option.step in -10..-2, "低音基础选项越界：${option.step}")
+            }
+        }
+    }
+
+    @Test
+    fun generator_mixedMode_generatesBothTrebleAndBass() {
+        val generator =
+            StaffQuiz.Generator(
+                clefMode = StaffQuiz.QuizClefMode.MIXED,
+                difficulty = StaffQuiz.QuizDifficulty.FULL,
+                random = Random(456),
+            )
+        val clefs = mutableSetOf<Clef>()
+        repeat(100) {
+            val question = generator.next(StaffQuiz.Direction.NOTE_TO_SOLFEGE)
+            clefs += question.clef
+            if (question.clef == Clef.TREBLE) {
+                assertTrue(question.answer.step in 0..14)
+            } else {
+                assertTrue(question.answer.step in -14..0)
+            }
+        }
+        assertEquals(setOf(Clef.TREBLE, Clef.BASS), clefs, "双谱表混合应同时包含高音谱和低音谱")
     }
 
     // endregion

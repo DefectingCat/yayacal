@@ -99,6 +99,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import plus.rua.project.Clef
 import plus.rua.project.StaffGeometry
 import plus.rua.project.StaffNote
 import plus.rua.project.StaffQuiz
@@ -882,8 +883,8 @@ private fun NoteDetailCard(note: StaffNote) {
 private fun cnNumeral(n: Int): String = listOf("一", "二", "三", "四", "五").getOrElse(n - 1) { n.toString() }
 
 /** 五线谱位置的中文描述（第一线 / 第三间 / 下加一线 / 上加二间…）。 */
-private fun positionText(step: Int): String {
-    val offset = StaffGeometry.halfUnitsFromBottomLine(step)
+private fun positionText(step: Int, clef: Clef = Clef.TREBLE): String {
+    val offset = clef.halfUnitsFromBottomLine(step)
     return when {
         offset == -1 -> "下加一间"
         offset <= -2 && offset % 2 == 0 -> "下加${cnNumeral(-offset / 2)}线"
@@ -4148,9 +4149,14 @@ private fun optionState(
 
 @Composable
 private fun QuizTab(modifier: Modifier = Modifier) {
-    val generator = remember { StaffQuiz.Generator(random = Random.Default) }
+    var clefMode by remember { mutableStateOf(StaffQuiz.QuizClefMode.TREBLE) }
+    var difficulty by remember { mutableStateOf(StaffQuiz.QuizDifficulty.FULL) }
+    val generator =
+        remember(clefMode, difficulty) {
+            StaffQuiz.Generator(clefMode = clefMode, difficulty = difficulty, random = Random.Default)
+        }
     var direction by remember { mutableStateOf(Direction.NOTE_TO_SOLFEGE) }
-    var question by remember { mutableStateOf(generator.next(direction)) }
+    var question by remember(generator, direction) { mutableStateOf(generator.next(direction)) }
     var picked by remember { mutableStateOf<StaffNote?>(null) }
     var total by remember { mutableIntStateOf(0) }
     var correct by remember { mutableIntStateOf(0) }
@@ -4171,7 +4177,7 @@ private fun QuizTab(modifier: Modifier = Modifier) {
     // 作答后停留片刻（看清反馈）再滑出下一题；答错多留一会儿看正确答案
     LaunchedEffect(picked) {
         if (picked != null) {
-            delay(if (picked == question.answer) 600 else 1100)
+            delay(if (picked == question.answer) 600 else 1400)
             question = generator.next(direction, excludeStep = question.answer.step)
             picked = null
         }
@@ -4182,31 +4188,85 @@ private fun QuizTab(modifier: Modifier = Modifier) {
         modifier
             .verticalScroll(rememberScrollState())
             .padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        // 练习方向切换
+        // 谱表模式选择（高音 / 低音 / 双谱表混合）
         SingleChoiceSegmentedButtonRow(
-            modifier = Modifier.fillMaxWidth().testTag("staff_quiz_direction"),
+            modifier = Modifier.fillMaxWidth().testTag("staff_quiz_clef_mode"),
         ) {
-            Direction.entries.forEachIndexed { index, dir ->
+            StaffQuiz.QuizClefMode.entries.forEachIndexed { index, mode ->
                 SegmentedButton(
-                    selected = direction == dir,
+                    selected = clefMode == mode,
                     onClick = {
-                        if (direction != dir) {
-                            direction = dir
-                            question = generator.next(dir)
+                        if (clefMode != mode) {
+                            clefMode = mode
                             picked = null
                         }
                     },
                     shape =
                     SegmentedButtonDefaults.itemShape(
                         index = index,
-                        count = Direction.entries.size,
+                        count = StaffQuiz.QuizClefMode.entries.size,
                     ),
                 ) {
-                    Text(
-                        if (dir == Direction.NOTE_TO_SOLFEGE) "看谱认唱名" else "听名找位置",
-                    )
+                    Text("${mode.icon} ${mode.label}", style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        // 第二行：练习方向 + 音域难度（两组紧凑切换）
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            // 练习方向
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.weight(1.2f).testTag("staff_quiz_direction"),
+            ) {
+                Direction.entries.forEachIndexed { index, dir ->
+                    SegmentedButton(
+                        selected = direction == dir,
+                        onClick = {
+                            if (direction != dir) {
+                                direction = dir
+                                picked = null
+                            }
+                        },
+                        shape =
+                        SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = Direction.entries.size,
+                        ),
+                    ) {
+                        Text(
+                            if (dir == Direction.NOTE_TO_SOLFEGE) "看谱认唱名" else "听名找位置",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                }
+            }
+
+            // 难度切换（基础五线内 vs 全音域加线）
+            SingleChoiceSegmentedButtonRow(
+                modifier = Modifier.weight(1.0f).testTag("staff_quiz_difficulty"),
+            ) {
+                StaffQuiz.QuizDifficulty.entries.forEachIndexed { index, diff ->
+                    SegmentedButton(
+                        selected = difficulty == diff,
+                        onClick = {
+                            if (difficulty != diff) {
+                                difficulty = diff
+                                picked = null
+                            }
+                        },
+                        shape =
+                        SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = StaffQuiz.QuizDifficulty.entries.size,
+                        ),
+                    ) {
+                        Text(diff.label, style = MaterialTheme.typography.labelSmall)
+                    }
                 }
             }
         }
@@ -4230,7 +4290,7 @@ private fun QuizTab(modifier: Modifier = Modifier) {
             },
             label = "quizQuestion",
         ) { current ->
-            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 QuestionCard(current)
 
                 // 选项逐个弹入（每换一题重新级联）
@@ -4247,6 +4307,33 @@ private fun QuizTab(modifier: Modifier = Modifier) {
                     shownCount = shownCount,
                     onPick = ::pick,
                 )
+
+                // 答错时的辅助解析提示
+                AnimatedVisibility(
+                    visible = picked != null && picked != current.answer,
+                    enter = fadeIn(tween(200)) + slideInVertically(tween(220)) { it / 4 },
+                    exit = fadeOut(tween(120)),
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.7f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text("💡", style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                text =
+                                "正确答案是 ${current.answer.solfege.label}（${current.answer.pitchName}${current.answer.octave}，简谱 ${current.answer.solfege.number}），位于${current.clef.label}${positionText(current.answer.step, current.clef)}。",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onErrorContainer,
+                            )
+                        }
+                    }
+                }
             }
         }
 
@@ -4284,7 +4371,7 @@ private fun StatsRow(
             modifier = Modifier.weight(1f),
         )
         StatChip(
-            label = if (streak >= 2) "连击 ×$animatedStreak" else "连击 $animatedStreak",
+            label = if (streak >= 2) "🔥 连击 ×$animatedStreak" else "连击 $animatedStreak",
             emphasized = streak >= 2,
             modifier =
             Modifier
@@ -4347,23 +4434,53 @@ private fun QuestionCard(question: StaffQuiz.Question) {
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Text(
-                text =
-                if (question.direction == Direction.NOTE_TO_SOLFEGE) {
-                    "这个音符唱作什么？"
-                } else {
-                    "在五线谱上找出这个音"
-                },
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text =
+                    if (question.direction == Direction.NOTE_TO_SOLFEGE) {
+                        "这个音符唱作什么？"
+                    } else {
+                        "在五线谱上找出这个音"
+                    },
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color =
+                    if (question.clef == Clef.TREBLE) {
+                        MaterialTheme.colorScheme.primaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.secondaryContainer
+                    },
+                ) {
+                    Text(
+                        text = if (question.clef == Clef.TREBLE) "🎼 高音谱表" else "𝄢 低音谱表",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                        color =
+                        if (question.clef == Clef.TREBLE) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                    )
+                }
+            }
+
             if (question.direction == Direction.NOTE_TO_SOLFEGE) {
                 StaffCanvas(
                     notes = listOf(question.answer),
+                    clef = question.clef,
+                    showClefIcon = true,
                     noteColor = MaterialTheme.colorScheme.primary,
                     popKey = question,
                     modifier =
@@ -4372,16 +4489,33 @@ private fun QuestionCard(question: StaffQuiz.Question) {
                         .height(180.dp),
                 )
             } else {
-                Text(
-                    text = question.answer.solfege.label,
-                    style =
-                    MaterialTheme.typography.displayMedium.copy(
-                        fontFamily = FontFamily.Serif,
-                        fontStyle = FontStyle.Italic,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    color = MaterialTheme.colorScheme.primary,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.padding(vertical = 12.dp),
+                ) {
+                    Text(
+                        text = question.answer.solfege.label,
+                        style =
+                        MaterialTheme.typography.displayMedium.copy(
+                            fontFamily = FontFamily.Serif,
+                            fontStyle = FontStyle.Italic,
+                            fontWeight = FontWeight.Bold,
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                    ) {
+                        Text(
+                            text = "(${question.answer.pitchName}${question.answer.octave} · 简谱 ${question.answer.solfege.number})",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        )
+                    }
+                }
             }
         }
     }
@@ -4426,6 +4560,7 @@ private fun QuizOptions(
                         } else {
                             StaffOption(
                                 note = note,
+                                clef = question.clef,
                                 state = optionState(note, question, picked),
                                 enabled = picked == null,
                                 onClick = { onPick(note) },
@@ -4451,15 +4586,16 @@ private fun rememberFeedbackModifier(state: OptionState): Modifier {
             }
 
             OptionState.Wrong -> {
+                // 左右抖动三次：+8 -> -8 -> +4 -> -4 -> 0
                 shake.animateTo(
                     0f,
                     keyframes {
-                        durationMillis = 350
-                        -10f at 50
-                        8f at 120
-                        -5f at 200
-                        3f at 270
-                        0f at 350
+                        durationMillis = 260
+                        8f at 40
+                        -8f at 90
+                        5f at 140
+                        -5f at 190
+                        0f at 260
                     },
                 )
             }
@@ -4467,11 +4603,12 @@ private fun rememberFeedbackModifier(state: OptionState): Modifier {
             else -> Unit
         }
     }
-    return Modifier.graphicsLayer {
-        scaleX = pop.value
-        scaleY = pop.value
-        translationX = shake.value.dp.toPx()
-    }
+    return Modifier
+        .graphicsLayer {
+            scaleX = pop.value
+            scaleY = pop.value
+            translationX = shake.value
+        }
 }
 
 @Composable
@@ -4546,6 +4683,7 @@ private fun SolfegeOption(
 @Composable
 private fun StaffOption(
     note: StaffNote,
+    clef: Clef,
     state: OptionState,
     enabled: Boolean,
     onClick: () -> Unit,
@@ -4581,6 +4719,8 @@ private fun StaffOption(
     ) {
         StaffCanvas(
             notes = listOf(note),
+            clef = clef,
+            showClefIcon = true,
             noteColor = noteColor,
             modifier = Modifier.fillMaxSize().padding(8.dp),
         )
@@ -4601,23 +4741,21 @@ internal class StaffMetrics(
 )
 
 /**
- * 计算五线谱画布纵向布局。[fitNote] 为 null 用传统固定布局（容纳 C4~C6）；
- * 非 null 时谱面刚好容纳「完整五线 + 该 step 的音符」：音符在五线内时五线
- * 撑满画布，超出五线后按需向外扩展（符头 + 光晕余量），不高不低时没有
- * 多余留白。余量对 fitNote 连续，选音变化时谱面平滑滑动缩放。
+ * 计算五线谱画布纵向布局。[fitNote] 为 null 用传统固定布局；
+ * 非 null 时谱面刚好容纳「完整五线 + 该 step 的音符」。
  */
 internal fun staffMetrics(
     size: Size,
     fitNote: Float?,
+    clef: Clef = Clef.TREBLE,
 ): StaffMetrics {
     if (fitNote == null) {
         val spacing = size.height / 9f
         val inset = spacing * 0.9f
         return StaffMetrics(spacing, spacing * 2.4f, spacing * 6.4f, inset, size.width - inset)
     }
-    // noteUnits：音符相对下一线的线距数。顶部至少容纳五线（4 线距 + 0.6 边距），
-    // 底部至少 1.2 线距（覆盖中线以上音符的下行符干）；音符超出五线时再扩光晕余量
-    val noteUnits = (fitNote - StaffGeometry.BOTTOM_LINE_STEP) / 2f
+    // noteUnits：音符相对该谱表下一线的线距数
+    val noteUnits = (fitNote - clef.bottomLineStep) / 2f
     val topRoom = (noteUnits + 1.5f).coerceAtLeast(4.6f)
     val bottomRoom = (1.5f - noteUnits).coerceAtLeast(1.2f)
     val spacing = size.height / (topRoom + bottomRoom)
@@ -4627,9 +4765,11 @@ internal fun staffMetrics(
 }
 
 /**
- * 五线谱画布：画五条线、加线、符头（倾斜椭圆）、符干与可选唱名标签。
+ * 五线谱画布：画五条线、谱号示意、加线、符头（倾斜椭圆）、符干与可选唱名标签。
  *
  * @param notes 要画的音符（1 个居中，多个横向均分）
+ * @param clef 谱表类型（高音谱表 / 低音谱表）
+ * @param showClefIcon 是否在谱面左端绘制谱号图标
  * @param selectedNote 选中音符（画光晕并轻微弹跳）
  * @param haloTint 选中光晕颜色；null 使用三级色
  * @param noteColor 音符颜色
@@ -4640,11 +4780,12 @@ internal fun staffMetrics(
  * @param fitNote 非 null 时谱面自适应为「完整五线 + 该 step 音符」的最小布局，
  * 选音变化时平滑跟随（高音低音探索器用）；null 用固定布局
  */
-
 @Composable
 private fun StaffCanvas(
     notes: List<StaffNote>,
     modifier: Modifier = Modifier,
+    clef: Clef = Clef.TREBLE,
+    showClefIcon: Boolean = false,
     selectedNote: StaffNote? = null,
     haloTint: Color? = null,
     noteColor: Color = MaterialTheme.colorScheme.onSurface,
@@ -4654,9 +4795,6 @@ private fun StaffCanvas(
     popKey: Any? = null,
     fitNote: Float? = null,
 ) {
-    // pointerInput 以 notes 为 key 不随重组重启，直接捕获 onNoteClick 会拿到
-    // 旧重组的闭包（互动小课堂里表现为还按上一题的目标音判定）。
-    // rememberUpdatedState 保证手势块里读到的永远是最新回调。
     val currentOnNoteClick by rememberUpdatedState(onNoteClick)
     val lineColor = MaterialTheme.colorScheme.outlineVariant
     val haloColor = haloTint ?: MaterialTheme.colorScheme.tertiary
@@ -4713,24 +4851,23 @@ private fun StaffCanvas(
     Canvas(
         modifier =
         modifier
-            // 画布默认不裁切，任何越界绘制（如动画过冲）都会画到兄弟组件上
             .clipToBounds()
             .then(
                 if (onNoteClick == null) {
                     Modifier
                 } else {
-                    Modifier.pointerInput(notes) {
+                    Modifier.pointerInput(notes, clef) {
                         detectTapGestures { tap ->
                             val metrics =
                                 staffMetrics(
                                     Size(size.width.toFloat(), size.height.toFloat()),
                                     fitNote,
+                                    clef,
                                 )
                             val spacing = metrics.spacing
                             val staffLeft = metrics.staffLeft
                             val staffRight = metrics.staffRight
                             val bottomLineY = metrics.bottomLineY
-                            // 与下方绘制保持同一套坐标公式
                             val hit =
                                 notes.indices.minByOrNull { i ->
                                     val x =
@@ -4738,7 +4875,7 @@ private fun StaffCanvas(
                                             (staffRight - staffLeft) * (i + 1) / (notes.size + 1f)
                                     val y =
                                         bottomLineY -
-                                            StaffGeometry.halfUnitsFromBottomLine(notes[i].step) *
+                                            clef.halfUnitsFromBottomLine(notes[i].step) *
                                             spacing / 2f
                                     abs(tap.x - x) + abs(tap.y - y)
                                 }
@@ -4754,7 +4891,7 @@ private fun StaffCanvas(
                 },
             ),
     ) {
-        val metrics = staffMetrics(size, fitNote)
+        val metrics = staffMetrics(size, fitNote, clef)
         val spacing = metrics.spacing
         val staffLeft = metrics.staffLeft
         val staffRight = metrics.staffRight
@@ -4772,8 +4909,33 @@ private fun StaffCanvas(
             )
         }
 
-        // 音符密集时（如完整音位图）按列宽缩小符头，避免相邻符头粘连
-        val columnWidth = (staffRight - staffLeft) / (notes.size + 1f)
+        // 绘制谱号示意（若开启）
+        if (showClefIcon) {
+            when (clef) {
+                Clef.TREBLE -> {
+                    drawTrebleClefHint(
+                        leftX = staffLeft + spacing * 0.25f,
+                        secondLineY = bottomLineY - spacing,
+                        spacing = spacing,
+                        color = lineColor.copy(alpha = 0.85f),
+                    )
+                }
+
+                Clef.BASS -> {
+                    drawBassClefHint(
+                        leftX = staffLeft + spacing * 0.25f,
+                        fourthLineY = topLineY + spacing,
+                        spacing = spacing,
+                        color = lineColor.copy(alpha = 0.85f),
+                    )
+                }
+            }
+        }
+
+        // 音符密集时按列宽缩小符头，避免相邻符头粘连
+        val noteStartOffset = if (showClefIcon) spacing * 1.6f else 0f
+        val usableLeft = staffLeft + noteStartOffset
+        val columnWidth = (staffRight - usableLeft) / (notes.size + 1f)
         val headScale = (columnWidth / (spacing * 1.5f)).coerceIn(0.55f, 1f)
         val headWidth = spacing * 1.3f * headScale
         val headHeight = spacing * 0.9f * headScale
@@ -4790,12 +4952,12 @@ private fun StaffCanvas(
             if (scale <= 0.01f) return@forEachIndexed
             val alpha = scale.coerceIn(0f, 1f)
 
-            val x = staffLeft + (staffRight - staffLeft) * (index + 1) / (notes.size + 1f)
-            val offset = StaffGeometry.halfUnitsFromBottomLine(note.step)
+            val x = usableLeft + (staffRight - usableLeft) * (index + 1) / (notes.size + 1f)
+            val offset = clef.halfUnitsFromBottomLine(note.step)
             val y = bottomLineY - offset * spacing / 2f
 
             // 加线
-            StaffGeometry.ledgerOffsets(note.step).forEach { ledgerOffset ->
+            clef.ledgerOffsets(note.step).forEach { ledgerOffset ->
                 val ledgerY = bottomLineY - ledgerOffset * spacing / 2f
                 drawLine(
                     color = lineColor.copy(alpha = alpha),
