@@ -38,6 +38,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.Button
@@ -73,7 +75,9 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
@@ -110,7 +114,9 @@ private const val QUIZ_TAB_INDEX = 1
  * 五线谱练习页面：认识钢琴高音谱表的教学 + 双向识谱练习。
  *
  * 「教学」：五线谱基础讲解、线/间结构图解、音名/唱名/简谱对照、
- * 可点按的 do~si 音阶阶梯与钢琴键盘（点按联动查看音名/唱名/谱面位置），
+ * 可点按的 do~si 音阶阶梯与钢琴键盘（点按联动查看音名/唱名/谱面位置）、
+ * 高音低音教学（三个八度键盘与五线谱联动、简谱高低音点、大谱表与中央 C 桥梁）、
+ * 完整五线谱音位图（C4~C6 十五个自然音逐一标记，点按查看名称与位置），
  * 以及逐步引导的「互动小课堂」：点音符作答，答错报音名并给位置提示，答对自动进阶。
  * 「练习」：两种方向 —— 看谱认唱名（上方音符、下方选唱名）、
  * 听名找位置（上方唱名、下方选五线谱上的音符），答错会标出正确答案。
@@ -208,12 +214,12 @@ fun StaffPracticeScreen(
                         slideInHorizontally(
                             tween(320, easing = EmphasizedDecelerate),
                         ) { direction * it / 3 } + fadeIn(tween(260))
-                    ) togetherWith
+                        ) togetherWith
                         (
                             slideOutHorizontally(
                                 tween(220, easing = EmphasizedAccelerate),
                             ) { -direction * it / 3 } + fadeOut(tween(180))
-                        )
+                            )
                 },
                 label = "staffTab",
                 modifier = Modifier.fillMaxSize(),
@@ -224,6 +230,7 @@ fun StaffPracticeScreen(
                             onGoQuiz = { tabIndex = QUIZ_TAB_INDEX },
                             modifier = Modifier.fillMaxSize(),
                         )
+
                     else -> QuizTab(Modifier.fillMaxSize())
                 }
             }
@@ -241,6 +248,8 @@ private fun TeachingTab(
     // 一个八度的音阶阶梯：C4(do) ~ C5(do)
     val teachingNotes = remember { (0..7).map(::StaffNote) }
     var selected by remember { mutableStateOf(StaffNote(0)) }
+    var explorerNote by remember { mutableStateOf(StaffNote(7)) }
+    var chartNote by remember { mutableStateOf(StaffNote(0)) }
 
     Column(
         modifier =
@@ -307,7 +316,7 @@ private fun TeachingTab(
                             slideInVertically(
                                 tween(260, easing = EmphasizedDecelerate),
                             ) { it / 4 }
-                    ) togetherWith fadeOut(tween(140))
+                        ) togetherWith fadeOut(tween(140))
                 },
                 label = "noteDetail",
             ) { note ->
@@ -327,6 +336,47 @@ private fun TeachingTab(
             Text(
                 "白键从左到右就是 do ~ si（C D E F G A B），带圆点的是中央 C。" +
                     "点一点白键，和上面的五线谱对照着看。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        LessonCard(title = "高音与低音") {
+            OctaveExplorer(
+                selected = explorerNote,
+                onSelect = { explorerNote = it },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        LessonCard(title = "完整的五线谱音位图") {
+            FullStaffChart(
+                selected = chartNote,
+                onSelect = { chartNote = it },
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(260.dp),
+            )
+            NoteDetailCard(chartNote)
+            Text(
+                "从中音 do 到高音 do，十五个自然音从低到高排在谱上；高八度的唱名带一个上加点。点一点音符，看它的名称与位置。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        LessonCard(title = "高音与低音：大谱表") {
+            GrandStaffDiagram(
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(220.dp),
+            )
+            Text(
+                "钢琴谱把两行五线谱合在一起用：上面是高音谱表，通常右手弹；下面是低音谱表，通常左手弹。" +
+                    "高音谱号的螺旋绕在第二线，所以也叫 G 谱号；低音谱号两个点夹着第四线，所以也叫 F 谱号。" +
+                    "中央 C 正好夹在两行谱中间的加线上，是钢琴上同一个键。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -632,11 +682,14 @@ private fun NoteDetailCard(note: StaffNote) {
                 ),
                 color = MaterialTheme.colorScheme.onSecondaryContainer,
             )
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.weight(1f),
+            ) {
                 Text(
                     text =
                     "${note.pitchName}${note.octave}" +
-                        if (note.step == 0) " · 中央 C" else "",
+                        if (note.step == 0) " · 中央 C" else " · ${octaveName(note.octave)}音区",
                     style =
                     MaterialTheme.typography.titleSmall.copy(
                         fontWeight = FontWeight.SemiBold,
@@ -649,13 +702,16 @@ private fun NoteDetailCard(note: StaffNote) {
                     color = MaterialTheme.colorScheme.onSecondaryContainer,
                 )
             }
+            JianpuText(
+                note = note,
+                color = MaterialTheme.colorScheme.onSecondaryContainer,
+            )
         }
     }
 }
 
 /** 中文数字（谱面位置描述用，仅覆盖一到五，超出回退为阿拉伯数字）。 */
-private fun cnNumeral(n: Int): String =
-    listOf("一", "二", "三", "四", "五").getOrElse(n - 1) { n.toString() }
+private fun cnNumeral(n: Int): String = listOf("一", "二", "三", "四", "五").getOrElse(n - 1) { n.toString() }
 
 /** 五线谱位置的中文描述（第一线 / 第三间 / 下加一线 / 上加二间…）。 */
 private fun positionText(step: Int): String {
@@ -663,7 +719,7 @@ private fun positionText(step: Int): String {
     return when {
         offset == -1 -> "下加一间"
         offset <= -2 && offset % 2 == 0 -> "下加${cnNumeral(-offset / 2)}线"
-        offset <= -3 -> "下加${cnNumeral((-offset - 1) / 2)}间"
+        offset <= -3 -> "下加${cnNumeral((-offset + 1) / 2)}间"
         offset in 0..8 && offset % 2 == 0 -> "第${cnNumeral(offset / 2 + 1)}线"
         offset in 1..7 -> "第${cnNumeral((offset + 1) / 2)}间"
         offset == 9 -> "上加一间"
@@ -671,6 +727,443 @@ private fun positionText(step: Int): String {
         else -> "上加${cnNumeral((offset - 7) / 2)}间"
     }
 }
+
+// region 高音低音与完整音位图
+
+/** 简谱八度名（低音 / 中音 / 高音 / 倍高音…），超出常见范围按与中音的距离回退。 */
+private fun octaveName(octave: Int): String = when (octave) {
+    2 -> "倍低"
+    3 -> "低"
+    4 -> "中"
+    5 -> "高"
+    6 -> "倍高"
+    else -> if (octave > 6) "高${octave - 4}" else "低${4 - octave}"
+}
+
+/** 简谱八度点：高八度每度一个上加点、低八度每度一个下加点；中音为空。 */
+private fun jianpuDots(note: StaffNote): Int = note.octave - 4
+
+/**
+ * 简谱记法展示：数字唱名 + 八度点（高点在上、低点在下），与简谱书写一致。
+ *
+ * @param note 要展示的音符
+ * @param color 数字与圆点颜色
+ * @param modifier 布局修饰符
+ */
+@Composable
+private fun JianpuText(
+    note: StaffNote,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    val dots = jianpuDots(note)
+    Column(
+        modifier = modifier,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        repeat(dots.coerceAtLeast(0)) {
+            Text(
+                "·",
+                style = MaterialTheme.typography.labelLarge.copy(lineHeight = 10.sp),
+                color = color,
+            )
+        }
+        Text(
+            note.solfege.number.toString(),
+            style =
+            MaterialTheme.typography.headlineSmall.copy(
+                fontWeight = FontWeight.SemiBold,
+            ),
+            color = color,
+        )
+        repeat((-dots).coerceAtLeast(0)) {
+            Text(
+                "·",
+                style = MaterialTheme.typography.labelLarge.copy(lineHeight = 10.sp),
+                color = color,
+            )
+        }
+    }
+}
+
+/**
+ * 高音低音探索器：三个八度（C3 ~ C5）的钢琴键盘 + 高音谱表 + 详情行三方联动。
+ *
+ * 点白键或左右箭头切换音符：键盘高亮、谱上光晕、详情行同步更新，
+ * 直观展示「同一个唱名，高八度在谱上更高、简谱数字上方加点」。
+ *
+ * @param selected 当前选中音符
+ * @param onSelect 选中变化回调，参数为新选中的音符
+ * @param modifier 布局修饰符
+ */
+@Composable
+private fun OctaveExplorer(
+    selected: StaffNote,
+    onSelect: (StaffNote) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val currentOnSelect by rememberUpdatedState(onSelect)
+    val outlineColor = MaterialTheme.colorScheme.outlineVariant
+    val whiteColor = MaterialTheme.colorScheme.surface
+    val middleCColor = MaterialTheme.colorScheme.primaryContainer
+    val selectedFillColor = MaterialTheme.colorScheme.tertiaryContainer
+    val selectedBorderColor = MaterialTheme.colorScheme.tertiary
+    val blackKeyColor = MaterialTheme.colorScheme.onSurface
+    val markerColor = MaterialTheme.colorScheme.primary
+    val textColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val textMeasurer = rememberTextMeasurer()
+    val keyLabelStyle =
+        TextStyle(
+            fontFamily = FontFamily.Serif,
+            fontStyle = FontStyle.Italic,
+            fontWeight = FontWeight.Medium,
+            fontSize = 10.sp,
+        )
+
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        // 三个八度键盘：C3 ~ C5，白键可点按
+        Canvas(
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(110.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures { tap ->
+                        val whiteWidth = size.width / 15f
+                        val index = (tap.x / whiteWidth).toInt().coerceIn(0, 14)
+                        currentOnSelect(StaffNote(index - 7))
+                    }
+                },
+        ) {
+            val whiteWidth = size.width / 15f
+            val labelBand = size.height * 0.24f
+            val keyHeight = size.height - labelBand
+            val corner = CornerRadius(whiteWidth * 0.12f, whiteWidth * 0.12f)
+
+            for (index in 0..14) {
+                val step = index - 7
+                val x = index * whiteWidth
+                val isSelected = selected.step == step
+                val fill =
+                    when {
+                        isSelected -> selectedFillColor
+                        step == 0 -> middleCColor
+                        else -> whiteColor
+                    }
+                drawRoundRect(
+                    color = fill,
+                    topLeft = Offset(x + 1f, 0f),
+                    size = Size(whiteWidth - 2f, keyHeight),
+                    cornerRadius = corner,
+                )
+                drawRoundRect(
+                    color = if (isSelected) selectedBorderColor else outlineColor,
+                    topLeft = Offset(x + 1f, 0f),
+                    size = Size(whiteWidth - 2f, keyHeight),
+                    cornerRadius = corner,
+                    style = Stroke(width = size.height * 0.012f),
+                )
+                // 中央 C 圆点标记
+                if (step == 0 && !isSelected) {
+                    drawCircle(
+                        color = markerColor,
+                        radius = whiteWidth * 0.09f,
+                        center = Offset(x + whiteWidth / 2f, keyHeight * 0.86f),
+                    )
+                }
+                // 只在每个八度的 do 上标唱名，突出八度分组
+                if (step.mod(7) == 0) {
+                    val label =
+                        textMeasurer.measure(
+                            StaffNote(step).solfege.label,
+                            style = keyLabelStyle.copy(color = textColor),
+                        )
+                    drawText(
+                        textLayoutResult = label,
+                        topLeft =
+                        Offset(
+                            x + whiteWidth / 2f - label.size.width / 2f,
+                            keyHeight + (labelBand - label.size.height) / 2f,
+                        ),
+                    )
+                }
+            }
+
+            // 黑键（装饰）：每个八度 C# D# F# G# A#
+            val blackWidth = whiteWidth * 0.58f
+            val blackHeight = keyHeight * 0.58f
+            listOf(0, 1, 3, 4, 5, 7, 8, 10, 11, 12).forEach { afterWhite ->
+                val centerX = (afterWhite + 1) * whiteWidth
+                drawRoundRect(
+                    color = blackKeyColor,
+                    topLeft = Offset(centerX - blackWidth / 2f, 0f),
+                    size = Size(blackWidth, blackHeight),
+                    cornerRadius = CornerRadius(blackWidth * 0.18f, blackWidth * 0.18f),
+                )
+            }
+        }
+
+        // 高音谱表联动：选中音带光晕
+        StaffCanvas(
+            notes = listOf(selected),
+            selectedNote = selected,
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(150.dp),
+        )
+
+        // 详情行：箭头切换 + 简谱/唱名/音名
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            IconButton(
+                onClick = { currentOnSelect(StaffNote((selected.step - 1).coerceAtLeast(-7))) },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowLeft,
+                    contentDescription = "更低的音",
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer,
+                modifier = Modifier.weight(1f),
+            ) {
+                Row(
+                    modifier = Modifier.padding(vertical = 10.dp, horizontal = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    JianpuText(
+                        note = selected,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Text(
+                        text =
+                        "${selected.solfege.label} · ${selected.pitchName}${selected.octave}" +
+                            if (selected.step == 0) "（中央 C）" else "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                }
+            }
+            IconButton(
+                onClick = { currentOnSelect(StaffNote((selected.step + 1).coerceAtMost(14))) },
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowRight,
+                    contentDescription = "更高的音",
+                )
+            }
+        }
+
+        Text(
+            "同一个唱名可以落在不同的八度：往右一个八度就是「高八度」，" +
+                "在五线谱上整体往上挪，简谱数字上方加一个点；往左则低八度，点加在下方。" +
+                "点点键盘或箭头，看看同一个唱名在高处和低处长什么样。",
+            style = MaterialTheme.typography.bodySmall,
+            color = textColor,
+        )
+    }
+}
+
+/**
+ * 完整五线谱音位图：C4 ~ C6 十五个自然音按音高从低到高排在一张高音谱表上，
+ * 每个音符带唱名标签，点按选中后下方详情行同步（详情行展示简谱八度点）。
+ *
+ * @param selected 当前选中音符（画光晕）
+ * @param onSelect 点按音符回调，参数为被点中的音符
+ * @param modifier 布局修饰符
+ */
+@Composable
+private fun FullStaffChart(
+    selected: StaffNote,
+    onSelect: (StaffNote) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val currentOnSelect by rememberUpdatedState(onSelect)
+    StaffCanvas(
+        notes = (0..14).map(::StaffNote),
+        selectedNote = selected,
+        labelFor = { it.solfege.label },
+        onNoteClick = { currentOnSelect(it) },
+        animateEntrance = true,
+        modifier = modifier,
+    )
+}
+
+/**
+ * 大谱表图解：高音谱表 + 低音谱表 + 左侧连接竖线，中央 C 画在中间的共享加线上。
+ *
+ * 高音谱表带 G 谱号螺旋示意、低音谱表带 F 谱号双点示意；
+ * 右侧标注两行谱的左右手分工。
+ *
+ * @param modifier 布局修饰符
+ */
+@Composable
+private fun GrandStaffDiagram(modifier: Modifier = Modifier) {
+    val lineColor = MaterialTheme.colorScheme.outlineVariant
+    val accentColor = MaterialTheme.colorScheme.primary
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle =
+        TextStyle(
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+        )
+
+    Canvas(modifier = modifier) {
+        val spacing = size.height / 12.5f
+        val staffLeft = spacing * 1.2f
+        val staffRight = size.width - spacing * 4.2f
+        val trebleBottomY = spacing * 4.8f
+        val bassTopY = spacing * 7.8f
+        val middleCY = spacing * 6.3f
+        val lineWidth = spacing * 0.09f
+
+        // 高音谱表五条线
+        for (line in 0..4) {
+            val y = trebleBottomY - spacing * line
+            drawLine(lineColor, Offset(staffLeft, y), Offset(staffRight, y), strokeWidth = lineWidth)
+        }
+        // 低音谱表五条线
+        for (line in 0..4) {
+            val y = bassTopY + spacing * line
+            drawLine(lineColor, Offset(staffLeft, y), Offset(staffRight, y), strokeWidth = lineWidth)
+        }
+        // 左侧连接竖线
+        drawLine(
+            lineColor,
+            Offset(staffLeft, trebleBottomY - spacing * 4),
+            Offset(staffLeft, bassTopY + spacing * 4),
+            strokeWidth = lineWidth * 1.6f,
+        )
+
+        // 谱号示意
+        drawTrebleClefHint(
+            centerX = staffLeft + spacing * 1.6f,
+            secondLineY = trebleBottomY - spacing,
+            spacing = spacing,
+            color = accentColor,
+        )
+        drawBassClefHint(
+            centerX = staffLeft + spacing * 1.6f,
+            topLineY = bassTopY,
+            spacing = spacing,
+            color = accentColor,
+        )
+
+        // 中央 C：两行谱中间的共享加线 + 符头
+        val cX = staffLeft + (staffRight - staffLeft) * 0.55f
+        drawLine(
+            lineColor,
+            Offset(cX - spacing * 0.9f, middleCY),
+            Offset(cX + spacing * 0.9f, middleCY),
+            strokeWidth = lineWidth,
+        )
+        drawOval(
+            accentColor,
+            topLeft = Offset(cX - spacing * 0.55f, middleCY - spacing * 0.38f),
+            size = Size(spacing * 1.1f, spacing * 0.76f),
+        )
+        val cLabel = textMeasurer.measure("中央 C", style = labelStyle.copy(color = accentColor))
+        drawText(cLabel, topLeft = Offset(cX + spacing * 1.1f, middleCY - cLabel.size.height / 2f))
+
+        // 右侧分工标注
+        val rightX = staffRight + spacing * 0.4f
+        val trebleLabel =
+            textMeasurer.measure("高音谱表 · 右手", style = labelStyle.copy(color = labelColor))
+        drawText(
+            trebleLabel,
+            topLeft = Offset(rightX, trebleBottomY - spacing * 2 - trebleLabel.size.height / 2f),
+        )
+        val bassLabel =
+            textMeasurer.measure("低音谱表 · 左手", style = labelStyle.copy(color = labelColor))
+        drawText(
+            bassLabel,
+            topLeft = Offset(rightX, bassTopY + spacing * 2 - bassLabel.size.height / 2f),
+        )
+    }
+}
+
+/** 高音谱号（G 谱号）示意：以第二线为中心的螺旋 + 上下延伸的竖笔。 */
+private fun DrawScope.drawTrebleClefHint(
+    centerX: Float,
+    secondLineY: Float,
+    spacing: Float,
+    color: Color,
+) {
+    val path =
+        Path().apply {
+            moveTo(centerX, secondLineY - spacing * 2.6f)
+            cubicTo(
+                centerX + spacing * 1.1f,
+                secondLineY - spacing * 1.6f,
+                centerX + spacing * 1.0f,
+                secondLineY + spacing * 1.4f,
+                centerX,
+                secondLineY + spacing * 2.2f,
+            )
+            cubicTo(
+                centerX - spacing * 1.0f,
+                secondLineY + spacing * 2.8f,
+                centerX - spacing * 1.1f,
+                secondLineY - spacing * 0.9f,
+                centerX,
+                secondLineY - spacing * 1.1f,
+            )
+            cubicTo(
+                centerX + spacing * 0.8f,
+                secondLineY - spacing * 1.2f,
+                centerX + spacing * 0.8f,
+                secondLineY + spacing * 0.6f,
+                centerX,
+                secondLineY + spacing * 0.5f,
+            )
+        }
+    drawPath(path, color, style = Stroke(width = spacing * 0.14f, cap = StrokeCap.Round))
+}
+
+/** 低音谱号（F 谱号）示意：从第四线起笔的逗号形弧 + 夹住第四线的两个圆点。 */
+private fun DrawScope.drawBassClefHint(
+    centerX: Float,
+    topLineY: Float,
+    spacing: Float,
+    color: Color,
+) {
+    val fourthLineY = topLineY + spacing * 3
+    val path =
+        Path().apply {
+            moveTo(centerX - spacing * 0.3f, fourthLineY)
+            cubicTo(
+                centerX + spacing * 0.9f,
+                fourthLineY - spacing * 1.3f,
+                centerX + spacing * 1.5f,
+                fourthLineY - spacing * 0.2f,
+                centerX + spacing * 1.2f,
+                fourthLineY + spacing * 1.2f,
+            )
+            cubicTo(
+                centerX + spacing * 0.9f,
+                fourthLineY + spacing * 1.8f,
+                centerX + spacing * 0.1f,
+                fourthLineY + spacing * 2.6f,
+                centerX - spacing * 0.5f,
+                fourthLineY + spacing * 3.0f,
+            )
+        }
+    drawPath(path, color, style = Stroke(width = spacing * 0.16f, cap = StrokeCap.Round))
+    // 夹住第四线的两个点
+    drawCircle(color, radius = spacing * 0.16f, center = Offset(centerX + spacing * 1.7f, fourthLineY - spacing * 0.5f))
+    drawCircle(color, radius = spacing * 0.16f, center = Offset(centerX + spacing * 1.7f, fourthLineY + spacing * 0.5f))
+}
+
+// endregion
 
 // region 互动小课堂
 
@@ -848,7 +1341,7 @@ private fun GuidedLesson(
                             slideInVertically(
                                 tween(260, easing = EmphasizedDecelerate),
                             ) { it / 5 }
-                    ) togetherWith fadeOut(tween(140))
+                        ) togetherWith fadeOut(tween(140))
                 },
                 label = "lessonPrompt",
             ) { index ->
@@ -888,11 +1381,14 @@ private fun GuidedLesson(
                 val feedback: Pair<String, Color>? =
                     when {
                         justCorrect -> praise to MaterialTheme.colorScheme.primary
+
                         wrong != null ->
                             "那是 ${wrong.solfege.label}（${positionText(wrong.step)}），再找找看。" to
                                 MaterialTheme.colorScheme.error
+
                         attempts > 0 && step.hint != null ->
                             step.hint to MaterialTheme.colorScheme.onSurfaceVariant
+
                         else -> null
                     }
                 AnimatedContent(
@@ -923,13 +1419,12 @@ private fun optionState(
     note: StaffNote,
     question: StaffQuiz.Question,
     picked: StaffNote?,
-): OptionState =
-    when {
-        picked == null -> OptionState.Idle
-        note == question.answer -> OptionState.Correct
-        note == picked -> OptionState.Wrong
-        else -> OptionState.Dimmed
-    }
+): OptionState = when {
+    picked == null -> OptionState.Idle
+    note == question.answer -> OptionState.Correct
+    note == picked -> OptionState.Wrong
+    else -> OptionState.Dimmed
+}
 
 @Composable
 private fun QuizTab(modifier: Modifier = Modifier) {
@@ -1006,12 +1501,12 @@ private fun QuizTab(modifier: Modifier = Modifier) {
                     slideInHorizontally(
                         tween(320, easing = EmphasizedDecelerate),
                     ) { it / 3 } + fadeIn(tween(260))
-                ) togetherWith
+                    ) togetherWith
                     (
                         slideOutHorizontally(
                             tween(220, easing = EmphasizedAccelerate),
                         ) { -it / 3 } + fadeOut(tween(180))
-                    )
+                        )
             },
             label = "quizQuestion",
         ) { current ->
@@ -1234,6 +1729,7 @@ private fun rememberFeedbackModifier(state: OptionState): Modifier {
                 pop.animateTo(1.06f, tween(100))
                 pop.animateTo(1f, spring(dampingRatio = Spring.DampingRatioLowBouncy))
             }
+
             OptionState.Wrong -> {
                 shake.animateTo(
                     0f,
@@ -1247,6 +1743,7 @@ private fun rememberFeedbackModifier(state: OptionState): Modifier {
                     },
                 )
             }
+
             else -> Unit
         }
     }
@@ -1507,8 +2004,11 @@ private fun StaffCanvas(
             )
         }
 
-        val headWidth = spacing * 1.3f
-        val headHeight = spacing * 0.9f
+        // 音符密集时（如完整音位图）按列宽缩小符头，避免相邻符头粘连
+        val columnWidth = (staffRight - staffLeft) / (notes.size + 1f)
+        val headScale = (columnWidth / (spacing * 1.5f)).coerceIn(0.55f, 1f)
+        val headWidth = spacing * 1.3f * headScale
+        val headHeight = spacing * 0.9f * headScale
         notes.forEachIndexed { index, note ->
             // 入场缩放：级联 × 出题弹跳 × 选中弹跳
             val cascadeT =
@@ -1572,19 +2072,20 @@ private fun StaffCanvas(
                 )
             }
 
-            // 唱名标签
+            // 唱名标签：多音符时纵向错开（偶数行贴底、奇数行上移），避免相邻标签重叠
             if (labelFor != null) {
                 val layout =
                     textMeasurer.measure(
                         labelFor(note),
                         style = labelStyle.copy(color = labelColor.copy(alpha = alpha)),
                     )
+                val row = if (notes.size > 8) index % 2 else 0
                 drawText(
                     textLayoutResult = layout,
                     topLeft =
                     Offset(
                         x - layout.size.width / 2f,
-                        size.height - layout.size.height,
+                        size.height - layout.size.height * (row + 1f),
                     ),
                 )
             }
