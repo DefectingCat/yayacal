@@ -1198,12 +1198,14 @@ private const val BASS_DOTS_MID_Y = 6.064f
 private const val BASS_SVG_OFFSET_X = -230.9546f
 private const val BASS_SVG_OFFSET_Y = -533.6597f
 
+/** 大谱表中高低音谱号相对于五线谱线距的缩放比例（使谱号紧凑、协调且不超出卡片范围）。 */
+private const val CLEF_SCALE = 0.75f
+
 private val trebleClefPath: Path by lazy { PathParser().parsePathString(TREBLE_CLEF_PATH_DATA).toPath() }
 private val bassClefPath: Path by lazy { PathParser().parsePathString(BASS_CLEF_PATH_DATA).toPath() }
 
 /**
- * 高音谱号（G 谱号）示意：真实字形填充绘制，螺旋中心压在第二线（G 线）上，
- * 全高约 6.8 个线距（顶部卷尾高出顶线约 1.3 个线距，尾钩低于底线约 1.5 个线距）。
+ * 高音谱号（G 谱号）示意：真实字形填充绘制，螺旋中心压在第二线（G 线）上。
  *
  * @param leftX 谱号左缘 x 坐标
  * @param secondLineY 五线谱第二线（自底向上，G 线）的 y 坐标
@@ -1216,7 +1218,7 @@ private fun DrawScope.drawTrebleClefHint(
     spacing: Float,
     color: Color,
 ) {
-    val scale = spacing / TREBLE_UNITS_PER_SPACE
+    val scale = (spacing / TREBLE_UNITS_PER_SPACE) * CLEF_SCALE
     withTransform({
         translate(leftX, secondLineY - TREBLE_SPIRAL_CENTER_Y * scale)
         scale(scale, scale, Offset.Zero)
@@ -1226,8 +1228,7 @@ private fun DrawScope.drawTrebleClefHint(
 }
 
 /**
- * 低音谱号（F 谱号）示意：真实字形填充绘制，两个圆点纵向间距恰为一个线距、
- * 分别贴住第四线（自底向上，F 线）上下两侧。
+ * 低音谱号（F 谱号）示意：真实字形填充绘制，两个圆点分别贴住第四线（自底向上，F 线）上下两侧。
  *
  * @param leftX 谱号左缘 x 坐标
  * @param fourthLineY 五线谱第四线（自底向上，F 线）的 y 坐标
@@ -1240,7 +1241,7 @@ private fun DrawScope.drawBassClefHint(
     spacing: Float,
     color: Color,
 ) {
-    val scale = spacing / BASS_DOT_SPAN
+    val scale = (spacing / BASS_DOT_SPAN) * CLEF_SCALE
     withTransform({
         translate(leftX, fourthLineY - BASS_DOTS_MID_Y * scale)
         scale(scale, scale, Offset.Zero)
