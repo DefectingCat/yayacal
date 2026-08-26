@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -65,10 +66,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
@@ -103,7 +106,8 @@ private const val QUIZ_TAB_INDEX = 1
 /**
  * 五线谱练习页面：认识钢琴高音谱表的教学 + 双向识谱练习。
  *
- * 「教学」：五线谱基础讲解 + 可点按的 do~si 音阶阶梯（点音符看音名/唱名/位置）。
+ * 「教学」：五线谱基础讲解、线/间结构图解、音名/唱名/简谱对照、
+ * 可点按的 do~si 音阶阶梯与钢琴键盘（点按联动查看音名/唱名/谱面位置）。
  * 「练习」：两种方向 —— 看谱认唱名（上方音符、下方选唱名）、
  * 听名找位置（上方唱名、下方选五线谱上的音符），答错会标出正确答案。
  * 每个交互都有克制的过渡动画：Tab/题目滑动切换、选项逐个弹入、
@@ -241,6 +245,30 @@ private fun TeachingTab(modifier: Modifier = Modifier) {
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            Text(
+                "一个音符由符头和符干组成（本页用的是四分音符）。符干朝向有规律：" +
+                    "第三线以下的音符符干朝上，第三线及以上朝下。",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
+        LessonCard(title = "五线谱的结构") {
+            StaffStructureDiagram(
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(160.dp),
+            )
+        }
+
+        LessonCard(title = "音名、唱名与简谱") {
+            NoteNameTable()
+            Text(
+                "固定 do 唱名法里，do 永远对应音名 C（简谱 1）。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
 
         LessonCard(title = "点一点，认识 do ~ si") {
@@ -272,10 +300,28 @@ private fun TeachingTab(modifier: Modifier = Modifier) {
             }
         }
 
+        LessonCard(title = "在钢琴上找到它们") {
+            PianoKeyboard(
+                selected = selected,
+                onSelect = { selected = it },
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(130.dp),
+            )
+            Text(
+                "白键从左到右就是 do ~ si（C D E F G A B），带圆点的是中央 C。" +
+                    "点一点白键，和上面的五线谱对照着看。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         LessonCard(title = "位置口诀") {
             MnemonicRow("线上音（一线 → 五线）", "mi、sol、si、re、fa")
             MnemonicRow("间上音（一间 → 四间）", "fa、la、do、mi")
             MnemonicRow("下加一线", "do，就是钢琴上的中央 C")
+            MnemonicRow("数字定位法", "从下加一线开始数 1（do），像爬楼梯一样一间一线往上数：2、3、4、5、6、7")
         }
 
         Spacer(modifier = Modifier.height(8.dp))
@@ -332,6 +378,223 @@ private fun MnemonicRow(
     }
 }
 
+/**
+ * 五线谱结构图解：左侧标注五条线（第五线 → 第一线），右侧标注四个间（第四间 → 第一间）。
+ */
+@Composable
+private fun StaffStructureDiagram(modifier: Modifier = Modifier) {
+    val lineColor = MaterialTheme.colorScheme.outlineVariant
+    val lineLabelColor = MaterialTheme.colorScheme.primary
+    val spaceLabelColor = MaterialTheme.colorScheme.tertiary
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle =
+        TextStyle(
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+        )
+
+    Canvas(modifier = modifier) {
+        val spacing = size.height / 6.4f
+        val topLineY = spacing * 1.2f
+        val staffLeft = spacing * 3.6f
+        val staffRight = size.width - spacing * 3.6f
+
+        // 五条线 + 左侧线名
+        for (line in 0..4) {
+            val y = topLineY + spacing * line
+            drawLine(
+                color = lineColor,
+                start = Offset(staffLeft, y),
+                end = Offset(staffRight, y),
+                strokeWidth = spacing * 0.09f,
+            )
+            val label =
+                textMeasurer.measure(
+                    "第${cnNumeral(5 - line)}线",
+                    style = labelStyle.copy(color = lineLabelColor),
+                )
+            drawText(
+                textLayoutResult = label,
+                topLeft =
+                Offset(
+                    staffLeft - label.size.width - spacing * 0.3f,
+                    y - label.size.height / 2f,
+                ),
+            )
+        }
+
+        // 四个间 + 右侧间名
+        for (space in 0..3) {
+            val y = topLineY + spacing * (space + 0.5f)
+            val label =
+                textMeasurer.measure(
+                    "第${cnNumeral(4 - space)}间",
+                    style = labelStyle.copy(color = spaceLabelColor),
+                )
+            drawText(
+                textLayoutResult = label,
+                topLeft =
+                Offset(
+                    staffRight + spacing * 0.3f,
+                    y - label.size.height / 2f,
+                ),
+            )
+        }
+    }
+}
+
+/**
+ * 音名 / 唱名 / 简谱三行对照表（C 大调固定 do）。
+ */
+@Composable
+private fun NoteNameTable() {
+    val rows =
+        listOf(
+            Triple("音名", listOf("C", "D", "E", "F", "G", "A", "B"), false),
+            Triple("唱名", listOf("do", "re", "mi", "fa", "sol", "la", "si"), true),
+            Triple("简谱", listOf("1", "2", "3", "4", "5", "6", "7"), false),
+        )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        rows.forEach { (label, cells, serif) ->
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.width(44.dp),
+                )
+                cells.forEach { cell ->
+                    Text(
+                        text = cell,
+                        style =
+                        MaterialTheme.typography.bodyMedium.copy(
+                            fontFamily = if (serif) FontFamily.Serif else null,
+                            fontStyle = if (serif) FontStyle.Italic else null,
+                            fontWeight = FontWeight.SemiBold,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 一个八度的钢琴键盘（C4 ~ C5）：白键可点按，与五线谱阶梯联动选中。
+ *
+ * 黑键仅作装饰（本页只教自然音）；中央 C 键带底色与圆点标记。
+ *
+ * @param selected 当前选中音符（决定哪个白键高亮）
+ * @param onSelect 点按白键回调，参数为对应音符
+ * @param modifier 布局修饰符
+ */
+@Composable
+private fun PianoKeyboard(
+    selected: StaffNote,
+    onSelect: (StaffNote) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val outlineColor = MaterialTheme.colorScheme.outlineVariant
+    val whiteColor = MaterialTheme.colorScheme.surface
+    val middleCColor = MaterialTheme.colorScheme.primaryContainer
+    val selectedFillColor = MaterialTheme.colorScheme.tertiaryContainer
+    val selectedBorderColor = MaterialTheme.colorScheme.tertiary
+    val selectedLabelColor = MaterialTheme.colorScheme.onTertiaryContainer
+    val blackKeyColor = MaterialTheme.colorScheme.onSurface
+    val markerColor = MaterialTheme.colorScheme.primary
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle =
+        TextStyle(
+            fontFamily = FontFamily.Serif,
+            fontStyle = FontStyle.Italic,
+            fontWeight = FontWeight.Medium,
+            fontSize = 11.sp,
+        )
+
+    Canvas(
+        modifier =
+        modifier.pointerInput(Unit) {
+            detectTapGestures { tap ->
+                val whiteWidth = size.width / 8f
+                val index = (tap.x / whiteWidth).toInt().coerceIn(0, 7)
+                onSelect(StaffNote(index))
+            }
+        },
+    ) {
+        val whiteWidth = size.width / 8f
+        val labelBand = size.height * 0.22f
+        val keyHeight = size.height - labelBand
+        val corner = CornerRadius(whiteWidth * 0.12f, whiteWidth * 0.12f)
+
+        // 白键
+        for (index in 0..7) {
+            val x = index * whiteWidth
+            val isSelected = selected.step == index
+            val fill =
+                when {
+                    isSelected -> selectedFillColor
+                    index == 0 -> middleCColor
+                    else -> whiteColor
+                }
+            drawRoundRect(
+                color = fill,
+                topLeft = Offset(x + 1f, 0f),
+                size = Size(whiteWidth - 2f, keyHeight),
+                cornerRadius = corner,
+            )
+            drawRoundRect(
+                color = if (isSelected) selectedBorderColor else outlineColor,
+                topLeft = Offset(x + 1f, 0f),
+                size = Size(whiteWidth - 2f, keyHeight),
+                cornerRadius = corner,
+                style = Stroke(width = size.height * 0.012f),
+            )
+            // 中央 C 圆点标记
+            if (index == 0 && !isSelected) {
+                drawCircle(
+                    color = markerColor,
+                    radius = whiteWidth * 0.07f,
+                    center = Offset(x + whiteWidth / 2f, keyHeight * 0.88f),
+                )
+            }
+            // 唱名标签
+            val label =
+                textMeasurer.measure(
+                    StaffNote(index).solfege.label,
+                    style =
+                    labelStyle.copy(
+                        color = if (isSelected) selectedLabelColor else labelColor,
+                    ),
+                )
+            drawText(
+                textLayoutResult = label,
+                topLeft =
+                Offset(
+                    x + whiteWidth / 2f - label.size.width / 2f,
+                    keyHeight + (labelBand - label.size.height) / 2f,
+                ),
+            )
+        }
+
+        // 黑键（装饰，覆盖在白键缝隙上）：C# D# F# G# A#
+        val blackWidth = whiteWidth * 0.58f
+        val blackHeight = keyHeight * 0.58f
+        listOf(0, 1, 3, 4, 5).forEach { afterWhite ->
+            val centerX = (afterWhite + 1) * whiteWidth
+            drawRoundRect(
+                color = blackKeyColor,
+                topLeft = Offset(centerX - blackWidth / 2f, 0f),
+                size = Size(blackWidth, blackHeight),
+                cornerRadius = CornerRadius(blackWidth * 0.18f, blackWidth * 0.18f),
+            )
+        }
+    }
+}
+
 @Composable
 private fun NoteDetailCard(note: StaffNote) {
     Surface(
@@ -375,18 +638,22 @@ private fun NoteDetailCard(note: StaffNote) {
     }
 }
 
+/** 中文数字（谱面位置描述用，仅覆盖一到五，超出回退为阿拉伯数字）。 */
+private fun cnNumeral(n: Int): String =
+    listOf("一", "二", "三", "四", "五").getOrElse(n - 1) { n.toString() }
+
 /** 五线谱位置的中文描述（第一线 / 第三间 / 下加一线 / 上加二间…）。 */
 private fun positionText(step: Int): String {
     val offset = StaffGeometry.halfUnitsFromBottomLine(step)
     return when {
         offset == -1 -> "下加一间"
-        offset <= -2 && offset % 2 == 0 -> "下加${-offset / 2}线"
-        offset <= -3 -> "下加${(-offset - 1) / 2}间"
-        offset in 0..8 && offset % 2 == 0 -> "第${offset / 2 + 1}线"
-        offset in 1..7 -> "第${(offset + 1) / 2}间"
+        offset <= -2 && offset % 2 == 0 -> "下加${cnNumeral(-offset / 2)}线"
+        offset <= -3 -> "下加${cnNumeral((-offset - 1) / 2)}间"
+        offset in 0..8 && offset % 2 == 0 -> "第${cnNumeral(offset / 2 + 1)}线"
+        offset in 1..7 -> "第${cnNumeral((offset + 1) / 2)}间"
         offset == 9 -> "上加一间"
-        offset % 2 == 0 -> "上加${(offset - 8) / 2}线"
-        else -> "上加${(offset - 7) / 2}间"
+        offset % 2 == 0 -> "上加${cnNumeral((offset - 8) / 2)}线"
+        else -> "上加${cnNumeral((offset - 7) / 2)}间"
     }
 }
 
