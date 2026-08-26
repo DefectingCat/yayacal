@@ -71,6 +71,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -98,6 +99,7 @@ import plus.rua.project.StaffNote
 import plus.rua.project.StaffQuiz
 import plus.rua.project.StaffQuiz.Direction
 import kotlin.math.abs
+import kotlin.math.floor
 import kotlin.random.Random
 
 // M3 emphasized 缓动（本仓 compose 版本无内置常量，按 token 手写贝塞尔）
@@ -730,9 +732,6 @@ private fun positionText(step: Int): String {
 
 // region 高音低音与完整音位图
 
-/** 高音低音探索器覆盖的 step 区间（C3 ~ C5），供谱面自适应布局使用。 */
-private val EXPLORER_STEPS = -7..7
-
 /** 简谱八度名（低音 / 中音 / 高音 / 倍高音…），超出常见范围按与中音的距离回退。 */
 private fun octaveName(octave: Int): String = when (octave) {
     2 -> "倍低"
@@ -823,6 +822,14 @@ private fun OctaveExplorer(
             fontSize = 10.sp,
         )
 
+    // 谱面视窗跟随选中音所在八度（C3 / C4 / C5 三组），跨八度切换时滑动缩放过渡，
+    // 保证任何可选音连同加线、光晕都完整落在画布内，且画布高度始终被充分利用
+    val windowStart by animateFloatAsState(
+        targetValue = floor(selected.step / 7f) * 7f,
+        animationSpec = tween(350, easing = EmphasizedDecelerate),
+        label = "octaveWindow",
+    )
+
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -909,10 +916,10 @@ private fun OctaveExplorer(
             }
         }
 
-        // 高音谱表联动：选中音带光晕
+        // 高音谱表联动：选中音带光晕，谱面视窗跟随其所在八度
         StaffCanvas(
             notes = listOf(selected),
-            fitSteps = EXPLORER_STEPS,
+            fitWindowStart = windowStart,
             selectedNote = selected,
             modifier =
             Modifier
@@ -956,8 +963,9 @@ private fun OctaveExplorer(
                     )
                 }
             }
+            // 箭头区间与键盘一致（C3 ~ C5），不允许选到键盘上没有的音
             IconButton(
-                onClick = { currentOnSelect(StaffNote((selected.step + 1).coerceAtMost(14))) },
+                onClick = { currentOnSelect(StaffNote((selected.step + 1).coerceAtMost(7))) },
             ) {
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowRight,
@@ -1876,7 +1884,7 @@ private fun StaffOption(
 // region 五线谱画布
 
 /** 五线谱画布的纵向布局度量：线距、五线位置与左右边界。 */
-private class StaffMetrics(
+internal class StaffMetrics(
     val spacing: Float,
     val topLineY: Float,
     val bottomLineY: Float,
@@ -1885,23 +1893,24 @@ private class StaffMetrics(
 )
 
 /**
- * 计算五线谱画布纵向布局。[fitSteps] 为 null 用传统固定布局（容纳 C4~C6）；
- * 非 null 按区间最高/最低音的谱面偏移自动定线距与谱位，上下各留符头余量，
- * 使极端音（如低八度在下加三、四线）与加线完整可见。
+ * 计算五线谱画布纵向布局。[fitWindowStart] 为 null 用传统固定布局（容纳 C4~C6）；
+ * 非 null 表示八度视窗的起始 step（视窗覆盖其后一个八度），按窗内最高/最低音
+ * 自动定线距与谱位，四周预留符头与选中光晕余量，使窗内任何音及其加线完整可见。
+ * 余量对起始 step 连续，视窗跨八度切换时可做滑动缩放动画。
  */
-private fun staffMetrics(
+internal fun staffMetrics(
     size: Size,
-    fitSteps: IntRange?,
+    fitWindowStart: Float?,
 ): StaffMetrics {
-    if (fitSteps == null) {
+    if (fitWindowStart == null) {
         val spacing = size.height / 9f
         val inset = spacing * 0.9f
         return StaffMetrics(spacing, spacing * 2.4f, spacing * 6.4f, inset, size.width - inset)
     }
-    val maxOffset = fitSteps.last - StaffGeometry.BOTTOM_LINE_STEP
-    val minOffset = fitSteps.first - StaffGeometry.BOTTOM_LINE_STEP
-    val topRoom = (maxOffset / 2f + 0.5f).coerceAtLeast(2f)
-    val bottomRoom = (-minOffset / 2f + 0.5f).coerceAtLeast(2.6f)
+    // 窗内最高音半线距偏移为 w+5、最低音为 w-2（相对下一线）；顶部余量另需
+    // 覆盖五线本身（4 个线距 + 边距），底部余量覆盖最低音的加线与光晕
+    val topRoom = ((fitWindowStart + 5f) / 2f + 1.5f).coerceAtLeast(4.6f)
+    val bottomRoom = ((2f - fitWindowStart) / 2f + 1.5f).coerceAtLeast(1f)
     val spacing = size.height / (topRoom + bottomRoom)
     val bottomLineY = spacing * topRoom
     val inset = spacing * 0.9f
@@ -1919,8 +1928,8 @@ private fun staffMetrics(
  * @param onNoteClick 点按音符回调；null 不可点按
  * @param animateEntrance true 时音符从左到右级联入场（教学阶梯用）
  * @param popKey 非 null 且变化时，音符轻微弹跳入场（练习出题用）
- * @param fitSteps 非 null 时按该 step 区间的最高/最低音自动调整线距与谱位，
- * 保证极端高低音及其加线不被裁切（高音低音探索器的低八度用）；null 用固定布局
+ * @param fitWindowStart 非 null 时谱面按「起始 step + 一个八度」的视窗自适应布局，
+ * 视窗跟随选中音所在八度滑动缩放（高音低音探索器用）；null 用固定布局
  */
 
 @Composable
@@ -1934,7 +1943,7 @@ private fun StaffCanvas(
     onNoteClick: ((StaffNote) -> Unit)? = null,
     animateEntrance: Boolean = false,
     popKey: Any? = null,
-    fitSteps: IntRange? = null,
+    fitWindowStart: Float? = null,
 ) {
     // pointerInput 以 notes 为 key 不随重组重启，直接捕获 onNoteClick 会拿到
     // 旧重组的闭包（互动小课堂里表现为还按上一题的目标音判定）。
@@ -1994,46 +2003,49 @@ private fun StaffCanvas(
 
     Canvas(
         modifier =
-        modifier.then(
-            if (onNoteClick == null) {
-                Modifier
-            } else {
-                Modifier.pointerInput(notes) {
-                    detectTapGestures { tap ->
-                        val metrics =
-                            staffMetrics(
-                                Size(size.width.toFloat(), size.height.toFloat()),
-                                fitSteps,
-                            )
-                        val spacing = metrics.spacing
-                        val staffLeft = metrics.staffLeft
-                        val staffRight = metrics.staffRight
-                        val bottomLineY = metrics.bottomLineY
-                        // 与下方绘制保持同一套坐标公式
-                        val hit =
-                            notes.indices.minByOrNull { i ->
-                                val x =
-                                    staffLeft +
-                                        (staffRight - staffLeft) * (i + 1) / (notes.size + 1f)
-                                val y =
-                                    bottomLineY -
-                                        StaffGeometry.halfUnitsFromBottomLine(notes[i].step) *
-                                        spacing / 2f
-                                abs(tap.x - x) + abs(tap.y - y)
-                            }
-                        if (hit != null) {
-                            val columnWidth = (staffRight - staffLeft) / (notes.size + 1f)
-                            val x = staffLeft + columnWidth * (hit + 1)
-                            if (abs(tap.x - x) < columnWidth) {
-                                currentOnNoteClick?.invoke(notes[hit])
+        modifier
+            // 画布默认不裁切，任何越界绘制（如动画过冲）都会画到兄弟组件上
+            .clipToBounds()
+            .then(
+                if (onNoteClick == null) {
+                    Modifier
+                } else {
+                    Modifier.pointerInput(notes) {
+                        detectTapGestures { tap ->
+                            val metrics =
+                                staffMetrics(
+                                    Size(size.width.toFloat(), size.height.toFloat()),
+                                    fitWindowStart,
+                                )
+                            val spacing = metrics.spacing
+                            val staffLeft = metrics.staffLeft
+                            val staffRight = metrics.staffRight
+                            val bottomLineY = metrics.bottomLineY
+                            // 与下方绘制保持同一套坐标公式
+                            val hit =
+                                notes.indices.minByOrNull { i ->
+                                    val x =
+                                        staffLeft +
+                                            (staffRight - staffLeft) * (i + 1) / (notes.size + 1f)
+                                    val y =
+                                        bottomLineY -
+                                            StaffGeometry.halfUnitsFromBottomLine(notes[i].step) *
+                                            spacing / 2f
+                                    abs(tap.x - x) + abs(tap.y - y)
+                                }
+                            if (hit != null) {
+                                val columnWidth = (staffRight - staffLeft) / (notes.size + 1f)
+                                val x = staffLeft + columnWidth * (hit + 1)
+                                if (abs(tap.x - x) < columnWidth) {
+                                    currentOnNoteClick?.invoke(notes[hit])
+                                }
                             }
                         }
                     }
-                }
-            },
-        ),
+                },
+            ),
     ) {
-        val metrics = staffMetrics(size, fitSteps)
+        val metrics = staffMetrics(size, fitWindowStart)
         val spacing = metrics.spacing
         val staffLeft = metrics.staffLeft
         val staffRight = metrics.staffRight
