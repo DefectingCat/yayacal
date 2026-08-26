@@ -64,6 +64,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1394,6 +1395,10 @@ private fun StaffCanvas(
     animateEntrance: Boolean = false,
     popKey: Any? = null,
 ) {
+    // pointerInput 以 notes 为 key 不随重组重启，直接捕获 onNoteClick 会拿到
+    // 旧重组的闭包（互动小课堂里表现为还按上一题的目标音判定）。
+    // rememberUpdatedState 保证手势块里读到的永远是最新回调。
+    val currentOnNoteClick by rememberUpdatedState(onNoteClick)
     val lineColor = MaterialTheme.colorScheme.outlineVariant
     val haloColor = haloTint ?: MaterialTheme.colorScheme.tertiary
     val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -1474,7 +1479,7 @@ private fun StaffCanvas(
                             val columnWidth = (staffRight - staffLeft) / (notes.size + 1f)
                             val x = staffLeft + columnWidth * (hit + 1)
                             if (abs(tap.x - x) < columnWidth) {
-                                onNoteClick(notes[hit])
+                                currentOnNoteClick?.invoke(notes[hit])
                             }
                         }
                     }
