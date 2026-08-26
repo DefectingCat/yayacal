@@ -730,6 +730,9 @@ private fun positionText(step: Int): String {
 
 // region 高音低音与完整音位图
 
+/** 高音低音探索器覆盖的 step 区间（C3 ~ C5），供谱面自适应布局使用。 */
+private val EXPLORER_STEPS = -7..7
+
 /** 简谱八度名（低音 / 中音 / 高音 / 倍高音…），超出常见范围按与中音的距离回退。 */
 private fun octaveName(octave: Int): String = when (octave) {
     2 -> "倍低"
@@ -909,11 +912,12 @@ private fun OctaveExplorer(
         // 高音谱表联动：选中音带光晕
         StaffCanvas(
             notes = listOf(selected),
+            fitSteps = EXPLORER_STEPS,
             selectedNote = selected,
             modifier =
             Modifier
                 .fillMaxWidth()
-                .height(150.dp),
+                .height(200.dp),
         )
 
         // 详情行：箭头切换 + 简谱/唱名/音名
@@ -1871,6 +1875,39 @@ private fun StaffOption(
 
 // region 五线谱画布
 
+/** 五线谱画布的纵向布局度量：线距、五线位置与左右边界。 */
+private class StaffMetrics(
+    val spacing: Float,
+    val topLineY: Float,
+    val bottomLineY: Float,
+    val staffLeft: Float,
+    val staffRight: Float,
+)
+
+/**
+ * 计算五线谱画布纵向布局。[fitSteps] 为 null 用传统固定布局（容纳 C4~C6）；
+ * 非 null 按区间最高/最低音的谱面偏移自动定线距与谱位，上下各留符头余量，
+ * 使极端音（如低八度在下加三、四线）与加线完整可见。
+ */
+private fun staffMetrics(
+    size: Size,
+    fitSteps: IntRange?,
+): StaffMetrics {
+    if (fitSteps == null) {
+        val spacing = size.height / 9f
+        val inset = spacing * 0.9f
+        return StaffMetrics(spacing, spacing * 2.4f, spacing * 6.4f, inset, size.width - inset)
+    }
+    val maxOffset = fitSteps.last - StaffGeometry.BOTTOM_LINE_STEP
+    val minOffset = fitSteps.first - StaffGeometry.BOTTOM_LINE_STEP
+    val topRoom = (maxOffset / 2f + 0.5f).coerceAtLeast(2f)
+    val bottomRoom = (-minOffset / 2f + 0.5f).coerceAtLeast(2.6f)
+    val spacing = size.height / (topRoom + bottomRoom)
+    val bottomLineY = spacing * topRoom
+    val inset = spacing * 0.9f
+    return StaffMetrics(spacing, bottomLineY - spacing * 4f, bottomLineY, inset, size.width - inset)
+}
+
 /**
  * 五线谱画布：画五条线、加线、符头（倾斜椭圆）、符干与可选唱名标签。
  *
@@ -1882,7 +1919,10 @@ private fun StaffOption(
  * @param onNoteClick 点按音符回调；null 不可点按
  * @param animateEntrance true 时音符从左到右级联入场（教学阶梯用）
  * @param popKey 非 null 且变化时，音符轻微弹跳入场（练习出题用）
+ * @param fitSteps 非 null 时按该 step 区间的最高/最低音自动调整线距与谱位，
+ * 保证极端高低音及其加线不被裁切（高音低音探索器的低八度用）；null 用固定布局
  */
+
 @Composable
 private fun StaffCanvas(
     notes: List<StaffNote>,
@@ -1894,6 +1934,7 @@ private fun StaffCanvas(
     onNoteClick: ((StaffNote) -> Unit)? = null,
     animateEntrance: Boolean = false,
     popKey: Any? = null,
+    fitSteps: IntRange? = null,
 ) {
     // pointerInput 以 notes 为 key 不随重组重启，直接捕获 onNoteClick 会拿到
     // 旧重组的闭包（互动小课堂里表现为还按上一题的目标音判定）。
@@ -1959,10 +2000,15 @@ private fun StaffCanvas(
             } else {
                 Modifier.pointerInput(notes) {
                     detectTapGestures { tap ->
-                        val spacing = size.height / 9f
-                        val staffLeft = spacing * 0.9f
-                        val staffRight = size.width - spacing * 0.9f
-                        val bottomLineY = spacing * 6.4f
+                        val metrics =
+                            staffMetrics(
+                                Size(size.width.toFloat(), size.height.toFloat()),
+                                fitSteps,
+                            )
+                        val spacing = metrics.spacing
+                        val staffLeft = metrics.staffLeft
+                        val staffRight = metrics.staffRight
+                        val bottomLineY = metrics.bottomLineY
                         // 与下方绘制保持同一套坐标公式
                         val hit =
                             notes.indices.minByOrNull { i ->
@@ -1987,11 +2033,12 @@ private fun StaffCanvas(
             },
         ),
     ) {
-        val spacing = size.height / 9f
-        val staffLeft = spacing * 0.9f
-        val staffRight = size.width - spacing * 0.9f
-        val topLineY = spacing * 2.4f
-        val bottomLineY = topLineY + spacing * 4f
+        val metrics = staffMetrics(size, fitSteps)
+        val spacing = metrics.spacing
+        val staffLeft = metrics.staffLeft
+        val staffRight = metrics.staffRight
+        val topLineY = metrics.topLineY
+        val bottomLineY = metrics.bottomLineY
 
         // 五条线
         for (line in 0..4) {
