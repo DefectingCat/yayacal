@@ -100,6 +100,7 @@ import plus.rua.project.StaffQuiz
 import plus.rua.project.StaffQuiz.Direction
 import kotlin.math.abs
 import kotlin.math.floor
+import kotlin.math.roundToInt
 import kotlin.random.Random
 
 // M3 emphasized 缓动（本仓 compose 版本无内置常量，按 token 手写贝塞尔）
@@ -788,11 +789,20 @@ private fun JianpuText(
     }
 }
 
+/** 键盘视窗起点：C3 ~ C5（step -7..7）为死区不滚动，选中音超出后刚好滑回视窗边缘。 */
+private fun keyboardWindowStart(step: Float): Float = when {
+    step > 7f -> step - 14f
+    step < -7f -> step
+    else -> -7f
+}
+
 /**
- * 高音低音探索器：三个八度（C3 ~ C5）的钢琴键盘 + 高音谱表 + 详情行三方联动。
+ * 高音低音探索器：五个八度（C2 ~ C6）的钢琴键盘 + 高音谱表 + 详情行三方联动。
  *
  * 点白键或左右箭头切换音符：键盘高亮、谱上光晕、详情行同步更新，
  * 直观展示「同一个唱名，高八度在谱上更高、简谱数字上方加点」。
+ * 谱面始终刚好容纳五线与选中音（不预留多余空白）；选中音滑出
+ * C3~C5 键盘视窗后键盘跟随滑动。两者由同一个动画步进驱动，切换平滑。
  *
  * @param selected 当前选中音符
  * @param onSelect 选中变化回调，参数为新选中的音符
@@ -822,29 +832,35 @@ private fun OctaveExplorer(
             fontSize = 10.sp,
         )
 
-    // 谱面视窗跟随选中音所在八度（C3 / C4 / C5 三组），跨八度切换时滑动缩放过渡，
-    // 保证任何可选音连同加线、光晕都完整落在画布内，且画布高度始终被充分利用
-    val windowStart by animateFloatAsState(
-        targetValue = floor(selected.step / 7f) * 7f,
+    // 谱面与键盘由同一个动画步进驱动：谱面刚好容纳五线与选中音，
+    // 键盘在选中音滑出 C3~C5 视窗后跟随滑动，切换八度平滑过渡
+    val animatedStep by animateFloatAsState(
+        targetValue = selected.step.toFloat(),
         animationSpec = tween(350, easing = EmphasizedDecelerate),
-        label = "octaveWindow",
+        label = "explorerStep",
     )
+    val keyboardStart = keyboardWindowStart(animatedStep)
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        // 三个八度键盘：C3 ~ C5，白键可点按
+        // 滑动键盘：一屏 15 个白键（两个八度），跟随选中音在 C2 ~ C6 间滑动
         Canvas(
             modifier =
             Modifier
                 .fillMaxWidth()
                 .height(110.dp)
+                .clipToBounds()
                 .pointerInput(Unit) {
                     detectTapGestures { tap ->
                         val whiteWidth = size.width / 15f
-                        val index = (tap.x / whiteWidth).toInt().coerceIn(0, 14)
-                        currentOnSelect(StaffNote(index - 7))
+                        val index = (tap.x / whiteWidth).toInt()
+                        // animatedStep 是稳定的 State 委托，手势块里读到的是最新值
+                        val step =
+                            (keyboardWindowStart(animatedStep).roundToInt() + index)
+                                .coerceIn(-14, 14)
+                        currentOnSelect(StaffNote(step))
                     }
                 },
         ) {
@@ -852,10 +868,11 @@ private fun OctaveExplorer(
             val labelBand = size.height * 0.24f
             val keyHeight = size.height - labelBand
             val corner = CornerRadius(whiteWidth * 0.12f, whiteWidth * 0.12f)
+            // 视窗随 animatedStep 连续滑动，首尾多画一键覆盖滑动中的渐入渐出
+            val firstStep = floor(keyboardStart).toInt()
 
-            for (index in 0..14) {
-                val step = index - 7
-                val x = index * whiteWidth
+            for (step in firstStep..firstStep + 15) {
+                val x = (step - keyboardStart) * whiteWidth
                 val isSelected = selected.step == step
                 val fill =
                     when {
@@ -905,8 +922,10 @@ private fun OctaveExplorer(
             // 黑键（装饰）：每个八度 C# D# F# G# A#
             val blackWidth = whiteWidth * 0.58f
             val blackHeight = keyHeight * 0.58f
-            listOf(0, 1, 3, 4, 5, 7, 8, 10, 11, 12).forEach { afterWhite ->
-                val centerX = (afterWhite + 1) * whiteWidth
+            for (step in firstStep..firstStep + 15) {
+                val pos = step.mod(7)
+                if (pos != 0 && pos != 1 && pos != 3 && pos != 4 && pos != 5) continue
+                val centerX = (step - keyboardStart + 1) * whiteWidth
                 drawRoundRect(
                     color = blackKeyColor,
                     topLeft = Offset(centerX - blackWidth / 2f, 0f),
@@ -916,10 +935,10 @@ private fun OctaveExplorer(
             }
         }
 
-        // 高音谱表联动：选中音带光晕，谱面视窗跟随其所在八度
+        // 高音谱表联动：选中音带光晕，谱面刚好容纳五线与选中音
         StaffCanvas(
             notes = listOf(selected),
-            fitWindowStart = windowStart,
+            fitNote = animatedStep,
             selectedNote = selected,
             modifier =
             Modifier
@@ -932,8 +951,9 @@ private fun OctaveExplorer(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            // 箭头区间与键盘总跨度一致（C2 ~ C6）
             IconButton(
-                onClick = { currentOnSelect(StaffNote((selected.step - 1).coerceAtLeast(-7))) },
+                onClick = { currentOnSelect(StaffNote((selected.step - 1).coerceAtLeast(-14))) },
             ) {
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowLeft,
@@ -963,9 +983,8 @@ private fun OctaveExplorer(
                     )
                 }
             }
-            // 箭头区间与键盘一致（C3 ~ C5），不允许选到键盘上没有的音
             IconButton(
-                onClick = { currentOnSelect(StaffNote((selected.step + 1).coerceAtMost(7))) },
+                onClick = { currentOnSelect(StaffNote((selected.step + 1).coerceAtMost(14))) },
             ) {
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowRight,
@@ -1893,24 +1912,25 @@ internal class StaffMetrics(
 )
 
 /**
- * 计算五线谱画布纵向布局。[fitWindowStart] 为 null 用传统固定布局（容纳 C4~C6）；
- * 非 null 表示八度视窗的起始 step（视窗覆盖其后一个八度），按窗内最高/最低音
- * 自动定线距与谱位，四周预留符头与选中光晕余量，使窗内任何音及其加线完整可见。
- * 余量对起始 step 连续，视窗跨八度切换时可做滑动缩放动画。
+ * 计算五线谱画布纵向布局。[fitNote] 为 null 用传统固定布局（容纳 C4~C6）；
+ * 非 null 时谱面刚好容纳「完整五线 + 该 step 的音符」：音符在五线内时五线
+ * 撑满画布，超出五线后按需向外扩展（符头 + 光晕余量），不高不低时没有
+ * 多余留白。余量对 fitNote 连续，选音变化时谱面平滑滑动缩放。
  */
 internal fun staffMetrics(
     size: Size,
-    fitWindowStart: Float?,
+    fitNote: Float?,
 ): StaffMetrics {
-    if (fitWindowStart == null) {
+    if (fitNote == null) {
         val spacing = size.height / 9f
         val inset = spacing * 0.9f
         return StaffMetrics(spacing, spacing * 2.4f, spacing * 6.4f, inset, size.width - inset)
     }
-    // 窗内最高音半线距偏移为 w+5、最低音为 w-2（相对下一线）；顶部余量另需
-    // 覆盖五线本身（4 个线距 + 边距），底部余量覆盖最低音的加线与光晕
-    val topRoom = ((fitWindowStart + 5f) / 2f + 1.5f).coerceAtLeast(4.6f)
-    val bottomRoom = ((2f - fitWindowStart) / 2f + 1.5f).coerceAtLeast(1f)
+    // noteUnits：音符相对下一线的线距数。顶部至少容纳五线（4 线距 + 0.6 边距），
+    // 底部至少 1.2 线距（覆盖中线以上音符的下行符干）；音符超出五线时再扩光晕余量
+    val noteUnits = (fitNote - StaffGeometry.BOTTOM_LINE_STEP) / 2f
+    val topRoom = (noteUnits + 1.5f).coerceAtLeast(4.6f)
+    val bottomRoom = (1.5f - noteUnits).coerceAtLeast(1.2f)
     val spacing = size.height / (topRoom + bottomRoom)
     val bottomLineY = spacing * topRoom
     val inset = spacing * 0.9f
@@ -1928,8 +1948,8 @@ internal fun staffMetrics(
  * @param onNoteClick 点按音符回调；null 不可点按
  * @param animateEntrance true 时音符从左到右级联入场（教学阶梯用）
  * @param popKey 非 null 且变化时，音符轻微弹跳入场（练习出题用）
- * @param fitWindowStart 非 null 时谱面按「起始 step + 一个八度」的视窗自适应布局，
- * 视窗跟随选中音所在八度滑动缩放（高音低音探索器用）；null 用固定布局
+ * @param fitNote 非 null 时谱面自适应为「完整五线 + 该 step 音符」的最小布局，
+ * 选音变化时平滑跟随（高音低音探索器用）；null 用固定布局
  */
 
 @Composable
@@ -1943,7 +1963,7 @@ private fun StaffCanvas(
     onNoteClick: ((StaffNote) -> Unit)? = null,
     animateEntrance: Boolean = false,
     popKey: Any? = null,
-    fitWindowStart: Float? = null,
+    fitNote: Float? = null,
 ) {
     // pointerInput 以 notes 为 key 不随重组重启，直接捕获 onNoteClick 会拿到
     // 旧重组的闭包（互动小课堂里表现为还按上一题的目标音判定）。
@@ -2015,7 +2035,7 @@ private fun StaffCanvas(
                             val metrics =
                                 staffMetrics(
                                     Size(size.width.toFloat(), size.height.toFloat()),
-                                    fitWindowStart,
+                                    fitNote,
                                 )
                             val spacing = metrics.spacing
                             val staffLeft = metrics.staffLeft
@@ -2045,7 +2065,7 @@ private fun StaffCanvas(
                 },
             ),
     ) {
-        val metrics = staffMetrics(size, fitWindowStart)
+        val metrics = staffMetrics(size, fitNote)
         val spacing = metrics.spacing
         val staffLeft = metrics.staffLeft
         val staffRight = metrics.staffRight

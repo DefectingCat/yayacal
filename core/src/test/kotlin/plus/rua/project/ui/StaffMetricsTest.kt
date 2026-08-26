@@ -6,12 +6,11 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 
 /**
- * 八度视窗布局（staffMetrics + fitWindowStart）的边界不变量测试。
+ * 谱面自适应布局（staffMetrics + fitNote）的边界不变量测试。
  *
- * 高音低音探索器曾把右箭头放到键盘区间之外（最高 C6），而谱面只按
- * C3~C5 预留空间，导致高音音符画出画布顶部、遮挡键盘。视窗布局的
- * 核心契约：三组八度视窗（C3/C4/C5）内任何一个可选音，其符头、
- * 光晕、加线与五条谱线都必须完整落在画布内。
+ * 高音低音探索器的谱面契约：对任何一个可选音（C2~C6，step -14..14），
+ * 谱面刚好容纳完整五线 + 该音符——五条谱线、符头、光晕、符干、加线
+ * 全部落在画布内（不高不低时没有多余留白，也不需要预留留白）。
  */
 class StaffMetricsTest {
     private val size = Size(width = 400f, height = 200f)
@@ -22,26 +21,24 @@ class StaffMetricsTest {
 
     private fun noteY(
         m: StaffMetrics,
-        step: Int,
-    ): Float = m.bottomLineY - StaffGeometry.halfUnitsFromBottomLine(step) * m.spacing / 2f
+        step: Float,
+    ): Float = m.bottomLineY - (step - StaffGeometry.BOTTOM_LINE_STEP) * m.spacing / 2f
 
     @Test
-    fun staffMetrics_everyExplorerWindow_staffLinesInsideCanvas() {
-        for (w in listOf(-7f, 0f, 7f)) {
-            val m = staffMetrics(size, w)
-            assertTrue(m.topLineY >= 0f, "w=$w 顶线越界: ${m.topLineY}")
-            assertTrue(m.bottomLineY <= size.height, "w=$w 底线越界: ${m.bottomLineY}")
-            assertTrue(m.spacing > 0f, "w=$w 线距非正: ${m.spacing}")
+    fun staffMetrics_everySelectableStep_staffLinesInsideCanvas() {
+        for (step in -14..14) {
+            val m = staffMetrics(size, step.toFloat())
+            assertTrue(m.topLineY >= 0f, "step=$step 顶线越界: ${m.topLineY}")
+            assertTrue(m.bottomLineY <= size.height, "step=$step 底线越界: ${m.bottomLineY}")
+            assertTrue(m.spacing > 0f, "step=$step 线距非正: ${m.spacing}")
         }
     }
 
     @Test
     fun staffMetrics_everySelectableStep_noteHaloAndStemInsideCanvas() {
-        // 探索器可选区间即键盘区间 C3~C5（step -7..7），右箭头不得再放到 C6
-        for (step in -7..7) {
-            val w = Math.floorDiv(step, 7) * 7f
-            val m = staffMetrics(size, w)
-            val y = noteY(m, step)
+        for (step in -14..14) {
+            val m = staffMetrics(size, step.toFloat())
+            val y = noteY(m, step.toFloat())
             val halo = haloRadiusUnits * m.spacing
             assertTrue(
                 y - halo >= 0f && y + halo <= size.height,
@@ -66,19 +63,21 @@ class StaffMetricsTest {
     }
 
     @Test
-    fun staffMetrics_windowMetricsContinuousAcrossOctaveSwitch() {
-        // 视窗起始 step 微小扰动只应引起微小布局变化（跨八度动画不跳变）
-        for (w in listOf(-7.01f, -6.99f, -0.01f, 0.01f, 6.99f, 7.01f)) {
-            val a = staffMetrics(size, w - 0.005f)
-            val b = staffMetrics(size, w + 0.005f)
+    fun staffMetrics_metricsContinuousAcrossNoteChange() {
+        // fitNote 微小扰动只应引起微小布局变化（选音动画不跳变）
+        var s = -14f
+        while (s <= 14f) {
+            val a = staffMetrics(size, s - 0.005f)
+            val b = staffMetrics(size, s + 0.005f)
             assertTrue(
                 kotlin.math.abs(a.bottomLineY - b.bottomLineY) < 1f,
-                "w=$w 底线跳变: ${a.bottomLineY} vs ${b.bottomLineY}",
+                "s=$s 底线跳变: ${a.bottomLineY} vs ${b.bottomLineY}",
             )
             assertTrue(
                 kotlin.math.abs(a.spacing - b.spacing) < 0.1f,
-                "w=$w 线距跳变: ${a.spacing} vs ${b.spacing}",
+                "s=$s 线距跳变: ${a.spacing} vs ${b.spacing}",
             )
+            s += 0.5f
         }
     }
 }
