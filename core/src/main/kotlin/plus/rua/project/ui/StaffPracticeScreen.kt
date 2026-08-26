@@ -21,8 +21,10 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -121,7 +123,8 @@ private const val QUIZ_TAB_INDEX = 1
  * 「教学」：五线谱基础讲解、线/间结构图解、音名/唱名/简谱对照、
  * 可点按的 do~si 音阶阶梯与钢琴键盘（点按联动查看音名/唱名/谱面位置）、
  * 高音低音教学（三个八度键盘与五线谱联动、简谱高低音点、大谱表与中央 C 桥梁）、
- * 完整五线谱音位图（C4~C6 十五个自然音逐一标记，点按查看名称与位置），
+ * 完整五线谱音位图（C4~C6 十五个自然音逐一标记，点按查看名称与位置）、
+ * 谱面常见记号（拍号与节拍、速度与强弱、钢琴踏板、常见演奏与变音记号），
  * 以及逐步引导的「互动小课堂」：点音符作答，答错报音名并给位置提示，答对自动进阶。
  * 「练习」：两种方向 —— 看谱认唱名（上方音符、下方选唱名）、
  * 听名找位置（上方唱名、下方选五线谱上的音符），答错会标出正确答案。
@@ -385,6 +388,22 @@ private fun TeachingTab(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+
+        LessonCard(title = "拍号与节拍") {
+            TimeSignatureLesson()
+        }
+
+        LessonCard(title = "速度与强弱标记") {
+            TempoAndDynamicsLesson()
+        }
+
+        LessonCard(title = "钢琴踏板记号") {
+            PianoPedalLesson()
+        }
+
+        LessonCard(title = "常见演奏与变音记号") {
+            ArticulationsAndSymbolsLesson()
         }
 
         LessonCard(title = "位置口诀") {
@@ -1251,6 +1270,1312 @@ private fun DrawScope.drawBassClefHint(
     }
 }
 
+// endregion
+
+// region 谱面常见记号教学
+
+private data class TimeSigData(
+    val name: String,
+    val symbolNote: String? = null,
+    val beatUnit: String,
+    val beatsPerMeasure: String,
+    val accentLevels: List<Int>, // 3 = 强, 2 = 次强, 1 = 弱
+    val desc: String,
+)
+
+private data class NoteValueData(
+    val name: String,
+    val beats: String,
+    val ratioOfWhole: Float,
+    val desc: String,
+)
+
+/**
+ * 拍号与节拍教学：拍号结构分子分母解析、四种常见拍号（4/4、3/4、2/4、6/8）互动切换与常用音符时值对照。
+ */
+@Composable
+private fun TimeSignatureLesson() {
+    var selectedIndex by remember { mutableIntStateOf(0) }
+    var selectedNoteValueIndex by remember { mutableIntStateOf(2) } // default 四分音符
+    val signatures =
+        remember {
+            listOf(
+                TimeSigData(
+                    name = "4/4 拍",
+                    symbolNote = "谱面常记作 C",
+                    beatUnit = "以四分音符为一拍",
+                    beatsPerMeasure = "每小节 4 拍",
+                    accentLevels = listOf(3, 1, 2, 1),
+                    desc = "最常见、最基础的拍号（又称常用拍 / Common Time）。流行歌曲、古典乐多数采用此拍，律动平稳而充实。",
+                ),
+                TimeSigData(
+                    name = "3/4 拍",
+                    symbolNote = null,
+                    beatUnit = "以四分音符为一拍",
+                    beatsPerMeasure = "每小节 3 拍",
+                    accentLevels = listOf(3, 1, 1),
+                    desc = "经典的圆舞曲（华尔兹）三拍子。第一拍强、后两拍弱，富有旋转起伏的优雅流动感。",
+                ),
+                TimeSigData(
+                    name = "2/4 拍",
+                    symbolNote = null,
+                    beatUnit = "以四分音符为一拍",
+                    beatsPerMeasure = "每小节 2 拍",
+                    accentLevels = listOf(3, 1),
+                    desc = "进行曲、欢快儿歌常用的二拍子。强弱交替，节奏鲜明紧凑，步伐感强。",
+                ),
+                TimeSigData(
+                    name = "6/8 拍",
+                    symbolNote = "复合拍子",
+                    beatUnit = "以八分音符为一拍",
+                    beatsPerMeasure = "每小节 6 拍",
+                    accentLevels = listOf(3, 1, 1, 2, 1, 1),
+                    desc = "复合拍子，通常 3 拍为一组感受为两大拍（如摇篮曲、船歌），如水波荡漾般摇曳抒情。",
+                ),
+            )
+        }
+
+    val noteValues =
+        remember {
+            listOf(
+                NoteValueData("全音符", "4 拍", 1.0f, "♩♩♩♩ 时值，空心无符干"),
+                NoteValueData("二分音符", "2 拍", 0.5f, "♩♩ 时值，空心带符干"),
+                NoteValueData("四分音符", "1 拍", 0.25f, "♩ 基准一拍，实心带符干"),
+                NoteValueData("八分音符", "0.5 拍", 0.125f, "♪ 实心 + 符干 + 1 条符尾/连杆"),
+                NoteValueData("十六分音符", "0.25 拍", 0.0625f, "♬ 实心 + 符干 + 2 条符尾/连杆"),
+                NoteValueData("附点四分音符", "1.5 拍", 0.375f, "♩· 音符旁加一点，延长前半拍时值"),
+            )
+        }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "拍号写在谱号和调号之后，决定音乐的节拍心跳与强弱规律：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // 拍号结构图解
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // 拍号大字 4/4 示例
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                ) {
+                    Text(
+                        "4",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                    Box(
+                        modifier =
+                        Modifier
+                            .width(22.dp)
+                            .height(2.dp)
+                            .background(MaterialTheme.colorScheme.primary),
+                    )
+                    Text(
+                        "4",
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        "上方数字（分子）：每小节有几拍",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Text(
+                        "下方数字（分母）：以几分音符为一拍",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    )
+                    Text(
+                        "（例如 4/4 拍即：以四分音符为一拍，每小节数 4 拍）",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        // 常见拍号切换
+        Text(
+            "常见拍号与强弱律动（点按切换）：",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            signatures.forEachIndexed { index, sig ->
+                SegmentedButton(
+                    selected = selectedIndex == index,
+                    onClick = { selectedIndex = index },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = signatures.size),
+                ) {
+                    Text(sig.name, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = signatures[selectedIndex],
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInHorizontally(tween(260, easing = EmphasizedDecelerate)) { it / 6 })
+                    .togetherWith(fadeOut(tween(160)) + slideOutHorizontally(tween(180)) { -it / 6 })
+            },
+            label = "timeSigDetail",
+        ) { currentSig ->
+            Surface(
+                shape = RoundedCornerShape(16.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            currentSig.name,
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        if (currentSig.symbolNote != null) {
+                            Surface(
+                                shape = RoundedCornerShape(6.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer,
+                            ) {
+                                Text(
+                                    currentSig.symbolNote,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        "• ${currentSig.beatUnit}，${currentSig.beatsPerMeasure}",
+                        style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    // 律动圆点指示
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(
+                            "律动：",
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        currentSig.accentLevels.forEach { level ->
+                            val (bgColor, textColor, label) =
+                                when (level) {
+                                    3 -> Triple(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.onPrimary, "强")
+                                    2 -> Triple(MaterialTheme.colorScheme.tertiary, MaterialTheme.colorScheme.onTertiary, "次强")
+                                    else -> Triple(MaterialTheme.colorScheme.outlineVariant, MaterialTheme.colorScheme.onSurfaceVariant, "弱")
+                                }
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = bgColor,
+                            ) {
+                                Text(
+                                    label,
+                                    style =
+                                    MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 10.sp,
+                                    ),
+                                    color = textColor,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                    }
+                    Text(
+                        currentSig.desc,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        // 音符时值速查
+        Text(
+            "常用音符时值对照（点按查看时值条）：",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            noteValues.forEachIndexed { index, item ->
+                NoteValueRow(
+                    name = item.name,
+                    beats = item.beats,
+                    ratioOfWhole = item.ratioOfWhole,
+                    desc = item.desc,
+                    selected = selectedNoteValueIndex == index,
+                    onClick = { selectedNoteValueIndex = index },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteValueRow(
+    name: String,
+    beats: String,
+    ratioOfWhole: Float,
+    desc: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val containerColor by animateColorAsState(
+        targetValue =
+        if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        label = "noteValueColor",
+    )
+    val animatedRatio by animateFloatAsState(
+        targetValue = if (selected) ratioOfWhole else 0f,
+        animationSpec = tween(300, easing = EmphasizedDecelerate),
+        label = "ratioBar",
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = containerColor,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Text(
+                    name,
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.width(96.dp),
+                )
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                ) {
+                    Text(
+                        beats,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
+                Text(
+                    desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            AnimatedVisibility(visible = selected) {
+                Column(
+                    modifier = Modifier.padding(top = 2.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Text(
+                            "时值占比（相对全音符 4 拍）",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "${(ratioOfWhole * 100).toInt()}%",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                    Box(
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(3.dp)),
+                    ) {
+                        Box(
+                            modifier =
+                            Modifier
+                                .fillMaxWidth(animatedRatio)
+                                .height(6.dp)
+                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class TempoData(
+    val term: String,
+    val nameCn: String,
+    val bpmText: String,
+    val bpmValue: Int,
+    val desc: String,
+)
+
+private data class DynamicData(
+    val symbol: String,
+    val nameCn: String,
+    val level: Int,
+    val desc: String,
+    val tip: String,
+)
+
+/**
+ * 速度与强弱标记教学：5 种经典意大利语速度术语（Largo ~ Presto）、速度变化（rit./accel.）及 6 级强弱力度阶梯。
+ */
+@Composable
+private fun TempoAndDynamicsLesson() {
+    var selectedTempoIndex by remember { mutableIntStateOf(2) } // default Moderato
+    var selectedDynamicIndex by remember { mutableIntStateOf(3) } // default mf
+
+    val tempos =
+        remember {
+            listOf(
+                TempoData("Largo", "广板 / 慢板", "40 ~ 60 BPM", 50, "极其庄重深沉、缓慢广阔，多用于沉思与肃穆乐段"),
+                TempoData("Andante", "行板", "76 ~ 108 BPM", 88, "如悠闲散步般从容流动，最亲切自然的叙事速度"),
+                TempoData("Moderato", "中板", "108 ~ 120 BPM", 112, "适中平和，不快不慢，练习曲与常见乐曲的标准基准"),
+                TempoData("Allegro", "快板", "120 ~ 156 BPM", 136, "欢快活泼、明朗热情，充满前进的动力与活力"),
+                TempoData("Presto", "急板", "168+ BPM", 176, "极其迅速飞快、激动紧张，展现高超技巧与强烈情绪"),
+            )
+        }
+
+    val dynamics =
+        remember {
+            listOf(
+                DynamicData("pp", "极弱", 1, "pianissimo，像耳边的窃窃私语，轻柔细腻", "触键极轻柔，下键速度慢而受控"),
+                DynamicData("p", "弱", 2, "piano，轻声歌唱，柔和内敛", "触键柔和，音色清晰不发虚"),
+                DynamicData("mp", "中弱", 3, "mezzo piano，稍轻于平常说话，温和安静", "自然放松的触键，音量适中偏轻"),
+                DynamicData("mf", "中强", 4, "mezzo forte，平常说话的音量，饱满健康", "最常用基准力度，手臂自然重量触键"),
+                DynamicData("f", "强", 5, "forte，明亮响亮、充满热情与张力", "带有坚定的手指支撑与主动发力"),
+                DynamicData("ff", "极强", 6, "fortissimo，极其洪亮震撼，高潮澎湃", "全身重量借助手臂沉稳灌注于指尖"),
+            )
+        }
+
+    val currentTempo = tempos[selectedTempoIndex]
+    val currentDynamic = dynamics[selectedDynamicIndex]
+
+    // 动态节拍脉冲（随选中 BPM 跳动）
+    var pulseBeat by remember { mutableStateOf(false) }
+    LaunchedEffect(currentTempo.bpmValue) {
+        val interval = 60_000L / currentTempo.bpmValue
+        while (true) {
+            pulseBeat = true
+            delay(120)
+            pulseBeat = false
+            delay((interval - 120).coerceAtLeast(50))
+        }
+    }
+    val pulseScale by animateFloatAsState(
+        targetValue = if (pulseBeat) 1.25f else 1.0f,
+        animationSpec = spring(stiffness = Spring.StiffnessHigh),
+        label = "metronomePulse",
+    )
+    val pulseColor by animateColorAsState(
+        targetValue = if (pulseBeat) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.primary.copy(alpha = 0.35f),
+        label = "metronomeColor",
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "速度标记决定乐曲的行进节奏与情绪，通常标在乐谱左上方：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // 速度术语表格（点按交互）
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                "常见速度术语（点按体验节拍）：",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.primary,
+            )
+            // 节拍器脉冲指示点
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Box(
+                    modifier =
+                    Modifier
+                        .size(12.dp)
+                        .graphicsLayer(scaleX = pulseScale, scaleY = pulseScale)
+                        .background(pulseColor, RoundedCornerShape(6.dp)),
+                )
+                Text(
+                    "♩≈${currentTempo.bpmValue}",
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+        }
+
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            tempos.forEachIndexed { index, tempo ->
+                TempoRow(
+                    term = tempo.term,
+                    nameCn = tempo.nameCn,
+                    bpm = tempo.bpmText,
+                    desc = tempo.desc,
+                    selected = selectedTempoIndex == index,
+                    onClick = { selectedTempoIndex = index },
+                )
+            }
+        }
+
+        // 速度变化术语
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    "速度变化指示：",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    "• rit. (ritardando)：渐慢，乐段收尾或情绪转折处逐渐放缓速度",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "• accel. (accelerando)：渐快，情绪推进时逐渐加快速度",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "• a tempo：回原速，渐慢/渐快后恢复原本的速度继续演奏",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        // 强弱力度
+        Text(
+            "强弱力度记号（点按查看力度条与弹奏要诀）：",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+        )
+
+        // 6 级力度阶梯按钮
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            dynamics.forEachIndexed { index, dyn ->
+                DynamicLevelCard(
+                    symbol = dyn.symbol,
+                    nameCn = dyn.nameCn,
+                    level = dyn.level,
+                    selected = selectedDynamicIndex == index,
+                    onClick = { selectedDynamicIndex = index },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+
+        // 选中力度的动态详情
+        AnimatedContent(
+            targetState = currentDynamic,
+            transitionSpec = {
+                (fadeIn(tween(200)) + slideInVertically(tween(240, easing = EmphasizedDecelerate)) { it / 6 })
+                    .togetherWith(fadeOut(tween(140)))
+            },
+            label = "dynamicDetail",
+        ) { dyn ->
+            val animatedVolume by animateFloatAsState(
+                targetValue = dyn.level / 6f,
+                animationSpec = tween(320, easing = EmphasizedDecelerate),
+                label = "volumeGauge",
+            )
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Column(
+                    modifier = Modifier.padding(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            "${dyn.symbol} · ${dyn.nameCn}",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                        Text(
+                            "力度等级 ${dyn.level}/6",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    }
+                    // 音量能量条
+                    Box(
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(6.dp)
+                            .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(3.dp)),
+                    ) {
+                        Box(
+                            modifier =
+                            Modifier
+                                .fillMaxWidth(animatedVolume)
+                                .height(6.dp)
+                                .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)),
+                        )
+                    }
+                    Text(
+                        dyn.desc,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        "💡 弹奏指引：${dyn.tip}",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        // 渐变与突强
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                Text(
+                    "渐变与突强记号：",
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    "• cresc. 或 <（渐强）：声音由弱逐渐变强",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "• dim. / decresc. 或 >（渐弱）：声音由强逐渐变弱",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    "• > / sfz（重音 / 突强）：该音符发力突出弹奏，具有冲击力",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TempoRow(
+    term: String,
+    nameCn: String,
+    bpm: String,
+    desc: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val containerColor by animateColorAsState(
+        targetValue =
+        if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        label = "tempoColor",
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(modifier = Modifier.width(78.dp)) {
+                Text(
+                    term,
+                    style =
+                    MaterialTheme.typography.labelLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontStyle = FontStyle.Italic,
+                    ),
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    nameCn,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(6.dp),
+                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+            ) {
+                Text(
+                    bpm,
+                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            }
+            Text(
+                desc,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun DynamicLevelCard(
+    symbol: String,
+    nameCn: String,
+    level: Int,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val containerColor by animateColorAsState(
+        targetValue =
+        if (selected) {
+            MaterialTheme.colorScheme.primary
+        } else {
+            when (level) {
+                1, 2 -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f)
+                3, 4 -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                else -> MaterialTheme.colorScheme.primaryContainer
+            }
+        },
+        label = "dynCardColor",
+    )
+    val textColor by animateColorAsState(
+        targetValue = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
+        label = "dynTextColor",
+    )
+    val scale by animateFloatAsState(
+        targetValue = if (selected) 1.05f else 1.0f,
+        animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+        label = "dynScale",
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(10.dp),
+        color = containerColor,
+        modifier = modifier.graphicsLayer(scaleX = scale, scaleY = scale),
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                symbol,
+                style =
+                MaterialTheme.typography.titleSmall.copy(
+                    fontWeight = FontWeight.ExtraBold,
+                    fontStyle = FontStyle.Italic,
+                ),
+                color = textColor,
+            )
+            Text(
+                nameCn,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = if (selected) textColor.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+/**
+ * 钢琴踏板教学：右踏板（延音踏板）、现代折线记号图解、传统记号（Ped. 与星号）及左踏板（una corda / tre corde）。
+ */
+@Composable
+private fun PianoPedalLesson() {
+    var pedalType by remember { mutableIntStateOf(0) } // 0 = 延音踏板 (右), 1 = 弱音踏板 (左)
+    var isPedalDown by remember { mutableStateOf(false) }
+
+    val accentColor = MaterialTheme.colorScheme.primary
+    val lineColor = MaterialTheme.colorScheme.outlineVariant
+
+    val pedalAngle by animateFloatAsState(
+        targetValue = if (isPedalDown) 14f else 0f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessMediumLow),
+        label = "pedalAngle",
+    )
+    val pedalColor by animateColorAsState(
+        targetValue =
+        if (isPedalDown) {
+            accentColor
+        } else {
+            lineColor
+        },
+        label = "pedalStrokeColor",
+    )
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "踏板是钢琴的“灵魂”。右踏板（延音踏板）踩下后所有制音器抬起，使声音持续延绵并产生丰富的泛音共鸣：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // 踏板类型切换
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf("右踏板 · 延音踏板 (Sustain)", "左踏板 · 弱音踏板 (Soft)").forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = pedalType == index,
+                    onClick = {
+                        pedalType = index
+                        isPedalDown = false
+                    },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+        }
+
+        // 交互式踏板体验卡片
+        Surface(
+            onClick = { isPedalDown = !isPedalDown },
+            shape = RoundedCornerShape(16.dp),
+            color =
+            if (isPedalDown) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            } else {
+                MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // 模拟物理踏板图形
+                Canvas(modifier = Modifier.size(60.dp, 60.dp)) {
+                    val w = size.width
+                    val h = size.height
+
+                    // 踏板底座
+                    drawLine(
+                        color = lineColor,
+                        start = Offset(w * 0.2f, h * 0.85f),
+                        end = Offset(w * 0.8f, h * 0.85f),
+                        strokeWidth = 3.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    // 踏板踏板杠杆（旋转模拟踩下）
+                    rotate(degrees = pedalAngle, pivot = Offset(w * 0.25f, h * 0.85f)) {
+                        val pedalBar =
+                            Path().apply {
+                                moveTo(w * 0.25f, h * 0.85f)
+                                lineTo(w * 0.75f, h * 0.65f)
+                                lineTo(w * 0.85f, h * 0.68f)
+                                lineTo(w * 0.85f, h * 0.74f)
+                                lineTo(w * 0.25f, h * 0.88f)
+                                close()
+                            }
+                        drawPath(pedalBar, color = pedalColor)
+                    }
+
+                    // 踩下时的共鸣波纹
+                    if (isPedalDown) {
+                        drawCircle(
+                            color = accentColor.copy(alpha = 0.25f),
+                            radius = w * 0.45f,
+                            center = Offset(w * 0.5f, h * 0.5f),
+                            style = Stroke(width = 2.dp.toPx()),
+                        )
+                        drawCircle(
+                            color = accentColor.copy(alpha = 0.15f),
+                            radius = w * 0.35f,
+                            center = Offset(w * 0.5f, h * 0.5f),
+                            style = Stroke(width = 1.5.dp.toPx()),
+                        )
+                    }
+                }
+
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        if (isPedalDown) "踏板状态：已踩下 (点击抬起)" else "踏板状态：未踩下 (点击踩下)",
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                        color = if (isPedalDown) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                    )
+                    AnimatedContent(
+                        targetState = isPedalDown to pedalType,
+                        transitionSpec = {
+                            (fadeIn(tween(180)) + slideInVertically(tween(200)) { it / 6 })
+                                .togetherWith(fadeOut(tween(120)))
+                        },
+                        label = "pedalStatusText",
+                    ) { (down, type) ->
+                        Text(
+                            when {
+                                type == 0 && down -> "✨ 制音器全部脱离琴弦！琴弦自由共鸣，声音延绵丰满。"
+                                type == 0 && !down -> "⚪ 制音器压在琴弦上，手指离键后声音立刻干脆停止。"
+                                type == 1 && down -> "🌙 una corda：琴槌平移只敲单弦，音色如轻纱般柔和朦胧。"
+                                else -> "⚪ tre corde：恢复三弦敲击，音色恢复明亮开阔。"
+                            },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = pedalType,
+            transitionSpec = {
+                (fadeIn(tween(200)) + slideInHorizontally(tween(240, easing = EmphasizedDecelerate)) { if (targetState == 1) it / 6 else -it / 6 })
+                    .togetherWith(fadeOut(tween(140)))
+            },
+            label = "pedalTypeContent",
+        ) { type ->
+            if (type == 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        "现代折线踏板记号（最常用、时机最直观）：",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+
+                    PedalLineDiagram(
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(90.dp),
+                    )
+
+                    // 记号说明
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "延音踏板两种记号法对照：",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "• 现代折线记号：|_ 踩下踏板；/\\ 换踏板（瞬间抬脚清空上一组声音并立即重新踩下，防止声音浑浊）；_| 抬起松开",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "• 传统记号：Ped. 表示踩下踏板，*（星号/花号）表示松开抬起",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                }
+            } else {
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                "una corda",
+                                style =
+                                MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontStyle = FontStyle.Italic,
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "（简写 U.C.）：踩下左踏板",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Text(
+                            "三角钢琴踩下后琴槌向右平移，只敲击部分琴弦，音量减小且音色朦胧柔和。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                "tre corde",
+                                style =
+                                MaterialTheme.typography.labelLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontStyle = FontStyle.Italic,
+                                ),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "（简写 T.C.）：松开左踏板",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                        Text(
+                            "恢复正常的三根弦敲击，音色恢复明亮开阔。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PedalLineDiagram(modifier: Modifier = Modifier) {
+    val accentColor = MaterialTheme.colorScheme.primary
+    val labelColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = TextStyle(fontWeight = FontWeight.Medium, fontSize = 11.sp)
+
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+
+        val x0 = w * 0.08f
+        val x1 = w * 0.38f
+        val x2 = w * 0.68f
+        val x3 = w * 0.92f
+
+        val lineY = h * 0.45f
+        val upY = lineY - h * 0.25f
+
+        val path =
+            Path().apply {
+                moveTo(x0, upY)
+                lineTo(x0, lineY)
+                lineTo(x1 - w * 0.02f, lineY)
+                lineTo(x1, upY)
+                lineTo(x1 + w * 0.02f, lineY)
+                lineTo(x2 - w * 0.02f, lineY)
+                lineTo(x2, upY)
+                lineTo(x2 + w * 0.02f, lineY)
+                lineTo(x3, lineY)
+                lineTo(x3, upY)
+            }
+        drawPath(path, color = accentColor, style = Stroke(width = 3.dp.toPx(), cap = StrokeCap.Round))
+
+        val tDown = textMeasurer.measure("踩下", style = labelStyle.copy(color = accentColor))
+        drawText(tDown, topLeft = Offset(x0 - tDown.size.width / 2f, lineY + 6.dp.toPx()))
+
+        val tChange1 = textMeasurer.measure("换踏板（清音）", style = labelStyle.copy(color = accentColor))
+        drawText(tChange1, topLeft = Offset(x1 - tChange1.size.width / 2f, lineY + 6.dp.toPx()))
+
+        val tChange2 = textMeasurer.measure("换踏板", style = labelStyle.copy(color = accentColor))
+        drawText(tChange2, topLeft = Offset(x2 - tChange2.size.width / 2f, lineY + 6.dp.toPx()))
+
+        val tUp = textMeasurer.measure("抬起", style = labelStyle.copy(color = accentColor))
+        drawText(tUp, topLeft = Offset(x3 - tUp.size.width / 2f, lineY + 6.dp.toPx()))
+
+        val topTip =
+            textMeasurer.measure(
+                "【第一和弦】           【第二和弦】           【第三和弦】",
+                style = labelStyle.copy(color = labelColor, fontSize = 10.sp),
+            )
+        drawText(topTip, topLeft = Offset(x0, h * 0.05f))
+    }
+}
+
+private data class SymbolData(
+    val symbol: String,
+    val name: String,
+    val badge: String,
+    val desc: String,
+    val extraDetail: String,
+)
+
+/**
+ * 常用演奏与变音记号教学：变音记号（♯/♭/♮）、演奏法（连音线、延音线、跳音、保持音、延长号）与曲式反复记号。
+ */
+@Composable
+private fun ArticulationsAndSymbolsLesson() {
+    var categoryIndex by remember { mutableIntStateOf(0) }
+    var selectedSymbolKey by remember { mutableStateOf<String?>("♯") }
+
+    val accidentalSymbols =
+        remember {
+            listOf(
+                SymbolData("♯", "升号 (Sharp)", "升高半音", "钢琴上弹该音右侧紧邻的半音键", "在谱面上写在符头左侧，表示将该音升高半音。如 C 变 C♯（弹 C 右侧黑键）。"),
+                SymbolData("♭", "降号 (Flat)", "降低半音", "钢琴上弹该音左侧紧邻的半音键", "表示将该音降低半音。如 D 变 D♭（弹 D 左侧黑键）。"),
+                SymbolData("♮", "还原号 (Natural)", "还原自然音", "取消同小节内先前的升降效果", "将前面被临时升高或降低的音还原为键盘原本的白键自然音。"),
+            )
+        }
+
+    val articulationSymbols =
+        remember {
+            listOf(
+                SymbolData("⌒", "连音线 (Slur)", "连贯歌唱", "圆滑线跨越不同音高，手指连贯无缝（Legato）", "不同音高的音符用弧线连在一起，手指在前后音之间无缝交替，如歌声般丝滑流畅。"),
+                SymbolData("⁀", "延音线 (Tie)", "时值相加", "弧线连接相同音高，只弹首音并保持两音时值之和", "两个相同音高的音符相连时，只弹奏第一个音，并持续按住两音时值相加的时间。"),
+                SymbolData("·", "跳音 (Staccato)", "短促跳跃", "标在音符上方/下方的小圆点，轻巧富有弹性", "触键干脆利落，只弹原时值的大约一半，像小水滴跳跃在荷叶上。"),
+                SymbolData("—", "保持音 (Tenuto)", "弹满时值", "标在音符上的短横线，音符弹满时值并稍加稳重力量", "弹满音符的全部时值，并赋予稍微扎实稳重的下键力量。"),
+                SymbolData("𝄐", "延长记号 (Fermata)", "自由延长", "类似眉毛眼睛，根据音乐情感自由延长该音", "常位于乐句尾音或乐段高潮，根据演奏者呼吸与情感将音符延长 1.5~2 倍。"),
+            )
+        }
+
+    val structureSymbols =
+        remember {
+            listOf(
+                SymbolData(":|", "段落反复记号", "反复演奏", "重复演奏两道带点双竖线之间的乐段", "遇到带两个小圆点的双竖线时，跳回前面的开始反复记号 |: 重新弹一遍该段。"),
+                SymbolData("1. 2.", "跳房子记号", "分段结尾", "第一遍弹 1. 结尾，反复后跳过 1. 直接进 2. 结尾", "两遍结尾不同时使用：第一遍弹 [1.] 结尾并反复，第二遍跳过 [1.] 直接接入 [2.]。"),
+                SymbolData("D.C.", "从头反复 (Da Capo)", "曲首重来", "从乐曲开头从头反复，遇到 Fine 时全曲结束", "意大利语“从头开始”，常与 Fine（曲终）配合，构成 A-B-A 三段体结构。"),
+            )
+        }
+
+    val categories = listOf("变音记号", "演奏法记号", "反复与结构")
+    val currentList =
+        when (categoryIndex) {
+            0 -> accidentalSymbols
+            1 -> articulationSymbols
+            else -> structureSymbols
+        }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "五线谱上的表情、触键与结构记号（点按分类与记号查看要点）：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        // 分类切换
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            categories.forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = categoryIndex == index,
+                    onClick = {
+                        categoryIndex = index
+                        selectedSymbolKey = currentList.firstOrNull()?.name
+                    },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = categories.size),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = categoryIndex,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInHorizontally(tween(260, easing = EmphasizedDecelerate)) { if (targetState > initialState) it / 6 else -it / 6 })
+                    .togetherWith(fadeOut(tween(160)))
+            },
+            label = "symbolCategory",
+        ) { cat ->
+            val list =
+                when (cat) {
+                    0 -> accidentalSymbols
+                    1 -> articulationSymbols
+                    else -> structureSymbols
+                }
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                list.forEach { item ->
+                    SymbolRow(
+                        symbol = item.symbol,
+                        name = item.name,
+                        badge = item.badge,
+                        desc = item.desc,
+                        extraDetail = item.extraDetail,
+                        selected = selectedSymbolKey == item.name,
+                        onClick = {
+                            selectedSymbolKey = if (selectedSymbolKey == item.name) null else item.name
+                        },
+                    )
+                }
+            }
+        }
+
+        // 提示卡片
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                "💡 作用域规则提示：\n" +
+                    "• 临时变音记号（写在音符前）：仅对本小节内同音高的音符有效，跨小节自动失效。\n" +
+                    "• 调号（写在谱号旁）：对整首曲子中所有同名音符（各八度）均有效。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(12.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun SymbolRow(
+    symbol: String,
+    name: String,
+    badge: String,
+    desc: String,
+    extraDetail: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val containerColor by animateColorAsState(
+        targetValue =
+        if (selected) {
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f)
+        } else {
+            MaterialTheme.colorScheme.surfaceContainerLow
+        },
+        label = "symbolRowColor",
+    )
+
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(14.dp),
+        color = containerColor,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            symbol,
+                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.primary,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+                Column(modifier = Modifier.width(96.dp)) {
+                    Text(
+                        name,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        badge,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+                Text(
+                    desc,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            AnimatedVisibility(
+                visible = selected,
+                enter = fadeIn(tween(180)) + slideInVertically(tween(200)) { it / 4 },
+                exit = fadeOut(tween(120)),
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest.copy(alpha = 0.65f),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        "🔍 详细说明：$extraDetail",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+            }
+        }
+    }
+}
 // endregion
 
 // region 互动小课堂
