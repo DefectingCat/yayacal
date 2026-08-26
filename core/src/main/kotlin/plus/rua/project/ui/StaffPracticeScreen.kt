@@ -23,6 +23,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -249,11 +250,25 @@ fun StaffPracticeScreen(
 
 // region 教学
 
+private enum class TeachingCategory(
+    val label: String,
+    val icon: String,
+) {
+    ALL("全部", "🌟"),
+    BASICS("入门基础", "📖"),
+    STAVES("音域谱表", "🎹"),
+    RHYTHM("节拍速度", "⏱️"),
+    TECHNIQUE("演奏技法", "🖐️"),
+    THEORY("和声乐理", "🎼"),
+}
+
 @Composable
 private fun TeachingTab(
     onGoQuiz: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    var selectedCategory by remember { mutableStateOf(TeachingCategory.ALL) }
+
     // 一个八度的音阶阶梯：C4(do) ~ C5(do)
     val teachingNotes = remember { (0..7).map(::StaffNote) }
     var selected by remember { mutableStateOf(StaffNote(0)) }
@@ -261,190 +276,279 @@ private fun TeachingTab(
     var chartNote by remember { mutableStateOf(StaffNote(0)) }
 
     Column(
-        modifier =
-        modifier
-            .verticalScroll(rememberScrollState())
-            .padding(vertical = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(20.dp),
+        modifier = modifier.fillMaxSize(),
     ) {
-        LessonCard(title = "五线谱是什么") {
-            Text(
-                "五线谱由五条平行的横线组成，自下而上称为第一线到第五线，线与线之间叫「间」。" +
-                    "音越高，音符在五线谱上的位置就越高；超出五线的音用「加线」表示。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                "一个音符由符头和符干组成（本页用的是四分音符）。符干朝向有规律：" +
-                    "第三线以下的音符符干朝上，第三线及以上朝下。",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+        // 顶部主题分类横向胶囊导航
+        Row(
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState())
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TeachingCategory.entries.forEach { category ->
+                val isSelected = selectedCategory == category
+                val containerColor by animateColorAsState(
+                    targetValue =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerLow
+                    },
+                    label = "catChipColor",
+                )
+                val contentColor by animateColorAsState(
+                    targetValue =
+                    if (isSelected) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    label = "catChipTextColor",
+                )
+                val scale by animateFloatAsState(
+                    targetValue = if (isSelected) 1.05f else 1.0f,
+                    animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                    label = "catChipScale",
+                )
 
-        LessonCard(title = "五线谱的结构") {
-            StaffStructureDiagram(
-                modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(160.dp),
-            )
-        }
-
-        LessonCard(title = "音名、唱名与简谱") {
-            NoteNameTable()
-            Text(
-                "固定 do 唱名法里，do 永远对应音名 C（简谱 1）。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-
-        LessonCard(title = "互动小课堂") {
-            GuidedLesson(onGoQuiz = onGoQuiz)
-        }
-
-        LessonCard(title = "点一点，认识 do ~ si") {
-            StaffCanvas(
-                notes = teachingNotes,
-                selectedNote = selected,
-                labelFor = { it.solfege.label },
-                onNoteClick = { selected = it },
-                animateEntrance = true,
-                modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(200.dp),
-            )
-            // 选中音符详情：交叉淡入 + 上移
-            AnimatedContent(
-                targetState = selected,
-                transitionSpec = {
-                    (
-                        fadeIn(tween(200)) +
-                            slideInVertically(
-                                tween(260, easing = EmphasizedDecelerate),
-                            ) { it / 4 }
-                        ) togetherWith fadeOut(tween(140))
-                },
-                label = "noteDetail",
-            ) { note ->
-                NoteDetailCard(note)
+                Surface(
+                    onClick = { selectedCategory = category },
+                    shape = RoundedCornerShape(16.dp),
+                    color = containerColor,
+                    modifier = Modifier.graphicsLayer(scaleX = scale, scaleY = scale),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        Text(category.icon, style = MaterialTheme.typography.labelSmall)
+                        Text(
+                            text = category.label,
+                            style =
+                            MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            ),
+                            color = contentColor,
+                        )
+                    }
+                }
             }
         }
 
-        LessonCard(title = "在钢琴上找到它们") {
-            PianoKeyboard(
-                selected = selected,
-                onSelect = { selected = it },
+        // 教学内容卡片流（支持按主题筛选 + 统一动效）
+        AnimatedContent(
+            targetState = selectedCategory,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInVertically(tween(260, easing = EmphasizedDecelerate)) { it / 8 })
+                    .togetherWith(fadeOut(tween(140)))
+            },
+            label = "teachingCategoryContent",
+            modifier = Modifier.fillMaxSize(),
+        ) { currentCat ->
+            Column(
                 modifier =
                 Modifier
-                    .fillMaxWidth()
-                    .height(130.dp),
-            )
-            Text(
-                "白键从左到右就是 do ~ si（C D E F G A B），带圆点的是中央 C。" +
-                    "点一点白键，和上面的五线谱对照着看。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(vertical = 10.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+            ) {
+                // region 1. 📖 入门基础
+                if (currentCat == TeachingCategory.ALL || currentCat == TeachingCategory.BASICS) {
+                    LessonCard(title = "五线谱的结构（线与间）", badge = "基础") {
+                        Text(
+                            "五线谱由五条平行的横线组成，自下而上称为第一线到第五线，线与线之间叫「间」；超出五线的音用加线表示。",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        StaffStructureDiagram(
+                            modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(160.dp),
+                        )
+                        Text(
+                            "符干朝向规律：第三线以下的音符符干朝上，第三线及以上朝下；音符在线或间上决定音高。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-        LessonCard(title = "地标音快速识谱法") {
-            LandmarkNotesLesson()
-        }
+                    LessonCard(title = "音名、唱名与简谱", badge = "基础") {
+                        NoteNameTable()
+                        Text(
+                            "固定 do 唱名法里，do 永远对应音名 C（简谱 1），白键由左至右为 C-D-E-F-G-A-B。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-        LessonCard(title = "高音与低音") {
-            OctaveExplorer(
-                selected = explorerNote,
-                onSelect = { explorerNote = it },
-                modifier = Modifier.fillMaxWidth(),
-            )
-        }
+                    LessonCard(title = "互动小课堂", badge = "通关挑战") {
+                        GuidedLesson(onGoQuiz = onGoQuiz)
+                    }
 
-        LessonCard(title = "完整的五线谱音位图") {
-            FullStaffChart(
-                selected = chartNote,
-                onSelect = { chartNote = it },
-                modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(260.dp),
-            )
-            NoteDetailCard(chartNote)
-            Text(
-                "从中音 do 到高音 do，十五个自然音从低到高排在谱上；高八度的唱名带一个上加点。点一点音符，看它的名称与位置。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+                    LessonCard(title = "音阶阶梯与钢琴键盘联动", badge = "核心联动") {
+                        StaffCanvas(
+                            notes = teachingNotes,
+                            selectedNote = selected,
+                            labelFor = { it.solfege.label },
+                            onNoteClick = { selected = it },
+                            animateEntrance = true,
+                            modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(190.dp),
+                        )
+                        // 选中音符详情：交叉淡入 + 上移
+                        AnimatedContent(
+                            targetState = selected,
+                            transitionSpec = {
+                                (
+                                    fadeIn(tween(200)) +
+                                        slideInVertically(
+                                            tween(260, easing = EmphasizedDecelerate),
+                                        ) { it / 4 }
+                                    ) togetherWith fadeOut(tween(140))
+                            },
+                            label = "noteDetail",
+                        ) { note ->
+                            NoteDetailCard(note)
+                        }
+                        PianoKeyboard(
+                            selected = selected,
+                            onSelect = { selected = it },
+                            modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(125.dp),
+                        )
+                        Text(
+                            "点按上方五线谱音符或下方钢琴白键，对照观察音符位置、唱名、音名与琴键的对应关系。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-        LessonCard(title = "高音与低音：大谱表") {
-            GrandStaffDiagram(
-                modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .height(220.dp),
-            )
-            Text(
-                "钢琴谱把两行五线谱合在一起用：上面是高音谱表，通常右手弹；下面是低音谱表，通常左手弹。" +
-                    "高音谱号的螺旋绕在第二线，所以也叫 G 谱号；低音谱号两个点夹着第四线，所以也叫 F 谱号。" +
-                    "中央 C 正好夹在两行谱中间的加线上，是钢琴上同一个键。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
+                    LessonCard(title = "地标音快速识谱法", badge = "识谱捷径") {
+                        LandmarkNotesLesson()
+                    }
+                }
+                // endregion
 
-        LessonCard(title = "拍号与节拍") {
-            TimeSignatureLesson()
-        }
+                // region 2. 🎹 音域与谱表
+                if (currentCat == TeachingCategory.ALL || currentCat == TeachingCategory.STAVES) {
+                    LessonCard(title = "高音与低音探索器", badge = "跨音区") {
+                        OctaveExplorer(
+                            selected = explorerNote,
+                            onSelect = { explorerNote = it },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
 
-        LessonCard(title = "休止符全家族与时值树") {
-            RestSymbolsLesson()
-        }
+                    LessonCard(title = "完整的五线谱音位图 (C4 ~ C6)", badge = "音位全景") {
+                        FullStaffChart(
+                            selected = chartNote,
+                            onSelect = { chartNote = it },
+                            modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(260.dp),
+                        )
+                        NoteDetailCard(chartNote)
+                        Text(
+                            "从中音 do 到高音 do，十五个自然音从低到高排在谱上；高八度的唱名带一个上加点。点一点音符，看它的名称与位置。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
 
-        LessonCard(title = "速度与强弱标记") {
-            TempoAndDynamicsLesson()
-        }
+                    LessonCard(title = "高音与低音：大谱表", badge = "双行谱") {
+                        GrandStaffDiagram(
+                            modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(220.dp),
+                        )
+                        Text(
+                            "钢琴谱把两行五线谱合在一起用：上面是高音谱表，通常右手弹；下面是低音谱表，通常左手弹。" +
+                                "高音谱号的螺旋绕在第二线，所以也叫 G 谱号；低音谱号两个点夹着第四线，所以也叫 F 谱号。" +
+                                "中央 C 正好夹在两行谱中间的加线上，是钢琴上同一个键。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+                // endregion
 
-        LessonCard(title = "钢琴五指指法与基本手型") {
-            PianoFingeringLesson()
-        }
+                // region 3. ⏱️ 节拍与速度
+                if (currentCat == TeachingCategory.ALL || currentCat == TeachingCategory.RHYTHM) {
+                    LessonCard(title = "拍号与常见节拍", badge = "律动心跳") {
+                        TimeSignatureLesson()
+                    }
 
-        LessonCard(title = "钢琴踏板记号") {
-            PianoPedalLesson()
-        }
+                    LessonCard(title = "休止符全家族与时值树", badge = "静音呼吸") {
+                        RestSymbolsLesson()
+                    }
 
-        LessonCard(title = "常用调号与升降口诀") {
-            KeySignaturesLesson()
-        }
+                    LessonCard(title = "速度与强弱标记", badge = "速度与力度") {
+                        TempoAndDynamicsLesson()
+                    }
+                }
+                // endregion
 
-        LessonCard(title = "常用三和弦与八度记号") {
-            ChordsAndOctaveMarksLesson()
-        }
+                // region 4. 🖐️ 演奏与技法
+                if (currentCat == TeachingCategory.ALL || currentCat == TeachingCategory.TECHNIQUE) {
+                    LessonCard(title = "钢琴五指指法与基本手型", badge = "触键指法") {
+                        PianoFingeringLesson()
+                    }
 
-        LessonCard(title = "常见演奏与变音记号") {
-            ArticulationsAndSymbolsLesson()
-        }
+                    LessonCard(title = "钢琴踏板记号", badge = "延音与共鸣") {
+                        PianoPedalLesson()
+                    }
 
-        LessonCard(title = "位置口诀") {
-            MnemonicRow("线上音（一线 → 五线）", "mi、sol、si、re、fa")
-            MnemonicRow("间上音（一间 → 四间）", "fa、la、do、mi")
-            MnemonicRow("下加一线", "do，就是钢琴上的中央 C")
-            MnemonicRow("数字定位法", "从下加一线开始数 1（do），像爬楼梯一样一间一线往上数：2、3、4、5、6、7")
-        }
+                    LessonCard(title = "常见演奏与变音记号", badge = "表情记号") {
+                        ArticulationsAndSymbolsLesson()
+                    }
+                }
+                // endregion
 
-        Spacer(modifier = Modifier.height(8.dp))
+                // region 5. 🎼 和声与乐理
+                if (currentCat == TeachingCategory.ALL || currentCat == TeachingCategory.THEORY) {
+                    LessonCard(title = "常用调号与升降口诀", badge = "调号系统") {
+                        KeySignaturesLesson()
+                    }
+
+                    LessonCard(title = "常用三和弦与八度记号", badge = "和弦走向") {
+                        ChordsAndOctaveMarksLesson()
+                    }
+
+                    LessonCard(title = "位置口诀速查", badge = "记忆口诀") {
+                        MnemonicRow("线上音（一线 → 五线）", "mi、sol、si、re、fa")
+                        MnemonicRow("间上音（一间 → 四间）", "fa、la、do、mi")
+                        MnemonicRow("下加一线", "do，就是钢琴上的中央 C")
+                        MnemonicRow("数字定位法", "从下加一线开始数 1（do），像爬楼梯一样一间一线往上数：2、3、4、5、6、7")
+                    }
+                }
+                // endregion
+
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
     }
 }
 
 @Composable
 private fun LessonCard(
     title: String,
+    badge: String? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Card(
-        shape = RoundedCornerShape(24.dp),
+        shape = RoundedCornerShape(22.dp),
         colors =
         CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -453,17 +557,36 @@ private fun LessonCard(
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = title,
-                style =
-                MaterialTheme.typography.titleMedium.copy(
-                    fontWeight = FontWeight.Bold,
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = title,
+                    style =
+                    MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (badge != null) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                    ) {
+                        Text(
+                            text = badge,
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        )
+                    }
+                }
+            }
             content()
         }
     }
