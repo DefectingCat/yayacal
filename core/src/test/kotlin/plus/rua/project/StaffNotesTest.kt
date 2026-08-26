@@ -42,6 +42,14 @@ class StaffNotesTest {
     }
 
     @Test
+    fun solfege_numbers_runOneToSeven() {
+        assertEquals(
+            listOf(1, 2, 3, 4, 5, 6, 7),
+            Solfege.entries.map { it.number },
+        )
+    }
+
+    @Test
     fun staffNote_octave_rollsAtC() {
         assertEquals(4, StaffNote(6).octave) // B4
         assertEquals(5, StaffNote(7).octave) // C5

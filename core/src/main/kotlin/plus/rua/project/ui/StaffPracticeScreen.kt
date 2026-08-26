@@ -1045,15 +1045,28 @@ private fun SolfegeOption(
             .then(rememberFeedbackModifier(state))
             .testTag("staff_quiz_option_${note.solfege.label}"),
     ) {
-        Text(
-            text = note.solfege.label,
-            style =
-            MaterialTheme.typography.headlineSmall.copy(
-                fontFamily = FontFamily.Serif,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.Bold,
-            ),
-        )
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Text(
+                text = note.solfege.label,
+                style =
+                MaterialTheme.typography.headlineSmall.copy(
+                    fontFamily = FontFamily.Serif,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.Bold,
+                ),
+            )
+            Text(
+                text = "(${note.solfege.number})",
+                style =
+                MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Medium,
+                ),
+                modifier = Modifier.alpha(0.65f),
+            )
+        }
     }
 }
 

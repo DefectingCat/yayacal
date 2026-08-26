@@ -6,15 +6,16 @@ import kotlin.random.Random
  * 唱名（固定 do 唱名法，C 大调自然音阶）。
  *
  * @property label 展示用的小写唱名文本（do / re / mi / fa / sol / la / si）
+ * @property number 对应的简谱数字（do=1 … si=7）
  */
-enum class Solfege(val label: String) {
-    DO("do"),
-    RE("re"),
-    MI("mi"),
-    FA("fa"),
-    SOL("sol"),
-    LA("la"),
-    SI("si"),
+enum class Solfege(val label: String, val number: Int) {
+    DO("do", 1),
+    RE("re", 2),
+    MI("mi", 3),
+    FA("fa", 4),
+    SOL("sol", 5),
+    LA("la", 6),
+    SI("si", 7),
 }
 
 /**
