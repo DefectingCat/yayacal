@@ -738,7 +738,10 @@ private fun GuidedLesson(
     val step = lessonSteps.getOrNull(stepIndex)
 
     fun onNoteTap(note: StaffNote) {
-        val target = step?.target ?: return
+        // 关键：从 stepIndex 委托状态现算目标（调用时读到当前值），
+        // 而不是捕获按重组计算的 step 局部 val——pointerInput 手势块
+        // 持有旧闭包时，step 会停留在上一题的目标音（实测复现）
+        val target = lessonSteps.getOrNull(stepIndex)?.target ?: return
         if (justCorrect) return
         if (note == target) {
             praise = lessonPraises.random()
