@@ -164,6 +164,5 @@ object StaffQuiz {
     private const val DEGREE_COUNT = 7
 
     /** 范围内实际出现的唱名类（step mod 7）。 */
-    private fun distinctDegrees(range: IntRange): List<Int> =
-        range.map { it.mod(DEGREE_COUNT) }.distinct()
+    private fun distinctDegrees(range: IntRange): List<Int> = range.map { it.mod(DEGREE_COUNT) }.distinct()
 }
