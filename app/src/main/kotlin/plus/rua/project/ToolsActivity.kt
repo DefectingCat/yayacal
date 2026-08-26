@@ -23,6 +23,9 @@ class ToolsActivity : BaseActivity() {
                     onNavigateToDateRecorder = {
                         startActivityWithSlide(Intent(this, DateRecorderActivity::class.java))
                     },
+                    onNavigateToStaffPractice = {
+                        startActivityWithSlide(Intent(this, StaffPracticeActivity::class.java))
+                    },
                 )
             }
         }

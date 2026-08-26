@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
+### Added
+
+- 五线谱练习工具：工具页新增「五线谱练习」入口，认识钢琴高音谱表。教学页含五线谱基础讲解、可点按的 do~si 音阶阶梯（点音符查看音名/唱名/谱面位置）与位置口诀；练习页支持「看谱认唱名」与「听名找位置」双向四选一练习，作答即时反馈（答对绿、答错红并标出正确答案），带已答/正确率/连击统计，全交互配有克制的过渡动画。
 
 ## [1.7.0] - 2026-08-17
 

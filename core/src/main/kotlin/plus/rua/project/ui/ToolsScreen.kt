@@ -18,7 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.outlined.Calculate
-import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.Card
@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.dp
  * @param onNavigateToDateChecker 跳转到日期检查器回调
  * @param onNavigateToAnniversary 跳转到纪念日回调
  * @param onNavigateToDateRecorder 跳转到日期记录器回调
+ * @param onNavigateToStaffPractice 跳转到五线谱练习回调
  * @param modifier 布局修饰符
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -59,6 +60,7 @@ fun ToolsScreen(
     onNavigateToAnniversary: () -> Unit,
     onNavigateToDateChecker: () -> Unit,
     onNavigateToDateRecorder: () -> Unit,
+    onNavigateToStaffPractice: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Scaffold(
@@ -138,6 +140,20 @@ fun ToolsScreen(
                 iconColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 onClick = onNavigateToDateRecorder,
                 modifier = Modifier.testTag("tool_date_recorder"),
+            )
+
+            // 工具分类 3：学习与练习
+            SectionHeader(title = "学习与练习")
+
+            ToolCard(
+                title = "五线谱练习",
+                description = "认识钢琴高音谱表，识谱与唱名双向互动练习",
+                tag = "音乐启蒙",
+                icon = Icons.Outlined.MusicNote,
+                iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                iconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                onClick = onNavigateToStaffPractice,
+                modifier = Modifier.testTag("tool_staff_practice"),
             )
 
             Spacer(modifier = Modifier.height(16.dp))

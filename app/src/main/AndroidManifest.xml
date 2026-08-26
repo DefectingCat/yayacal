@@ -85,6 +85,9 @@
         <activity
             android:name=".ShiftPatternActivity"
             android:exported="false" />
+        <activity
+            android:name=".StaffPracticeActivity"
+            android:exported="false" />
 
         <!-- 日期记录器：FileProvider，用于相机临时文件 URI 共享 -->
         <provider
