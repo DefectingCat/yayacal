@@ -124,7 +124,8 @@ private const val QUIZ_TAB_INDEX = 1
  * 可点按的 do~si 音阶阶梯与钢琴键盘（点按联动查看音名/唱名/谱面位置）、
  * 高音低音教学（三个八度键盘与五线谱联动、简谱高低音点、大谱表与中央 C 桥梁）、
  * 完整五线谱音位图（C4~C6 十五个自然音逐一标记，点按查看名称与位置）、
- * 谱面常见记号（拍号与节拍、速度与强弱、钢琴踏板、常见演奏与变音记号），
+ * 地标音快速识谱（7 大锚点与音程奇偶视觉法则）、
+ * 常用音乐记号（拍号节拍、休止符时值树、速度强弱、钢琴五指指法、踏板、常用调号、常用三和弦与 8va/8vb、演奏变音记号），
  * 以及逐步引导的「互动小课堂」：点音符作答，答错报音名并给位置提示，答对自动进阶。
  * 「练习」：两种方向 —— 看谱认唱名（上方音符、下方选唱名）、
  * 听名找位置（上方唱名、下方选五线谱上的音符），答错会标出正确答案。
@@ -349,6 +350,10 @@ private fun TeachingTab(
             )
         }
 
+        LessonCard(title = "地标音快速识谱法") {
+            LandmarkNotesLesson()
+        }
+
         LessonCard(title = "高音与低音") {
             OctaveExplorer(
                 selected = explorerNote,
@@ -394,12 +399,28 @@ private fun TeachingTab(
             TimeSignatureLesson()
         }
 
+        LessonCard(title = "休止符全家族与时值树") {
+            RestSymbolsLesson()
+        }
+
         LessonCard(title = "速度与强弱标记") {
             TempoAndDynamicsLesson()
         }
 
+        LessonCard(title = "钢琴五指指法与基本手型") {
+            PianoFingeringLesson()
+        }
+
         LessonCard(title = "钢琴踏板记号") {
             PianoPedalLesson()
+        }
+
+        LessonCard(title = "常用调号与升降口诀") {
+            KeySignaturesLesson()
+        }
+
+        LessonCard(title = "常用三和弦与八度记号") {
+            ChordsAndOctaveMarksLesson()
         }
 
         LessonCard(title = "常见演奏与变音记号") {
@@ -2571,6 +2592,1169 @@ private fun SymbolRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
                     )
+                }
+            }
+        }
+    }
+}
+
+private data class LandmarkNoteData(
+    val name: String,
+    val pitchName: String,
+    val clefPosition: String,
+    val shortcutRule: String,
+    val tip: String,
+)
+
+private data class IntervalRuleData(
+    val degree: String,
+    val parity: String,
+    val lineType: String,
+    val example: String,
+    val visualFeature: String,
+)
+
+/**
+ * 地标音快速识谱教学：7 大地标锚点速查与音程奇偶视觉法则。
+ */
+@Composable
+private fun LandmarkNotesLesson() {
+    var tabIndex by remember { mutableIntStateOf(0) }
+    var selectedLandmarkIndex by remember { mutableIntStateOf(3) } // default 中央 C4
+
+    val landmarks =
+        remember {
+            listOf(
+                LandmarkNoteData("低音 C2", "C2", "低音谱表下加二线", "低音区基准点，最深沉的自然 C", "位于低音谱最下方加两条小线，是左手低音伴奏的低音下限锚点。"),
+                LandmarkNoteData("低音 C3", "C3", "低音谱表第二间", "低音谱中心，左手和弦根音核心", "从下往上数低音谱第 2 个间，位置非常方正醒目。"),
+                LandmarkNoteData("低音 F3", "F3", "低音谱表第四线", "低音谱号圆点所夹之线", "低音谱号两个小圆点中间穿过的就是第四线 F，低音谱的灵魂坐标。"),
+                LandmarkNoteData("中央 C4", "C4", "高音谱下加一线 / 低音谱上加一线", "大谱表正中心共享桥梁", "钢琴正中间最核心的 do，高低音谱表在此交汇。"),
+                LandmarkNoteData("高音 G4", "G4", "高音谱表第二线", "高音谱号螺旋正中心", "高音谱号肚子里螺旋紧紧环绕的第二线就是 G（sol），右手最快坐标。"),
+                LandmarkNoteData("高音 C5", "C5", "高音谱表第三间", "高音谱中心，最舒适的歌唱区", "高音谱正中间第 3 个间，右手旋律最常用的锚点。"),
+                LandmarkNoteData("高音 C6", "C6", "高音谱表上加二线", "高音区亮丽顶点", "高音谱上方加两条小线，清脆空灵的高八度 do。"),
+            )
+        }
+
+    val intervals =
+        remember {
+            listOf(
+                IntervalRuleData("二度（相邻音）", "偶数度数", "线 ↔ 间 交替", "do → re、mi → fa", "两音头紧紧挨在一起，一个在线上、一个在间上"),
+                IntervalRuleData("三度（隔一个音）", "奇数度数", "线 ↔ 线 或 间 ↔ 间", "do → mi、fa → la", "两音头形态完全对称（都在线上或都在间上），三和弦的构成基础"),
+                IntervalRuleData("四度（隔两个音）", "偶数度数", "线 ↔ 间 交替", "do → fa、sol → do", "一个在线一个在间，中间刚好隔了一线一间"),
+                IntervalRuleData("五度（隔三个音）", "奇数度数", "线 ↔ 线 或 间 ↔ 间", "do → sol、re → la", "形态完全对称（同在线或同在间），跨越五度是强有力的和声骨架"),
+                IntervalRuleData("八度（同名高八度）", "偶数度数", "线 ↔ 间 交替", "C4(下加一线) → C5(第三间)", "一个在线上、一个必定在间上，音高跨越一个完整八度"),
+            )
+        }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "告别挨个往上数音符的慢速读谱，熟记 7 个地标音与音程规律即可 1 秒快速推导：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf("7 大地标锚点", "音程奇偶视觉法则").forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = tabIndex == index,
+                    onClick = { tabIndex = index },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = tabIndex,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInHorizontally(tween(260, easing = EmphasizedDecelerate)) { if (targetState > initialState) it / 6 else -it / 6 })
+                    .togetherWith(fadeOut(tween(160)))
+            },
+            label = "landmarkTabContent",
+        ) { tab ->
+            if (tab == 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 7 个地标音横向滑动/流式卡片选择
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        landmarks.forEachIndexed { index, item ->
+                            val isSelected = selectedLandmarkIndex == index
+                            val containerColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                                label = "lmBtnColor",
+                            )
+                            val textColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                                label = "lmTextColor",
+                            )
+                            val scale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.05f else 1.0f,
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                label = "lmScale",
+                            )
+
+                            Surface(
+                                onClick = { selectedLandmarkIndex = index },
+                                shape = RoundedCornerShape(10.dp),
+                                color = containerColor,
+                                modifier = Modifier.weight(1f).graphicsLayer(scaleX = scale, scaleY = scale),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 6.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(
+                                        item.pitchName,
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = textColor,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 选中地标详情
+                    val currentLm = landmarks[selectedLandmarkIndex]
+                    AnimatedContent(
+                        targetState = currentLm,
+                        transitionSpec = {
+                            (fadeIn(tween(200)) + slideInVertically(tween(240, easing = EmphasizedDecelerate)) { it / 6 })
+                                .togetherWith(fadeOut(tween(140)))
+                        },
+                        label = "landmarkDetail",
+                    ) { lm ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        "${lm.name}（${lm.pitchName}）",
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                    ) {
+                                        Text(
+                                            lm.clefPosition,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    "🎯 记忆定位：${lm.shortcutRule}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    lm.tip,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "💡 音程视觉黄金定律：",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "• 奇数度数（3、5、7度）：一定都是「同在线上」或「同在间上」（视觉形态完全对称）。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                "• 偶数度数（2、4、6、8度）：一定都是「一线一间」（视觉形态交替）。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    intervals.forEach { item ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Column(modifier = Modifier.width(96.dp)) {
+                                    Text(
+                                        item.degree,
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Text(
+                                        item.parity,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        item.lineType,
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                    )
+                                    Text(
+                                        "${item.example}（${item.visualFeature}）",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class RestData(
+    val symbolChar: String,
+    val name: String,
+    val beats: String,
+    val ratio: Float,
+    val staffPosition: String,
+    val desc: String,
+    val tip: String,
+)
+
+/**
+ * 休止符全家族与时值树教学：休止符线位规则（三坐二四挂全）与时值金字塔层级拆解。
+ */
+@Composable
+private fun RestSymbolsLesson() {
+    var tabIndex by remember { mutableIntStateOf(0) }
+    var selectedRestIndex by remember { mutableIntStateOf(2) } // default 四分休止符
+
+    val rests =
+        remember {
+            listOf(
+                RestData("𝄻", "全休止符", "4 拍", 1.0f, "倒挂在第四线下方", "整小节静音（四四拍中停满4拍）", "像一顶倒挂的小帽子，垂挂在第四线下面。口诀：“四挂全”。"),
+                RestData("𝄼", "二分休止符", "2 拍", 0.5f, "平坐在第三线上方", "停顿 2 拍", "像一顶正放的小礼帽，安稳坐在第三线上面。口诀：“三坐二”。"),
+                RestData("𝄽", "四分休止符", "1 拍", 0.25f, "居中跨越第二至四间", "停顿 1 拍（最常用基准）", "像一道闪电折线，停顿一整拍，保持内在节拍呼吸。"),
+                RestData("𝄾", "八分休止符", "0.5 拍", 0.125f, "居中第三间附近", "停顿半拍", "带 1 条小弯钩，常与八分音符交替构成轻快切分律动。"),
+                RestData("𝄿", "十六分休止符", "0.25 拍", 0.0625f, "居中第二至四间", "停顿 1/4 拍", "带 2 条小弯钩，极短促的呼吸断点。"),
+            )
+        }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "休止符是音乐中的呼吸与留白，不同音符都有对应的休止符时值：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf("休止符全家族", "时值金字塔 (等分层级)").forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = tabIndex == index,
+                    onClick = { tabIndex = index },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = tabIndex,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInHorizontally(tween(260, easing = EmphasizedDecelerate)) { if (targetState > initialState) it / 6 else -it / 6 })
+                    .togetherWith(fadeOut(tween(160)))
+            },
+            label = "restTabContent",
+        ) { tab ->
+            if (tab == 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 记忆口诀卡片
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Text("🎩", style = MaterialTheme.typography.titleLarge)
+                            Column {
+                                Text(
+                                    "核心线位口诀：「三坐二，四挂全」",
+                                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    "第三线上坐着的是二分休止（2拍），第四线下挂着的是全休止（4拍）。",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+
+                    // 休止符列表选择
+                    rests.forEachIndexed { index, item ->
+                        val isSelected = selectedRestIndex == index
+                        val containerColor by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.55f) else MaterialTheme.colorScheme.surfaceContainerLow,
+                            label = "restRowColor",
+                        )
+                        val animatedRatio by animateFloatAsState(
+                            targetValue = if (isSelected) item.ratio else 0f,
+                            animationSpec = tween(300, easing = EmphasizedDecelerate),
+                            label = "restRatioBar",
+                        )
+
+                        Surface(
+                            onClick = { selectedRestIndex = index },
+                            shape = RoundedCornerShape(12.dp),
+                            color = containerColor,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                ) {
+                                    Text(
+                                        item.name,
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.width(96.dp),
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.8f),
+                                    ) {
+                                        Text(
+                                            item.beats,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                    Text(
+                                        item.staffPosition,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                }
+                                AnimatedVisibility(visible = isSelected) {
+                                    Column(
+                                        modifier = Modifier.padding(top = 2.dp),
+                                        verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    ) {
+                                        Text(
+                                            "💡 ${item.tip}",
+                                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                        Box(
+                                            modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .height(6.dp)
+                                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(3.dp)),
+                                        ) {
+                                            Box(
+                                                modifier =
+                                                Modifier
+                                                    .fillMaxWidth(animatedRatio)
+                                                    .height(6.dp)
+                                                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(3.dp)),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(14.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                "时值金字塔（2 的等分倍数递进）：",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "• 1 个全音符 (4拍) = 2 个二分音符\n" +
+                                    "• 1 个二分音符 (2拍) = 2 个四分音符\n" +
+                                    "• 1 个四分音符 (1拍) = 2 个八分音符\n" +
+                                    "• 1 个八分音符 (半拍) = 2 个十六分音符",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Text(
+                                "👉 也就是说：1 个全音符 = 2 个二分 = 4 个四分 = 8 个八分 = 16 个十六分音符！",
+                                style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class FingerData(
+    val number: Int,
+    val name: String,
+    val character: String,
+    val touchTips: String,
+)
+
+private data class TechniqueData(
+    val name: String,
+    val enName: String,
+    val usage: String,
+    val example: String,
+    val taboo: String,
+)
+
+/**
+ * 钢琴五指指法与基本手型教学：1~5 指代号、触键要领与五大核心指法（顺指/穿指/跨指/扩指/缩指）。
+ */
+@Composable
+private fun PianoFingeringLesson() {
+    var tabIndex by remember { mutableIntStateOf(0) }
+    var selectedFingerIndex by remember { mutableIntStateOf(0) } // default 1指大拇指
+
+    val fingers =
+        remember {
+            listOf(
+                FingerData(1, "大拇指 (1指)", "粗短有力、横向灵活", "用指甲外侧肉垫触键，严禁整个手指躺平压在琴键上。穿指核心主力。"),
+                FingerData(2, "食指 (2指)", "灵活敏捷、定位精准", "用指尖肉垫自然站立触键，掌关节支撑起手型拱门。"),
+                FingerData(3, "中指 (3指)", "最长核心支柱", "位于手掌中心，手部最高点拱梁，跨指常越过此指。"),
+                FingerData(4, "无名指 (4指)", "独立性较弱、共用肌腱", "初学切忌生拉硬拽，顺其自然弹奏，掌关节保持稳定支撑。"),
+                FingerData(5, "小指 (5指)", "较细小、高低音边缘支点", "掌关节与第一关节必须坚挺站稳，弹奏旋律最高音与低音低音支柱。"),
+            )
+        }
+
+    val techniques =
+        remember {
+            listOf(
+                TechniqueData("顺指法（原位）", "Natural", "五指顺次放在相邻五个琴键上", "do-re-mi-fa-sol 对应 1-2-3-4-5 指", "手型保持稳定，不要扭动手腕"),
+                TechniqueData("穿指法", "Thumb Under", "大拇指（1指）从 2/3/4 指下方穿出", "C大调音阶上行：do(1)-re(2)-mi(3)-fa(1)-sol(2)...", "只能用 1 指穿！绝不能穿 5 指"),
+                TechniqueData("跨指法", "Cross Over", "2/3/4 指越过 1 指向左/右跨越", "C大调音阶下行：do(5)-si(4)-la(3)-sol(2)-fa(1)-mi(3)-re(2)-do(1)", "只能跨过 1 指！绝不能跨其他手指"),
+                TechniqueData("扩指法", "Expansion", "相邻两指张开跨越 2 个以上琴键", "大跳旋律：1指弹 do、3指自然张开弹 sol", "手腕配合轻微平移，不要僵硬硬拉"),
+                TechniqueData("缩指法", "Contraction", "相邻两指距离收缩小于正常琴键", "五指收拢：1指弹 do、2指紧贴弹 re 甚至同键换指", "收拢后随时准备恢复自然拱桥手型"),
+            )
+        }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "钢琴乐谱中的小数字 1~5 代表手指编号，掌握指法规律能让双手跑动丝滑连贯：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf("五指编号与手型", "五大核心指法").forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = tabIndex == index,
+                    onClick = { tabIndex = index },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = tabIndex,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInHorizontally(tween(260, easing = EmphasizedDecelerate)) { if (targetState > initialState) it / 6 else -it / 6 })
+                    .togetherWith(fadeOut(tween(160)))
+            },
+            label = "fingeringTabContent",
+        ) { tab ->
+            if (tab == 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 标准手型指引
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                "🥚 标准握球手型要诀：",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "手腕放松与键盘水平，手指自然弯曲如握住一颗鸡蛋，掌关节凸起形成稳固拱桥，指尖肉垫垂直触键。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    // 5 个手指按钮选择
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        fingers.forEachIndexed { index, finger ->
+                            val isSelected = selectedFingerIndex == index
+                            val containerColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                                label = "fingerBtnColor",
+                            )
+                            val textColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                                label = "fingerTextColor",
+                            )
+                            val scale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.05f else 1.0f,
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                label = "fingerScale",
+                            )
+
+                            Surface(
+                                onClick = { selectedFingerIndex = index },
+                                shape = RoundedCornerShape(10.dp),
+                                color = containerColor,
+                                modifier = Modifier.weight(1f).graphicsLayer(scaleX = scale, scaleY = scale),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 8.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                                ) {
+                                    Text(
+                                        "${finger.number}指",
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = textColor,
+                                    )
+                                    Text(
+                                        finger.name.substringBefore(" "),
+                                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                                        color = if (isSelected) textColor.copy(alpha = 0.85f) else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 选中手指详情
+                    val currentFinger = fingers[selectedFingerIndex]
+                    AnimatedContent(
+                        targetState = currentFinger,
+                        transitionSpec = {
+                            (fadeIn(tween(200)) + slideInVertically(tween(240, easing = EmphasizedDecelerate)) { it / 6 })
+                                .togetherWith(fadeOut(tween(140)))
+                        },
+                        label = "fingerDetail",
+                    ) { f ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Text(
+                                    "${f.name} · 特征：${f.character}",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    "👉 触键与弹奏要领：${f.touchTips}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    techniques.forEach { item ->
+                        Surface(
+                            shape = RoundedCornerShape(14.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        item.name,
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+                                    ) {
+                                        Text(
+                                            item.enName,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    "• 规则：${item.usage}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "• 范例：${item.example}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.primary,
+                                )
+                                Text(
+                                    "⚠️ 禁忌：${item.taboo}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class KeySigData(
+    val name: String,
+    val type: String,
+    val accidentals: String,
+    val mood: String,
+    val tip: String,
+)
+
+/**
+ * 常用调号与升降口诀教学：C/G/D/A/F/bB/bE 大调速查与一升G二升D口诀。
+ */
+@Composable
+private fun KeySignaturesLesson() {
+    var tabIndex by remember { mutableIntStateOf(0) }
+    var selectedKeyIndex by remember { mutableIntStateOf(1) } // default G 大调
+
+    val keys =
+        remember {
+            listOf(
+                KeySigData("C 大调", "无升降", "无任何升降号", "纯净明朗、基础自然", "所有琴键均为白键，最纯粹的自然大调。"),
+                KeySigData("G 大调", "1 个升号 (♯)", "升 F (♯F)", "明亮阳光、温暖开阔", "谱号旁第 5 线标 1 个 ♯，曲中所有 F 均弹右侧黑键 ♯F。"),
+                KeySigData("D 大调", "2 个升号 (♯)", "升 F、升 C (♯F, ♯C)", "光辉璀璨、热情欢快", "两个升号分别标在第 5 线 (F) 与第 3 间 (C)。"),
+                KeySigData("A 大调", "3 个升号 (♯)", "升 F、升 C、升 G (♯F, ♯C, ♯G)", "华丽辉煌、饱满浓郁", "三个升号，升号按 F-C-G 顺序排列。"),
+                KeySigData("F 大调", "1 个降号 (♭)", "降 B (♭B)", "抒情柔美、如田园牧歌", "谱号旁第 3 线标 1 个 ♭，曲中所有 B 均弹左侧黑键 ♭B。"),
+                KeySigData("♭B 大调", "2 个降号 (♭)", "降 B、降 E (♭B, ♭E)", "庄重典雅、宽广抒情", "两个降号分别标在第 3 线 (B) 与第 4 间 (E)。"),
+                KeySigData("♭E 大调", "3 个降号 (♭)", "降 B、降 E、降 A (♭B, ♭E, ♭A)", "深沉雄浑、浪漫丰富", "三个降号，降号按 B-E-A 顺序排列。"),
+            )
+        }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "写在谱号旁的升降号叫「调号」，决定全曲固定升降哪些音：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf("常用调号速查", "升降口诀与规律").forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = tabIndex == index,
+                    onClick = { tabIndex = index },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = tabIndex,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInHorizontally(tween(260, easing = EmphasizedDecelerate)) { if (targetState > initialState) it / 6 else -it / 6 })
+                    .togetherWith(fadeOut(tween(160)))
+            },
+            label = "keySigTabContent",
+        ) { tab ->
+            if (tab == 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 常用调号横向选择
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        keys.forEachIndexed { index, keyItem ->
+                            val isSelected = selectedKeyIndex == index
+                            val containerColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                                label = "keyBtnColor",
+                            )
+                            val textColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                                label = "keyTextColor",
+                            )
+                            val scale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.05f else 1.0f,
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                label = "keyScale",
+                            )
+
+                            Surface(
+                                onClick = { selectedKeyIndex = index },
+                                shape = RoundedCornerShape(10.dp),
+                                color = containerColor,
+                                modifier = Modifier.weight(1f).graphicsLayer(scaleX = scale, scaleY = scale),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 6.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(
+                                        keyItem.name.substringBefore(" "),
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = textColor,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 选中调号详情
+                    val currentKey = keys[selectedKeyIndex]
+                    AnimatedContent(
+                        targetState = currentKey,
+                        transitionSpec = {
+                            (fadeIn(tween(200)) + slideInVertically(tween(240, easing = EmphasizedDecelerate)) { it / 6 })
+                                .togetherWith(fadeOut(tween(140)))
+                        },
+                        label = "keyDetail",
+                    ) { k ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        k.name,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                    ) {
+                                        Text(
+                                            k.type,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    "• 升降音：${k.accidentals}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "• 色彩特征：${k.mood}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                                Text(
+                                    k.tip,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "♯ 升号调口诀（4-1-5-2-6-3-7 顺生）：",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "「一升G，二升D，三升A，四升E，五升B，六升#F，七升#C」\n" +
+                                    "👉 升号出现顺序固定为：F - C - G - D - A - E - B（发-哆-嗦-热-啦-咪-梯）",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            Text(
+                                "♭ 降号调口诀（7-3-6-2-5-1-4 顺降，与升号顺序完全相反）：",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "「一降F，二降bB，三降bE，四降bA，五降bD，六降bG，七降bC」\n" +
+                                    "👉 降号出现顺序固定为：B - E - A - D - G - C - F（梯-咪-啦-热-嗦-哆-发）",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Text(
+                            "✨ 秒认大调主音绝招：\n" +
+                                "• 升号调：看【最后一个升号】，向上数半个音，就是该大调的主音！（例：最后一个是 ♯F，主音就是 G）\n" +
+                                "• 降号调：看【倒数第二个降号】，该音就是大调名称！（例：有两个降号 ♭B、♭E，倒数第二个是 ♭B，即 ♭B 大调）",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSecondaryContainer,
+                            modifier = Modifier.padding(12.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class ChordData(
+    val name: String,
+    val type: String,
+    val notes: String,
+    val mood: String,
+    val role: String,
+)
+
+/**
+ * 常用三和弦与高低八度记号教学：大三和弦/小三和弦色彩、万能 4 和弦走向与 8va/8vb/琶音记号。
+ */
+@Composable
+private fun ChordsAndOctaveMarksLesson() {
+    var tabIndex by remember { mutableIntStateOf(0) }
+    var selectedChordIndex by remember { mutableIntStateOf(0) } // default C 和弦
+
+    val chords =
+        remember {
+            listOf(
+                ChordData("C 和弦", "大三和弦", "C - E - G (1 - 3 - 5)", "明亮、纯净、开朗", "C 大调主和弦（最安稳归宿）"),
+                ChordData("G 和弦", "大三和弦", "G - B - D (5 - 7 - 2)", "明朗、饱满、倾向解决", "C 大调属和弦（推进力量）"),
+                ChordData("Am 和弦", "小三和弦", "A - C - E (6 - 1 - 3)", "柔美、忧郁、感性", "平行小调主和弦（流行常客）"),
+                ChordData("F 和弦", "大三和弦", "F - A - C (4 - 6 - 1)", "开阔、抒情、温暖", "C 大调下属和弦（拓展色彩）"),
+                ChordData("Dm 和弦", "小三和弦", "D - F - A (2 - 4 - 6)", "细腻、暗淡、含蓄", "二级小和弦，桥梁过渡常用"),
+                ChordData("Em 和弦", "小三和弦", "E - G - B (3 - 5 - 7)", "恬静、内敛、略带感伤", "三级小和弦，抒情和声色彩"),
+            )
+        }
+
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(
+            "和弦是多个音同时奏响的美妙和声；高低八度记号让极端音区的读谱更加简明：",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+
+        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+            listOf("常用三和弦", "八度与演奏记号").forEachIndexed { index, label ->
+                SegmentedButton(
+                    selected = tabIndex == index,
+                    onClick = { tabIndex = index },
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                ) {
+                    Text(label, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+        }
+
+        AnimatedContent(
+            targetState = tabIndex,
+            transitionSpec = {
+                (fadeIn(tween(220)) + slideInHorizontally(tween(260, easing = EmphasizedDecelerate)) { if (targetState > initialState) it / 6 else -it / 6 })
+                    .togetherWith(fadeOut(tween(160)))
+            },
+            label = "chordTabContent",
+        ) { tab ->
+            if (tab == 0) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // 万能 4 和弦进行指示
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f),
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                "🎵 流行乐万能黄金 4 和弦走向：",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "「 C  →  G  →  Am  →  F 」",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.ExtraBold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "无数耳熟能详的流行歌（如《晴天》《Counting Stars》等）都由这四个和弦循环构成！",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    // 常用和弦选择
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        chords.forEachIndexed { index, chordItem ->
+                            val isSelected = selectedChordIndex == index
+                            val containerColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                                label = "chordBtnColor",
+                            )
+                            val textColor by animateColorAsState(
+                                targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSecondaryContainer,
+                                label = "chordTextColor",
+                            )
+                            val scale by animateFloatAsState(
+                                targetValue = if (isSelected) 1.05f else 1.0f,
+                                animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                label = "chordScale",
+                            )
+
+                            Surface(
+                                onClick = { selectedChordIndex = index },
+                                shape = RoundedCornerShape(10.dp),
+                                color = containerColor,
+                                modifier = Modifier.weight(1f).graphicsLayer(scaleX = scale, scaleY = scale),
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(vertical = 6.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                ) {
+                                    Text(
+                                        chordItem.name.substringBefore(" "),
+                                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                        color = textColor,
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 选中和弦详情
+                    val currentChord = chords[selectedChordIndex]
+                    AnimatedContent(
+                        targetState = currentChord,
+                        transitionSpec = {
+                            (fadeIn(tween(200)) + slideInVertically(tween(240, easing = EmphasizedDecelerate)) { it / 6 })
+                                .togetherWith(fadeOut(tween(140)))
+                        },
+                        label = "chordDetail",
+                    ) { c ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(14.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                ) {
+                                    Text(
+                                        c.name,
+                                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                    )
+                                    Surface(
+                                        shape = RoundedCornerShape(6.dp),
+                                        color = MaterialTheme.colorScheme.primaryContainer,
+                                    ) {
+                                        Text(
+                                            c.type,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                        )
+                                    }
+                                }
+                                Text(
+                                    "• 构成音（根-三-五音）：${c.notes}",
+                                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                Text(
+                                    "• 听感色彩：${c.mood}（${c.role}）",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                    }
+                }
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                "8va（高八度记号）",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "标注在五线谱上方虚线框内，表示框内音符实际演奏时全部「向上移动一个八度」（避免画过多上加线，读谱更清爽）。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                "8vb（低八度记号）",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "标注在五线谱下方虚线框内，表示框内音符实际演奏时全部「向下移动一个八度」（常用于低音伴奏厚重低音）。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+
+                    Surface(
+                        shape = RoundedCornerShape(14.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                        ) {
+                            Text(
+                                "loco（恢复原位）与 琶音记号 (Arpeggio 𝄫)",
+                                style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(
+                                "• loco：8va 或 8vb 虚线结束处的标志，表示恢复原本谱面真实音高。\n" +
+                                    "• 琶音记号（音符左侧的竖直波浪线）：和弦各音不齐按，而是由低到高像水波般快速顺次滚过。",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
         }
