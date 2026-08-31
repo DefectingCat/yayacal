@@ -218,6 +218,27 @@ class CalendarViewModel(
         _isYearView.value = false
     }
 
+    /**
+     * 月份切换（翻页稳定后触发）。
+     *
+     * 若当前选中的日期已在目标月份内（例如点击跨月日期或通过日期选择器选择特定日期后翻页），
+     * 则保持该选中日期不变；否则将选中日期更新为该月的第一天（若为当月则更新为今天）。
+     *
+     * @param year 目标年份
+     * @param month 目标月份（1..12）
+     */
+    fun onMonthChanged(year: Int, month: Int) {
+        val current = _selectedDate.value
+        if (current.year == year && current.month.number == month) return
+        val date =
+            if (year == today.year && today.month.number == month) {
+                today
+            } else {
+                LocalDate(year, Month(month), 1)
+            }
+        _selectedDate.value = date
+    }
+
     fun incrementYear() {
         _yearViewYear.value = _yearViewYear.value + 1
     }

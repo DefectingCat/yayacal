@@ -192,6 +192,61 @@ class CalendarViewModelStateTest {
         assertEquals(LocalDate(2026, 12, 1), vm.selectedDate.value)
     }
 
+    // ---- onMonthChanged ----
+
+    @Test
+    fun onMonthChanged_dateAlreadyInTargetMonth_preservesSelectedDate() {
+        val vm = createViewModel()
+        // 点击跨月日期到 9 月 4 号
+        vm.selectDate(LocalDate(2026, 9, 4))
+        // Pager 翻页稳定后触发 onMonthChanged(2026, 9)
+        vm.onMonthChanged(2026, 9)
+        // 期望保持 9 月 4 号，不应重置为 9 月 1 号
+        assertEquals(LocalDate(2026, 9, 4), vm.selectedDate.value)
+    }
+
+    @Test
+    fun onMonthChanged_swipedToOtherMonth_setsFirstDayOfMonth() {
+        val vm = createViewModel()
+        // 当前在 8 月 31 号
+        vm.selectDate(LocalDate(2026, 8, 31))
+        // 滑动翻页到 9 月
+        vm.onMonthChanged(2026, 9)
+        // 8 月 31 号不在 9 月内，应设置为 9 月 1 号
+        assertEquals(LocalDate(2026, 9, 1), vm.selectedDate.value)
+    }
+
+    @Test
+    fun onMonthChanged_swipedToCurrentMonth_setsToToday() {
+        val vm = createViewModel()
+        // 选中 9 月 1 号
+        vm.selectDate(LocalDate(2026, 9, 1))
+        // 滑动翻页回 5 月（测试中的 today 是 2026-05-15）
+        vm.onMonthChanged(2026, 5)
+        // 应重置为 today
+        assertEquals(LocalDate(2026, 5, 15), vm.selectedDate.value)
+    }
+
+    @Test
+    fun onMonthChanged_crossYearDateAlreadyInTargetMonth_preservesSelectedDate() {
+        val vm = createViewModel()
+        // 跨年选择 2027 年 1 月 15 号
+        vm.selectDate(LocalDate(2027, 1, 15))
+        // 翻页到 2027 年 1 月
+        vm.onMonthChanged(2027, 1)
+        // 应保持 2027 年 1 月 15 号
+        assertEquals(LocalDate(2027, 1, 15), vm.selectedDate.value)
+    }
+
+    @Test
+    fun onMonthChanged_swipedToOtherYearMonth_setsFirstDay() {
+        val vm = createViewModel()
+        vm.selectDate(LocalDate(2026, 5, 15))
+        // 滑动翻页到 2027 年 3 月
+        vm.onMonthChanged(2027, 3)
+        assertEquals(LocalDate(2027, 3, 1), vm.selectedDate.value)
+    }
+
     // ---- shiftKindAt ----
 
     @Test

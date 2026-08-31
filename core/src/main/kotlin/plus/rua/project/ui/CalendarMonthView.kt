@@ -288,15 +288,8 @@ fun CalendarMonthView(
                             val onDateClick = remember(viewModel) {
                                 { date: LocalDate -> viewModel.selectDate(date) }
                             }
-                            val onMonthChanged = remember(viewModel, today) {
-                                { year: Int, month: Int ->
-                                    val date = if (year == today.year && today.month.number == month) {
-                                        today
-                                    } else {
-                                        LocalDate(year, Month(month), 1)
-                                    }
-                                    viewModel.selectDate(date)
-                                }
+                            val onMonthChanged = remember(viewModel) {
+                                { year: Int, month: Int -> viewModel.onMonthChanged(year, month) }
                             }
                             val shiftKindAt = remember(viewModel, shiftPattern) {
                                 { date: LocalDate -> viewModel.shiftKindAt(date) }
