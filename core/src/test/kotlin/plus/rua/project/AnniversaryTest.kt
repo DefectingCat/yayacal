@@ -82,6 +82,13 @@ class AnniversaryTest {
     }
 
     @Test
+    fun nextLunarAnniversary_onSolarDay31_doesNotThrow() {
+        // 2026-08-31 为公历大月 31 日，不应因农历无 31 日而抛 IllegalArgumentException
+        val result = nextLunarAnniversary(LocalDate(2026, 8, 31), lunarMonth = 1, lunarDay = 21)
+        assertEquals(LocalDate(2027, 2, 26), result)
+    }
+
+    @Test
     fun nextMilestone_day283_picksDay365() {
         val m = nextMilestone(LocalDate(2026, 8, 14))
         assertEquals("365 天", m.label)

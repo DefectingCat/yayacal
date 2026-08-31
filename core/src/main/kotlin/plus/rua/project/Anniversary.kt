@@ -130,7 +130,7 @@ fun nextLunarAnniversary(
     lunarMonth: Int,
     lunarDay: Int,
 ): LocalDate {
-    val todayLunarMonth = LunarDay.fromYmd(today.year, today.month.number, today.day).getLunarMonth()
+    val todayLunarMonth = SolarDay.fromYmd(today.year, today.month.number, today.day).getLunarDay().getLunarMonth()
     val todayLunarYear = todayLunarMonth.getLunarYear().year
     repeat(3) { offset ->
         val year = todayLunarYear + offset
