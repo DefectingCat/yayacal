@@ -1,9 +1,14 @@
 GRADLE := ./gradlew
 
-.PHONY: help build install test fmt check clean profile
+.DEFAULT_GOAL := release
+
+.PHONY: help release build install test fmt check clean profile
 
 help: ## 列出所有可用命令
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make \033[36m%-9s\033[0m %s\n", $$1, $$2}'
+
+release: ## 编译 release APK（默认目标：直接 make 即构建）
+	$(GRADLE) :app:assembleRelease
 
 build: ## 编译 debug APK
 	$(GRADLE) :app:assembleDebug
