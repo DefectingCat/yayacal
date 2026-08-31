@@ -50,6 +50,8 @@ scripts/                          # profile.sh, analyze-trace.sh, resize_duck_ic
 
 ## Development Commands
 
+Root `Makefile` wraps the common tasks — `make help` lists all targets (`build` / `install` / `test` / `fmt` / `check` / `clean` / `profile`); `make test T=CalendarUtilsTest` runs a single test class.
+
 ```bash
 ./gradlew :app:assembleDebug                  # build debug APK
 ./gradlew :app:installDebug                   # install to device/emulator
