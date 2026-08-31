@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.8.1] - 2026-08-31
+
+### Changed
+
+- 构建工具支持：根目录新增 `Makefile` 封装常用开发与构建命令，默认 `make` 目标构建 Release APK。
+
+### Fixed
+
+- 跨月日期选中状态：修复在月视图点击上一月/下一月跨月日期翻页后，选中日期未能正确保持为所点击日期的 bug。
+- 纪念日农历计算：修复公历 31 日打开纪念日页时因农历日期转换参数错误引发的崩溃异常（`IllegalArgumentException: illegal day 31`）。
+
 ## [1.8.0] - 2026-08-26
 
 ### Added
@@ -410,6 +421,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.8.1]: https://github.com/xfy/yayacal/releases/tag/v1.8.1
 [1.8.0]: https://github.com/xfy/yayacal/releases/tag/v1.8.0
 [1.7.0]: https://github.com/xfy/yayacal/releases/tag/v1.7.0
 [1.6.1]: https://github.com/xfy/yayacal/releases/tag/v1.6.1
