@@ -23,9 +23,6 @@ class MomentsActivity : BaseActivity() {
                     onCoverClick = {
                         Toast.makeText(this, "更换相册封面功能正在开发中", Toast.LENGTH_SHORT).show()
                     },
-                    onAvatarClick = {
-                        Toast.makeText(this, "查看头像功能正在开发中", Toast.LENGTH_SHORT).show()
-                    },
                 )
             }
         }

@@ -1,5 +1,9 @@
 package plus.rua.project.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -47,6 +51,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
@@ -55,16 +61,25 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import com.github.panpf.sketch.AsyncImage
+import plus.rua.project.MomentsStorage
+import plus.rua.project.MomentsUiState
+import plus.rua.project.MomentsViewModel
+import java.io.File
 
 /**
  * 朋友圈页面，复刻经典微信朋友圈布局结构。
- * 包含沉浸式顶部渐变导航栏、可自定义相册封面占位、用户名与悬浮跨界头像、以及底部朋友圈动态区域的空状态占位。
+ * 包含沉浸式顶部渐变导航栏、可自定义相册封面、用户名与悬浮跨界头像（支持从系统相册选取并更换头像）、以及底部朋友圈动态区域的空状态占位。
  *
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击右上角发布动态/相机按钮时触发
  * @param onCoverClick 点击相册封面占位区域时触发
- * @param onAvatarClick 点击用户头像占位区域时触发
- * @param username 显示的用户名，默认为 "Defectink"
+ * @param onAvatarClick 点击用户头像时触发（为 null 时默认拉起系统相册选择头像）
+ * @param viewModel 朋友圈 ViewModel，默认从本地偏好存储加载
  * @param modifier 布局修饰符
  */
 @Composable
@@ -72,8 +87,67 @@ fun MomentsScreen(
     onBack: () -> Unit,
     onPublish: () -> Unit = {},
     onCoverClick: () -> Unit = {},
+    onAvatarClick: (() -> Unit)? = null,
+    viewModel: MomentsViewModel = run {
+        val context = LocalContext.current.applicationContext
+        viewModel(
+            factory =
+            viewModelFactory {
+                initializer {
+                    MomentsViewModel(
+                        storage = MomentsStorage.fromContext(context),
+                        filesDir = context.filesDir,
+                    )
+                }
+            },
+        )
+    },
+    modifier: Modifier = Modifier,
+) {
+    val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+
+    val photoPickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickVisualMedia(),
+        ) { uri: Uri? ->
+            if (uri != null) {
+                viewModel.setAvatarFromUri(context, uri)
+            }
+        }
+
+    MomentsScreen(
+        uiState = uiState,
+        onBack = onBack,
+        onPublish = onPublish,
+        onCoverClick = onCoverClick,
+        onAvatarClick =
+        onAvatarClick ?: {
+            photoPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
+        modifier = modifier,
+    )
+}
+
+/**
+ * 朋友圈页面内容渲染组件（无状态）。
+ *
+ * @param uiState 朋友圈当前 UI 状态
+ * @param onBack 点击返回按钮时触发
+ * @param onPublish 点击右上角发布动态/相机按钮时触发
+ * @param onCoverClick 点击相册封面占位区域时触发
+ * @param onAvatarClick 点击用户头像时触发
+ * @param modifier 布局修饰符
+ */
+@Composable
+fun MomentsScreen(
+    uiState: MomentsUiState,
+    onBack: () -> Unit,
+    onPublish: () -> Unit = {},
+    onCoverClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
-    username: String = "Defectink",
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -103,7 +177,9 @@ fun MomentsScreen(
             // 头部：相册封面 + 用户名 + 跨界悬浮头像
             item(key = "header") {
                 MomentsHeader(
-                    username = username,
+                    username = uiState.username,
+                    avatarPath = uiState.avatarPath,
+                    coverPath = uiState.coverPath,
                     onCoverClick = onCoverClick,
                     onAvatarClick = onAvatarClick,
                 )
@@ -231,6 +307,8 @@ private fun MomentsTopBar(
  * 朋友圈头部组件，包含全宽相册封面、右下角用户名与跨界重叠头像。
  *
  * @param username 用户名
+ * @param avatarPath 头像本地文件路径（为空时展示占位符）
+ * @param coverPath 封面本地文件路径（为空时展示占位符）
  * @param onCoverClick 点击封面回调
  * @param onAvatarClick 点击头像回调
  * @param modifier 布局修饰符
@@ -238,6 +316,8 @@ private fun MomentsTopBar(
 @Composable
 private fun MomentsHeader(
     username: String,
+    avatarPath: String?,
+    coverPath: String?,
     onCoverClick: () -> Unit,
     onAvatarClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -253,7 +333,7 @@ private fun MomentsHeader(
             .fillMaxWidth()
             .height(totalHeight),
     ) {
-        // 1. 头图 / 相册封面占位区域
+        // 1. 头图 / 相册封面区域
         Box(
             modifier =
             Modifier
@@ -275,33 +355,50 @@ private fun MomentsHeader(
                 .testTag("moments_cover"),
             contentAlignment = Alignment.Center,
         ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Surface(
-                    shape = CircleShape,
-                    color = Color.White.copy(alpha = 0.15f),
-                    modifier = Modifier.size(54.dp),
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.AddPhotoAlternate,
-                            contentDescription = "相册封面占位",
-                            tint = Color.White.copy(alpha = 0.85f),
-                            modifier = Modifier.size(28.dp),
-                        )
+            val coverUri =
+                remember(coverPath) {
+                    coverPath?.let { path ->
+                        val file = File(path.removePrefix("file://"))
+                        if (file.exists()) "file://${file.absolutePath}" else null
                     }
                 }
-                Text(
-                    text = "轻触更换相册封面",
-                    style =
-                    MaterialTheme.typography.bodySmall.copy(
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                    ),
-                    color = Color.White.copy(alpha = 0.75f),
+
+            if (coverUri != null) {
+                AsyncImage(
+                    uri = coverUri,
+                    contentDescription = "相册封面",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
+            } else {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White.copy(alpha = 0.15f),
+                        modifier = Modifier.size(54.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                imageVector = Icons.Outlined.AddPhotoAlternate,
+                                contentDescription = "相册封面占位",
+                                tint = Color.White.copy(alpha = 0.85f),
+                                modifier = Modifier.size(28.dp),
+                            )
+                        }
+                    }
+                    Text(
+                        text = "轻触更换相册封面",
+                        style =
+                        MaterialTheme.typography.bodySmall.copy(
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                        ),
+                        color = Color.White.copy(alpha = 0.75f),
+                    )
+                }
             }
         }
 
@@ -345,16 +442,37 @@ private fun MomentsHeader(
                 .clickable(onClick = onAvatarClick)
                 .testTag("moments_avatar"),
         ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Person,
-                    contentDescription = "头像占位",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                    modifier = Modifier.size(42.dp),
+            val avatarUri =
+                remember(avatarPath) {
+                    avatarPath?.let { path ->
+                        if (path.startsWith("content://")) {
+                            path
+                        } else {
+                            val file = File(path.removePrefix("file://"))
+                            if (file.exists()) "file://${file.absolutePath}" else null
+                        }
+                    }
+                }
+
+            if (avatarUri != null) {
+                AsyncImage(
+                    uri = avatarUri,
+                    contentDescription = "用户头像",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
                 )
+            } else {
+                Box(
+                    contentAlignment = Alignment.Center,
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = "头像占位",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(42.dp),
+                    )
+                }
             }
         }
     }
