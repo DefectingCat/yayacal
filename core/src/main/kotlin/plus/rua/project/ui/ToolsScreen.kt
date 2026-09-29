@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.outlined.Calculate
+import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -51,6 +52,7 @@ import androidx.compose.ui.unit.dp
  * @param onNavigateToDateChecker 跳转到日期检查器回调
  * @param onNavigateToAnniversary 跳转到纪念日回调
  * @param onNavigateToDateRecorder 跳转到日期记录器回调
+ * @param onNavigateToMoments 跳转到朋友圈回调
  * @param onNavigateToStaffPractice 跳转到五线谱练习回调
  * @param modifier 布局修饰符
  */
@@ -61,6 +63,7 @@ fun ToolsScreen(
     onNavigateToAnniversary: () -> Unit,
     onNavigateToDateChecker: () -> Unit,
     onNavigateToDateRecorder: () -> Unit,
+    onNavigateToMoments: () -> Unit,
     onNavigateToStaffPractice: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -141,6 +144,17 @@ fun ToolsScreen(
                 iconColor = MaterialTheme.colorScheme.onTertiaryContainer,
                 onClick = onNavigateToDateRecorder,
                 modifier = Modifier.testTag("tool_date_recorder"),
+            )
+
+            ToolCard(
+                title = "朋友圈",
+                description = "记录生活分享点滴瞬间，留存美好回忆与动态心情",
+                tag = "生活动态",
+                icon = Icons.Outlined.CameraAlt,
+                iconContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                iconColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                onClick = onNavigateToMoments,
+                modifier = Modifier.testTag("tool_moments"),
             )
 
             // 工具分类 3：学习与练习
