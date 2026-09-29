@@ -68,6 +68,23 @@ class MomentsViewModelTest {
         assertEquals("/new/avatar.jpg", viewModel.uiState.value.avatarPath)
         assertEquals("/new/avatar.jpg", storage.getAvatarPath())
     }
+
+    @Test
+    fun setCoverPath_updatesStorageAndUiState() = runTest(testDispatcher) {
+        storage.clear()
+        val viewModel =
+            MomentsViewModel(
+                storage = storage,
+                filesDir = tempDir,
+                ioDispatcher = testDispatcher,
+            )
+
+        assertNull(viewModel.uiState.value.coverPath)
+
+        viewModel.setCoverPath("/new/cover.jpg")
+        assertEquals("/new/cover.jpg", viewModel.uiState.value.coverPath)
+        assertEquals("/new/cover.jpg", storage.getCoverPath())
+    }
 }
 
 private class MomentsVmTestInMemoryPrefs : SharedPreferences {

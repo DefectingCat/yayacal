@@ -1,12 +1,12 @@
 package plus.rua.project.ui
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,8 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material3.ButtonDefaults
@@ -43,15 +41,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
@@ -65,19 +61,17 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
-import com.github.panpf.sketch.AsyncImage
 import plus.rua.project.MomentsStorage
 import plus.rua.project.MomentsUiState
 import plus.rua.project.MomentsViewModel
-import java.io.File
 
 /**
  * 朋友圈页面，复刻经典微信朋友圈布局结构。
- * 包含沉浸式顶部渐变导航栏、可自定义相册封面、用户名与悬浮跨界头像（支持从系统相册选取并更换头像）、以及底部朋友圈动态区域的空状态占位。
+ * 包含沉浸式顶部渐变导航栏、可自定义相册封面（点击平滑展开放大动画与换封面）、用户名与悬浮跨界头像、以及底部朋友圈动态区域的空状态占位。
  *
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击右上角发布动态/相机按钮时触发
- * @param onCoverClick 点击相册封面占位区域时触发
+ * @param onCoverClick 点击相册封面占位区域时触发（为 null 时默认切换封面展开状态）
  * @param onAvatarClick 点击用户头像时触发（为 null 时默认拉起系统相册选择头像）
  * @param viewModel 朋友圈 ViewModel，默认从本地偏好存储加载
  * @param modifier 布局修饰符
@@ -86,7 +80,7 @@ import java.io.File
 fun MomentsScreen(
     onBack: () -> Unit,
     onPublish: () -> Unit = {},
-    onCoverClick: () -> Unit = {},
+    onCoverClick: (() -> Unit)? = null,
     onAvatarClick: (() -> Unit)? = null,
     viewModel: MomentsViewModel = run {
         val context = LocalContext.current.applicationContext
@@ -106,6 +100,11 @@ fun MomentsScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var isCoverExpanded by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isCoverExpanded) {
+        isCoverExpanded = false
+    }
 
     val photoPickerLauncher =
         rememberLauncherForActivityResult(
@@ -116,13 +115,43 @@ fun MomentsScreen(
             }
         }
 
+    val coverPickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickVisualMedia(),
+        ) { uri: Uri? ->
+            if (uri != null) {
+                viewModel.setCoverFromUri(context, uri)
+                isCoverExpanded = false
+            }
+        }
+
     MomentsScreen(
         uiState = uiState,
-        onBack = onBack,
+        isCoverExpanded = isCoverExpanded,
+        onBack = {
+            if (isCoverExpanded) {
+                isCoverExpanded = false
+            } else {
+                onBack()
+            }
+        },
         onPublish = onPublish,
-        onCoverClick = onCoverClick,
+        onCoverClick =
+        onCoverClick ?: {
+            isCoverExpanded = !isCoverExpanded
+        },
+        onChangeCoverClick = {
+            coverPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
         onAvatarClick =
         onAvatarClick ?: {
+            photoPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
+        onAvatarLongClick = {
             photoPickerLauncher.launch(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
             )
@@ -135,19 +164,25 @@ fun MomentsScreen(
  * 朋友圈页面内容渲染组件（无状态）。
  *
  * @param uiState 朋友圈当前 UI 状态
+ * @param isCoverExpanded 封面是否展开
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击右上角发布动态/相机按钮时触发
  * @param onCoverClick 点击相册封面占位区域时触发
+ * @param onChangeCoverClick 点击“换封面”按钮时触发
  * @param onAvatarClick 点击用户头像时触发
+ * @param onAvatarLongClick 长按用户头像时触发
  * @param modifier 布局修饰符
  */
 @Composable
 fun MomentsScreen(
     uiState: MomentsUiState,
     onBack: () -> Unit,
+    isCoverExpanded: Boolean = false,
     onPublish: () -> Unit = {},
     onCoverClick: () -> Unit = {},
+    onChangeCoverClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
+    onAvatarLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -180,8 +215,11 @@ fun MomentsScreen(
                     username = uiState.username,
                     avatarPath = uiState.avatarPath,
                     coverPath = uiState.coverPath,
+                    isCoverExpanded = isCoverExpanded,
                     onCoverClick = onCoverClick,
+                    onChangeCoverClick = onChangeCoverClick,
                     onAvatarClick = onAvatarClick,
+                    onAvatarLongClick = onAvatarLongClick,
                 )
             }
 
@@ -203,14 +241,16 @@ fun MomentsScreen(
             }
         }
 
-        // 顶部悬浮导航栏：随着列表滚动动态变化背景不透明度与图标颜色
-        MomentsTopBar(
-            title = "朋友圈",
-            alpha = scrollAlpha,
-            onBack = onBack,
-            onPublish = onPublish,
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
+        // 顶部悬浮导航栏：随着列表滚动动态变化背景不透明度与图标颜色（封面展开时隐藏）
+        if (!isCoverExpanded) {
+            MomentsTopBar(
+                title = "朋友圈",
+                alpha = scrollAlpha,
+                onBack = onBack,
+                onPublish = onPublish,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        }
     }
 }
 
@@ -298,181 +338,6 @@ private fun MomentsTopBar(
                     tint = iconColor,
                     modifier = Modifier.size(24.dp),
                 )
-            }
-        }
-    }
-}
-
-/**
- * 朋友圈头部组件，包含全宽相册封面、右下角用户名与跨界重叠头像。
- *
- * @param username 用户名
- * @param avatarPath 头像本地文件路径（为空时展示占位符）
- * @param coverPath 封面本地文件路径（为空时展示占位符）
- * @param onCoverClick 点击封面回调
- * @param onAvatarClick 点击头像回调
- * @param modifier 布局修饰符
- */
-@Composable
-private fun MomentsHeader(
-    username: String,
-    avatarPath: String?,
-    coverPath: String?,
-    onCoverClick: () -> Unit,
-    onAvatarClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val coverHeight = 300.dp
-    val avatarSize = 74.dp
-    val avatarOverlapBelow = 34.dp
-    val totalHeight = coverHeight + avatarOverlapBelow
-
-    Box(
-        modifier =
-        modifier
-            .fillMaxWidth()
-            .height(totalHeight),
-    ) {
-        // 1. 头图 / 相册封面区域
-        Box(
-            modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(coverHeight)
-                .align(Alignment.TopCenter)
-                .background(
-                    brush =
-                    Brush.verticalGradient(
-                        colors =
-                        listOf(
-                            Color(0xFF263238),
-                            Color(0xFF1E272C),
-                            Color(0xFF12161A),
-                        ),
-                    ),
-                )
-                .clickable(onClick = onCoverClick)
-                .testTag("moments_cover"),
-            contentAlignment = Alignment.Center,
-        ) {
-            val coverUri =
-                remember(coverPath) {
-                    coverPath?.let { path ->
-                        val file = File(path.removePrefix("file://"))
-                        if (file.exists()) "file://${file.absolutePath}" else null
-                    }
-                }
-
-            if (coverUri != null) {
-                AsyncImage(
-                    uri = coverUri,
-                    contentDescription = "相册封面",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.15f),
-                        modifier = Modifier.size(54.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Outlined.AddPhotoAlternate,
-                                contentDescription = "相册封面占位",
-                                tint = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.size(28.dp),
-                            )
-                        }
-                    }
-                    Text(
-                        text = "轻触更换相册封面",
-                        style =
-                        MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                        color = Color.White.copy(alpha = 0.75f),
-                    )
-                }
-            }
-        }
-
-        // 2. 用户名：位于封面底部上方、头像左侧
-        Text(
-            text = username,
-            color = Color.White,
-            style =
-            MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 19.sp,
-                shadow =
-                Shadow(
-                    color = Color.Black.copy(alpha = 0.7f),
-                    offset = Offset(1f, 2f),
-                    blurRadius = 6f,
-                ),
-            ),
-            maxLines = 1,
-            modifier =
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(
-                    end = 16.dp + avatarSize + 16.dp,
-                    bottom = avatarOverlapBelow + 12.dp,
-                )
-                .testTag("moments_username"),
-        )
-
-        // 3. 用户头像：右下角跨界悬浮，半叠在封面上，半垂在下方白色区域
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            border = BorderStroke(2.dp, Color.White),
-            shadowElevation = 2.dp,
-            modifier =
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp)
-                .size(avatarSize)
-                .clickable(onClick = onAvatarClick)
-                .testTag("moments_avatar"),
-        ) {
-            val avatarUri =
-                remember(avatarPath) {
-                    avatarPath?.let { path ->
-                        if (path.startsWith("content://")) {
-                            path
-                        } else {
-                            val file = File(path.removePrefix("file://"))
-                            if (file.exists()) "file://${file.absolutePath}" else null
-                        }
-                    }
-                }
-
-            if (avatarUri != null) {
-                AsyncImage(
-                    uri = avatarUri,
-                    contentDescription = "用户头像",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Person,
-                        contentDescription = "头像占位",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(42.dp),
-                    )
-                }
             }
         }
     }

@@ -29,10 +29,10 @@ data class MomentsUiState(
 )
 
 /**
- * 朋友圈页面 ViewModel，负责头像设置与持久化。
+ * 朋友圈页面 ViewModel，负责头像与相册封面设置与持久化。
  *
  * @param storage 朋友圈配置存储仓库
- * @param filesDir 应用 filesDir 目录，用于安全存放用户头像文件
+ * @param filesDir 应用 filesDir 目录，用于安全存放用户头像与封面文件
  * @param ioDispatcher IO 协程调度器（支持测试注入）
  */
 class MomentsViewModel(
@@ -61,7 +61,7 @@ class MomentsViewModel(
         viewModelScope.launch {
             val savedPath =
                 withContext(ioDispatcher) {
-                    copyUriToAvatarFile(context, uri)
+                    copyUriToFile(context, uri, prefix = "avatar")
                 }
 
             if (savedPath != null) {
@@ -92,18 +92,62 @@ class MomentsViewModel(
     }
 
     /**
+     * 将用户从系统相册选取的封面 URI 保存到应用本地私有目录，并更新持久化设置与 UI 状态。
+     *
+     * @param context Android 上下文
+     * @param uri 用户从系统相册选取的封面图片 content:// URI
+     */
+    fun setCoverFromUri(context: Context, uri: Uri) {
+        viewModelScope.launch {
+            val savedPath =
+                withContext(ioDispatcher) {
+                    copyUriToFile(context, uri, prefix = "cover")
+                }
+
+            if (savedPath != null) {
+                // 删除旧封面文件以释放存储空间
+                val oldPath = _uiState.value.coverPath
+                if (oldPath != null && oldPath != savedPath) {
+                    withContext(ioDispatcher) {
+                        try {
+                            File(oldPath).delete()
+                        } catch (_: Exception) {}
+                    }
+                }
+
+                storage.saveCoverPath(savedPath)
+                _uiState.update { it.copy(coverPath = savedPath) }
+            }
+        }
+    }
+
+    /**
+     * 设置自定义封面路径（主要用于测试与直接设置）。
+     *
+     * @param path 封面绝对路径
+     */
+    fun setCoverPath(path: String?) {
+        storage.saveCoverPath(path)
+        _uiState.update { it.copy(coverPath = path) }
+    }
+
+    /**
      * 将 URI 流复制到 filesDir/moments/ 目录下。
      */
-    private fun copyUriToAvatarFile(context: Context, uri: Uri): String? {
+    private fun copyUriToFile(
+        context: Context,
+        uri: Uri,
+        prefix: String,
+    ): String? {
         return try {
             val momentsDir = File(filesDir, MOMENTS_DIR_NAME).apply { if (!exists()) mkdirs() }
-            val avatarFile = File(momentsDir, "avatar_${System.currentTimeMillis()}.jpg")
+            val targetFile = File(momentsDir, "${prefix}_${System.currentTimeMillis()}.jpg")
             context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(avatarFile).use { output ->
+                FileOutputStream(targetFile).use { output ->
                     input.copyTo(output)
                 }
             } ?: return null
-            avatarFile.absolutePath
+            targetFile.absolutePath
         } catch (_: Exception) {
             null
         }

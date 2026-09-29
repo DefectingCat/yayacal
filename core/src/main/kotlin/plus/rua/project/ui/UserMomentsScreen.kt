@@ -1,12 +1,11 @@
 package plus.rua.project.ui
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,8 +28,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.Person
-import androidx.compose.material.icons.outlined.AddPhotoAlternate
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Notifications
@@ -41,19 +38,17 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -76,7 +71,7 @@ import java.io.File
 
 /**
  * 个人朋友圈相册视图页面（状态版），复刻微信朋友圈个人相册主页。
- * 包含沉浸式顶部栏（搜索、相册网格视图、消息通知）、相册封面、用户名与头像（点击头像支持选取并更新头像）、
+ * 包含沉浸式顶部栏（搜索、相册网格视图、消息通知）、相册封面（点击平滑展开放大动画与换封面）、用户名与头像、
  * 以及时间轴视图（“今天”发表/私密发表卡片、年份分组、月份与日期条目）。
  *
  * @param onBack 点击返回按钮时触发
@@ -85,7 +80,7 @@ import java.io.File
  * @param onSearch 点击右上角搜索按钮时触发
  * @param onViewModeChange 点击右上角视图切换按钮时触发
  * @param onNotifications 点击右上角消息通知按钮时触发
- * @param onCoverClick 点击相册封面时触发
+ * @param onCoverClick 点击相册封面时触发（为 null 时默认切换封面展开状态）
  * @param onAvatarClick 点击头像时触发（默认从系统相册选取并设置头像）
  * @param viewModel 朋友圈 ViewModel
  * @param modifier 布局修饰符
@@ -98,7 +93,7 @@ fun UserMomentsScreen(
     onSearch: () -> Unit = {},
     onViewModeChange: () -> Unit = {},
     onNotifications: () -> Unit = {},
-    onCoverClick: () -> Unit = {},
+    onCoverClick: (() -> Unit)? = null,
     onAvatarClick: (() -> Unit)? = null,
     viewModel: MomentsViewModel = run {
         val context = LocalContext.current.applicationContext
@@ -118,6 +113,11 @@ fun UserMomentsScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var isCoverExpanded by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isCoverExpanded) {
+        isCoverExpanded = false
+    }
 
     val photoPickerLauncher =
         rememberLauncherForActivityResult(
@@ -128,17 +128,47 @@ fun UserMomentsScreen(
             }
         }
 
+    val coverPickerLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.PickVisualMedia(),
+        ) { uri: Uri? ->
+            if (uri != null) {
+                viewModel.setCoverFromUri(context, uri)
+                isCoverExpanded = false
+            }
+        }
+
     UserMomentsScreen(
         uiState = uiState,
-        onBack = onBack,
+        isCoverExpanded = isCoverExpanded,
+        onBack = {
+            if (isCoverExpanded) {
+                isCoverExpanded = false
+            } else {
+                onBack()
+            }
+        },
         onPublish = onPublish,
         onPrivatePublish = onPrivatePublish,
         onSearch = onSearch,
         onViewModeChange = onViewModeChange,
         onNotifications = onNotifications,
-        onCoverClick = onCoverClick,
+        onCoverClick =
+        onCoverClick ?: {
+            isCoverExpanded = !isCoverExpanded
+        },
+        onChangeCoverClick = {
+            coverPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
         onAvatarClick =
         onAvatarClick ?: {
+            photoPickerLauncher.launch(
+                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+            )
+        },
+        onAvatarLongClick = {
             photoPickerLauncher.launch(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
             )
@@ -151,6 +181,7 @@ fun UserMomentsScreen(
  * 个人朋友圈相册视图无状态内容组件。
  *
  * @param uiState 当前 UI 状态
+ * @param isCoverExpanded 封面是否展开
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击“发表”按钮时触发
  * @param onPrivatePublish 点击“私密发表”按钮时触发
@@ -158,20 +189,25 @@ fun UserMomentsScreen(
  * @param onViewModeChange 点击右上角视图切换按钮时触发
  * @param onNotifications 点击右上角消息通知按钮时触发
  * @param onCoverClick 点击相册封面时触发
+ * @param onChangeCoverClick 点击“换封面”按钮时触发
  * @param onAvatarClick 点击头像时触发
+ * @param onAvatarLongClick 长按头像时触发
  * @param modifier 布局修饰符
  */
 @Composable
 fun UserMomentsScreen(
     uiState: MomentsUiState,
     onBack: () -> Unit,
+    isCoverExpanded: Boolean = false,
     onPublish: () -> Unit = {},
     onPrivatePublish: () -> Unit = {},
     onSearch: () -> Unit = {},
     onViewModeChange: () -> Unit = {},
     onNotifications: () -> Unit = {},
     onCoverClick: () -> Unit = {},
+    onChangeCoverClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
+    onAvatarLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -197,14 +233,17 @@ fun UserMomentsScreen(
             state = listState,
             modifier = Modifier.fillMaxSize(),
         ) {
-            // 头部：封面 + 用户名 + 跨界悬浮头像
+            // 头部：封面（支持展开与换封面） + 用户名 + 跨界悬浮头像
             item(key = "header") {
-                UserMomentsHeader(
+                MomentsHeader(
                     username = uiState.username,
                     avatarPath = uiState.avatarPath,
                     coverPath = uiState.coverPath,
+                    isCoverExpanded = isCoverExpanded,
                     onCoverClick = onCoverClick,
+                    onChangeCoverClick = onChangeCoverClick,
                     onAvatarClick = onAvatarClick,
+                    onAvatarLongClick = onAvatarLongClick,
                 )
             }
 
@@ -261,16 +300,18 @@ fun UserMomentsScreen(
             }
         }
 
-        // 顶部悬浮操作栏（带搜索、网格视图、通知图标）
-        UserMomentsTopBar(
-            title = uiState.username,
-            alpha = scrollAlpha,
-            onBack = onBack,
-            onSearch = onSearch,
-            onViewModeChange = onViewModeChange,
-            onNotifications = onNotifications,
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
+        // 顶部悬浮操作栏（带搜索、网格视图、通知图标，封面展开时隐藏）
+        if (!isCoverExpanded) {
+            UserMomentsTopBar(
+                title = uiState.username,
+                alpha = scrollAlpha,
+                onBack = onBack,
+                onSearch = onSearch,
+                onViewModeChange = onViewModeChange,
+                onNotifications = onNotifications,
+                modifier = Modifier.align(Alignment.TopCenter),
+            )
+        }
     }
 }
 
@@ -387,174 +428,6 @@ private fun UserMomentsTopBar(
                         contentDescription = "消息通知",
                         tint = iconColor,
                         modifier = Modifier.size(24.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-/**
- * 个人相册头部组件（相册封面 + 用户名 + 头像）。
- */
-@Composable
-private fun UserMomentsHeader(
-    username: String,
-    avatarPath: String?,
-    coverPath: String?,
-    onCoverClick: () -> Unit,
-    onAvatarClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val coverHeight = 300.dp
-    val avatarSize = 74.dp
-    val avatarOverlapBelow = 34.dp
-    val totalHeight = coverHeight + avatarOverlapBelow
-
-    Box(
-        modifier =
-        modifier
-            .fillMaxWidth()
-            .height(totalHeight),
-    ) {
-        // 1. 头图 / 相册封面区域
-        Box(
-            modifier =
-            Modifier
-                .fillMaxWidth()
-                .height(coverHeight)
-                .align(Alignment.TopCenter)
-                .background(
-                    brush =
-                    Brush.verticalGradient(
-                        colors =
-                        listOf(
-                            Color(0xFF263238),
-                            Color(0xFF1E272C),
-                            Color(0xFF12161A),
-                        ),
-                    ),
-                )
-                .clickable(onClick = onCoverClick)
-                .testTag("user_moments_cover"),
-            contentAlignment = Alignment.Center,
-        ) {
-            val coverUri =
-                remember(coverPath) {
-                    coverPath?.let { path ->
-                        val file = File(path.removePrefix("file://"))
-                        if (file.exists()) "file://${file.absolutePath}" else null
-                    }
-                }
-
-            if (coverUri != null) {
-                AsyncImage(
-                    uri = coverUri,
-                    contentDescription = "相册封面",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color.White.copy(alpha = 0.15f),
-                        modifier = Modifier.size(54.dp),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                imageVector = Icons.Outlined.AddPhotoAlternate,
-                                contentDescription = "相册封面占位",
-                                tint = Color.White.copy(alpha = 0.85f),
-                                modifier = Modifier.size(28.dp),
-                            )
-                        }
-                    }
-                    Text(
-                        text = "轻触更换相册封面",
-                        style =
-                        MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                        color = Color.White.copy(alpha = 0.75f),
-                    )
-                }
-            }
-        }
-
-        // 2. 用户名：位于封面底部上方、头像左侧
-        Text(
-            text = username,
-            color = Color.White,
-            style =
-            MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                fontSize = 19.sp,
-                shadow =
-                Shadow(
-                    color = Color.Black.copy(alpha = 0.7f),
-                    offset = Offset(1f, 2f),
-                    blurRadius = 6f,
-                ),
-            ),
-            maxLines = 1,
-            modifier =
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(
-                    end = 16.dp + avatarSize + 16.dp,
-                    bottom = avatarOverlapBelow + 12.dp,
-                )
-                .testTag("user_moments_username"),
-        )
-
-        // 3. 用户头像：右下角跨界悬浮，点击可设置更换头像
-        Surface(
-            shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant,
-            border = BorderStroke(2.dp, Color.White),
-            shadowElevation = 2.dp,
-            modifier =
-            Modifier
-                .align(Alignment.BottomEnd)
-                .padding(end = 16.dp)
-                .size(avatarSize)
-                .clickable(onClick = onAvatarClick)
-                .testTag("user_moments_avatar"),
-        ) {
-            val avatarUri =
-                remember(avatarPath) {
-                    avatarPath?.let { path ->
-                        if (path.startsWith("content://")) {
-                            path
-                        } else {
-                            val file = File(path.removePrefix("file://"))
-                            if (file.exists()) "file://${file.absolutePath}" else null
-                        }
-                    }
-                }
-
-            if (avatarUri != null) {
-                AsyncImage(
-                    uri = avatarUri,
-                    contentDescription = "用户头像",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            } else {
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier.fillMaxSize(),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Person,
-                        contentDescription = "头像占位",
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                        modifier = Modifier.size(42.dp),
                     )
                 }
             }
