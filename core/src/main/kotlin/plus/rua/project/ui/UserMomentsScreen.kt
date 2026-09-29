@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -23,12 +25,12 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.Notifications
@@ -67,12 +69,16 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
+import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import kotlinx.datetime.todayIn
+import plus.rua.project.MomentPost
 import plus.rua.project.MomentsStorage
 import plus.rua.project.MomentsUiState
 import plus.rua.project.MomentsViewModel
 import java.io.File
+import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
@@ -233,6 +239,14 @@ fun UserMomentsScreen(
         }
     }
 
+    val today = remember { Clock.System.todayIn(TimeZone.currentSystemDefault()) }
+    val todayPosts = remember(uiState.posts, today) {
+        uiState.posts.filter { isTimestampToday(it.timestamp, today) }
+    }
+    val historyPosts = remember(uiState.posts, today) {
+        uiState.posts.filter { !isTimestampToday(it.timestamp, today) }
+    }
+
     Box(
         modifier =
         modifier
@@ -259,40 +273,84 @@ fun UserMomentsScreen(
                 )
             }
 
-            // “今天” 分组：发表与私密发表入口
+            // “今天” 分组：发表与私密发表入口及今天发表的动态
             item(key = "today_section") {
                 UserMomentsTodaySection(
+                    todayPosts = todayPosts,
                     onPublish = onPublish,
                     onPrivatePublish = onPrivatePublish,
+                    onPostPhotoClick = { post, index ->
+                        previewPhotos = post.photoPaths
+                        previewIndex = index
+                    },
+                    onPostClick = { post ->
+                        if (post.photoPaths.isNotEmpty()) {
+                            previewPhotos = post.photoPaths
+                            previewIndex = 0
+                        } else {
+                            onPublish()
+                        }
+                    },
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
                 )
             }
 
-            if (uiState.posts.isNotEmpty()) {
-                items(uiState.posts, key = { it.id }) { post ->
-                    val instant = Instant.fromEpochMilliseconds(post.timestamp)
-                    val dt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+            if (historyPosts.isNotEmpty()) {
+                val currentYear = today.year
+                var lastYear = currentYear
+                var lastDate: LocalDate? = null
+
+                historyPosts.forEach { post ->
+                    val dt = Instant.fromEpochMilliseconds(post.timestamp).toLocalDateTime(TimeZone.currentSystemDefault())
+                    val postYear = dt.year
+                    val postDate = dt.date
+
+                    if (postYear != currentYear && postYear != lastYear) {
+                        item(key = "year_$postYear") {
+                            Text(
+                                text = "$postYear 年",
+                                style =
+                                MaterialTheme.typography.titleLarge.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 24.sp,
+                                ),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 24.dp, vertical = 16.dp),
+                            )
+                        }
+                        lastYear = postYear
+                    }
 
                     @Suppress("DEPRECATION") // kotlinx-datetime monthNumber
-                    val monthStr = formatTimelineMonth(dt.monthNumber)
+                    val monthStr = if (postDate != lastDate) formatTimelineMonth(dt.monthNumber) else ""
 
                     @Suppress("DEPRECATION") // kotlinx-datetime dayOfMonth
-                    val dayStr = dt.dayOfMonth.toString()
-                    UserMomentsTimelineItem(
-                        month = monthStr,
-                        day = dayStr,
-                        photoPath = post.photoPaths.firstOrNull(),
-                        text = post.text,
-                        onClick = {
-                            if (post.photoPaths.isNotEmpty()) {
+                    val dayStr = if (postDate != lastDate) dt.dayOfMonth.toString() else ""
+                    lastDate = postDate
+
+                    item(key = post.id) {
+                        UserMomentsTimelineItem(
+                            month = monthStr,
+                            day = dayStr,
+                            post = post,
+                            onPhotoClick = { index ->
                                 previewPhotos = post.photoPaths
-                                previewIndex = 0
-                            } else {
-                                onPublish()
-                            }
-                        },
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                    )
+                                previewIndex = index
+                            },
+                            onClick = {
+                                if (post.photoPaths.isNotEmpty()) {
+                                    previewPhotos = post.photoPaths
+                                    previewIndex = 0
+                                } else {
+                                    onPublish()
+                                }
+                            },
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        )
+                    }
                 }
             } else {
                 // 年份分组标题（示例：2025 年）
@@ -485,12 +543,15 @@ private fun UserMomentsTopBar(
 }
 
 /**
- * “今天”栏目组件：包含左侧粗体“今天”标题，以及右侧“发表”与“私密发表”方形按钮卡片。
+ * “今天”栏目组件：包含左侧粗体“今天”标题，以及右侧“发表”与“私密发表”方形按钮卡片，和今天已发表的动态。
  */
 @Composable
 private fun UserMomentsTodaySection(
+    todayPosts: List<MomentPost> = emptyList(),
     onPublish: () -> Unit,
     onPrivatePublish: () -> Unit,
+    onPostPhotoClick: (post: MomentPost, photoIndex: Int) -> Unit = { _, _ -> },
+    onPostClick: (post: MomentPost) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -509,84 +570,112 @@ private fun UserMomentsTodaySection(
             modifier = Modifier.width(68.dp),
         )
 
-        // 右侧列：两张卡片（发表、私密发表）
-        Row(
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        // 右侧列：两张卡片（发表、私密发表）及今天发表的动态
+        Column(
+            modifier = Modifier.fillMaxWidth(),
         ) {
-            // 发表卡片
-            Card(
-                onClick = onPublish,
-                shape = RoundedCornerShape(8.dp),
-                colors =
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier =
-                Modifier
-                    .size(86.dp)
-                    .testTag("user_moments_publish_card"),
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                // 发表卡片
+                Card(
+                    onClick = onPublish,
+                    shape = RoundedCornerShape(8.dp),
+                    colors =
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier =
+                    Modifier
+                        .size(86.dp)
+                        .testTag("user_moments_publish_card"),
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.PhotoCamera,
-                        contentDescription = null,
-                        tint = Color(0xFF576B95),
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "发表",
-                        style =
-                        MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                        color = Color(0xFF576B95),
-                    )
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.PhotoCamera,
+                            contentDescription = null,
+                            tint = Color(0xFF576B95),
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "发表",
+                            style =
+                            MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                            ),
+                            color = Color(0xFF576B95),
+                        )
+                    }
+                }
+
+                // 私密发表卡片
+                Card(
+                    onClick = onPrivatePublish,
+                    shape = RoundedCornerShape(8.dp),
+                    colors =
+                    CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    ),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier =
+                    Modifier
+                        .size(86.dp)
+                        .testTag("user_moments_private_publish_card"),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Lock,
+                            contentDescription = null,
+                            tint = Color(0xFF576B95),
+                            modifier = Modifier.size(28.dp),
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            text = "私密发表",
+                            style =
+                            MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                            ),
+                            color = Color(0xFF576B95),
+                        )
+                    }
                 }
             }
 
-            // 私密发表卡片
-            Card(
-                onClick = onPrivatePublish,
-                shape = RoundedCornerShape(8.dp),
-                colors =
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier =
-                Modifier
-                    .size(86.dp)
-                    .testTag("user_moments_private_publish_card"),
-            ) {
+            // 今天发表的动态
+            if (todayPosts.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Box(
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(0.5.dp)
+                        .background(MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                )
+                Spacer(modifier = Modifier.height(14.dp))
                 Column(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center,
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Lock,
-                        contentDescription = null,
-                        tint = Color(0xFF576B95),
-                        modifier = Modifier.size(28.dp),
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "私密发表",
-                        style =
-                        MaterialTheme.typography.bodySmall.copy(
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium,
-                        ),
-                        color = Color(0xFF576B95),
-                    )
+                    todayPosts.forEach { post ->
+                        UserMomentsThumbnailCard(
+                            post = post,
+                            onPhotoClick = { index -> onPostPhotoClick(post, index) },
+                            onClick = { onPostClick(post) },
+                        )
+                    }
                 }
             }
         }
@@ -595,14 +684,25 @@ private fun UserMomentsTodaySection(
 
 /**
  * 历史时间轴动态单条组件（左侧月份与日期，右侧照片缩略图或纯文字卡片）。
+ *
+ * @param month 月份（如“九月”）
+ * @param day 日期（如“29”）
+ * @param post 朋友圈动态对象（提供时优先用于渲染卡片）
+ * @param photoPath 备用照片路径
+ * @param text 备用纯文字内容
+ * @param onPhotoClick 点击单张配图时的回调
+ * @param onClick 点击卡片时的回调
+ * @param modifier 布局修饰符
  */
 @Composable
-private fun UserMomentsTimelineItem(
+fun UserMomentsTimelineItem(
     month: String,
     day: String,
-    photoPath: String?,
+    post: MomentPost? = null,
+    photoPath: String? = null,
     text: String? = null,
-    onClick: () -> Unit,
+    onPhotoClick: (Int) -> Unit = {},
+    onClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -614,71 +714,116 @@ private fun UserMomentsTimelineItem(
             modifier = Modifier.width(68.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
         ) {
-            Text(
-                text = month,
-                style =
-                MaterialTheme.typography.bodySmall.copy(
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                ),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            Text(
-                text = day,
-                style =
-                MaterialTheme.typography.titleLarge.copy(
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 28.sp,
-                ),
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-        }
-
-        val photoUri =
-            remember(photoPath) {
-                photoPath?.let { path ->
-                    if (path.startsWith("content://")) {
-                        path
-                    } else {
-                        val file = File(path.removePrefix("file://"))
-                        if (file.exists()) "file://${file.absolutePath}" else null
-                    }
-                }
-            }
-
-        if (photoUri != null) {
-            // 右侧动态照片缩略图
-            Card(
-                onClick = onClick,
-                shape = RoundedCornerShape(8.dp),
-                colors =
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.size(86.dp),
-            ) {
-                AsyncImage(
-                    uri = photoUri,
-                    contentDescription = "动态照片",
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.fillMaxSize(),
+            if (month.isNotBlank()) {
+                Text(
+                    text = month,
+                    style =
+                    MaterialTheme.typography.bodySmall.copy(
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-        } else if (!text.isNullOrBlank()) {
-            // 纯文字动态：微信个人相册灰底文字块
-            Card(
-                onClick = onClick,
-                shape = RoundedCornerShape(6.dp),
-                colors =
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
-            ) {
+            if (day.isNotBlank()) {
                 Text(
-                    text = text,
+                    text = day,
+                    style =
+                    MaterialTheme.typography.titleLarge.copy(
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 28.sp,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+            }
+        }
+
+        // 右侧动态卡片
+        if (post != null) {
+            UserMomentsThumbnailCard(
+                post = post,
+                onPhotoClick = onPhotoClick,
+                onClick = onClick,
+            )
+        } else {
+            val fallbackPost =
+                remember(photoPath, text) {
+                    MomentPost(
+                        photoPaths = listOfNotNull(photoPath),
+                        text = text.orEmpty(),
+                    )
+                }
+            UserMomentsThumbnailCard(
+                post = fallbackPost,
+                onPhotoClick = onPhotoClick,
+                onClick = onClick,
+            )
+        }
+    }
+}
+
+/**
+ * 个人相册单条动态缩略图卡片（支持单图铺满、双图并排、三图/四宫格拼贴、纯文字与私密锁标）。
+ *
+ * @param post 朋友圈动态
+ * @param onPhotoClick 点击单张配图时的回调
+ * @param onClick 点击纯文本或卡片时的通用回调
+ * @param modifier 布局修饰符
+ */
+@Composable
+fun UserMomentsThumbnailCard(
+    post: MomentPost,
+    onPhotoClick: (Int) -> Unit = {},
+    onClick: () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    if (post.photoPaths.isNotEmpty()) {
+        Card(
+            onClick = { onPhotoClick(0) },
+            shape = RoundedCornerShape(8.dp),
+            colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = modifier.size(86.dp),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                MomentsThumbnailPhotos(
+                    photoPaths = post.photoPaths,
+                    onPhotoClick = onPhotoClick,
+                    modifier = Modifier.fillMaxSize(),
+                )
+
+                // 私密动态锁标（位于右下角）
+                if (post.visibility == "私密" || post.visibility.startsWith("私密")) {
+                    Icon(
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = "私密动态",
+                        tint = Color.White,
+                        modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 4.dp, bottom = 4.dp)
+                            .size(16.dp),
+                    )
+                }
+            }
+        }
+    } else if (post.text.isNotBlank()) {
+        Card(
+            onClick = onClick,
+            shape = RoundedCornerShape(6.dp),
+            colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = modifier.fillMaxWidth().padding(end = 8.dp),
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = post.text,
                     style =
                     MaterialTheme.typography.bodyMedium.copy(
                         fontSize = 15.sp,
@@ -689,32 +834,215 @@ private fun UserMomentsTimelineItem(
                     overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.padding(12.dp),
                 )
-            }
-        } else {
-            Card(
-                onClick = onClick,
-                shape = RoundedCornerShape(8.dp),
-                colors =
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                ),
-                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                modifier = Modifier.size(86.dp),
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
+                if (post.visibility == "私密" || post.visibility.startsWith("私密")) {
                     Icon(
-                        imageVector = Icons.Outlined.PhotoCamera,
-                        contentDescription = null,
+                        imageVector = Icons.Filled.Lock,
+                        contentDescription = "私密动态",
                         tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(28.dp),
+                        modifier =
+                        Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = 6.dp, bottom = 6.dp)
+                            .size(14.dp),
                     )
                 }
             }
         }
+    } else {
+        Card(
+            onClick = onClick,
+            shape = RoundedCornerShape(8.dp),
+            colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+            modifier = modifier.size(86.dp),
+        ) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.PhotoCamera,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.size(28.dp),
+                )
+            }
+        }
     }
+}
+
+/**
+ * 个人相册多图缩略图网格拼贴组件（单图全幅、双图左右并排、三图左一右二、四张及以上 2x2 四宫格）。
+ *
+ * @param photoPaths 配图文件路径列表
+ * @param onPhotoClick 点击单张图片时的回调
+ * @param modifier 布局修饰符
+ */
+@Composable
+fun MomentsThumbnailPhotos(
+    photoPaths: List<String>,
+    onPhotoClick: (Int) -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    when {
+        photoPaths.isEmpty() -> Unit
+
+        photoPaths.size == 1 -> {
+            val uri = rememberPhotoUri(photoPaths[0])
+            AsyncImage(
+                uri = uri,
+                contentDescription = "动态照片",
+                contentScale = ContentScale.Crop,
+                modifier =
+                modifier
+                    .fillMaxSize()
+                    .clickable { onPhotoClick(0) },
+            )
+        }
+
+        photoPaths.size == 2 -> {
+            Row(
+                modifier = modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                for (i in 0..1) {
+                    val uri = rememberPhotoUri(photoPaths[i])
+                    AsyncImage(
+                        uri = uri,
+                        contentDescription = "动态照片 ${i + 1}",
+                        contentScale = ContentScale.Crop,
+                        modifier =
+                        Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .clickable { onPhotoClick(i) },
+                    )
+                }
+            }
+        }
+
+        photoPaths.size == 3 -> {
+            Row(
+                modifier = modifier.fillMaxSize(),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                val leftUri = rememberPhotoUri(photoPaths[0])
+                AsyncImage(
+                    uri = leftUri,
+                    contentDescription = "动态照片 1",
+                    contentScale = ContentScale.Crop,
+                    modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .clickable { onPhotoClick(0) },
+                )
+                Column(
+                    modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight(),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    for (i in 1..2) {
+                        val uri = rememberPhotoUri(photoPaths[i])
+                        AsyncImage(
+                            uri = uri,
+                            contentDescription = "动态照片 ${i + 1}",
+                            contentScale = ContentScale.Crop,
+                            modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .weight(1f)
+                                .clickable { onPhotoClick(i) },
+                        )
+                    }
+                }
+            }
+        }
+
+        else -> {
+            val displayPhotos = photoPaths.take(4)
+            Column(
+                modifier = modifier.fillMaxSize(),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                // 上排两张
+                Row(
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    for (i in 0..1) {
+                        val uri = rememberPhotoUri(displayPhotos[i])
+                        AsyncImage(
+                            uri = uri,
+                            contentDescription = "动态照片 ${i + 1}",
+                            contentScale = ContentScale.Crop,
+                            modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable { onPhotoClick(i) },
+                        )
+                    }
+                }
+                // 下排两张
+                Row(
+                    modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    for (i in 2..3) {
+                        val uri = rememberPhotoUri(displayPhotos[i])
+                        AsyncImage(
+                            uri = uri,
+                            contentDescription = "动态照片 ${i + 1}",
+                            contentScale = ContentScale.Crop,
+                            modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .clickable { onPhotoClick(i) },
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 记忆并解析配图 URI，兼容 content:// 与本地文件路径。
+ */
+@Composable
+private fun rememberPhotoUri(path: String?): String? = remember(path) {
+    if (path == null) return@remember null
+    if (path.startsWith("content://") || path.startsWith("file://")) {
+        path
+    } else {
+        val file = File(path.removePrefix("file://"))
+        if (file.exists()) "file://${file.absolutePath}" else path
+    }
+}
+
+/**
+ * 判断指定时间戳（毫秒）是否落在给定的本地日期当天。
+ */
+fun isTimestampToday(
+    timestamp: Long,
+    today: LocalDate,
+    timeZone: TimeZone = TimeZone.currentSystemDefault(),
+): Boolean {
+    val postDate = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(timeZone).date
+    return postDate == today
 }
 
 /**
