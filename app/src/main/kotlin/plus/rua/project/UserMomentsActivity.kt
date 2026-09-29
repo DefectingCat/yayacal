@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
+import plus.rua.project.ui.MomentsNav
 import plus.rua.project.ui.UserMomentsScreen
 import plus.rua.project.ui.theme.YaYaTheme
 
@@ -29,6 +30,13 @@ class UserMomentsActivity : BaseActivity() {
                             putExtra(MomentsPublishActivity.EXTRA_VISIBILITY, "私密")
                         }
                         startActivityWithSlide(intent)
+                    },
+                    onPostClick = { postId ->
+                        startActivityWithSlide(
+                            Intent(this, MomentsDetailActivity::class.java).apply {
+                                putExtra(MomentsNav.EXTRA_POST_ID, postId)
+                            },
+                        )
                     },
                     onSearch = {
                         Toast.makeText(this, "搜索朋友圈功能正在开发中", Toast.LENGTH_SHORT).show()

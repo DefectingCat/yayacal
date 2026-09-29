@@ -2,8 +2,8 @@ package plus.rua.project
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.compose.setContent
+import plus.rua.project.ui.MomentsNav
 import plus.rua.project.ui.MomentsScreen
 import plus.rua.project.ui.theme.YaYaTheme
 
@@ -23,6 +23,21 @@ class MomentsActivity : BaseActivity() {
                     },
                     onPublish = {
                         startActivityWithSlide(Intent(this, MomentsPublishActivity::class.java))
+                    },
+                    onPostClick = { postId ->
+                        startActivityWithSlide(
+                            Intent(this, MomentsDetailActivity::class.java).apply {
+                                putExtra(MomentsNav.EXTRA_POST_ID, postId)
+                            },
+                        )
+                    },
+                    onCommentClick = { postId ->
+                        startActivityWithSlide(
+                            Intent(this, MomentsDetailActivity::class.java).apply {
+                                putExtra(MomentsNav.EXTRA_POST_ID, postId)
+                                putExtra(MomentsNav.EXTRA_FOCUS_COMMENT, true)
+                            },
+                        )
                     },
                 )
             }

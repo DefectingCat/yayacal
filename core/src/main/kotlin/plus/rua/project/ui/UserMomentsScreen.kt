@@ -10,6 +10,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -42,6 +43,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -94,6 +96,7 @@ import kotlin.time.Instant
  * @param onNotifications 点击右上角消息通知按钮时触发
  * @param onCoverClick 点击相册封面时触发（为 null 时默认切换封面展开状态）
  * @param onAvatarClick 点击头像时触发（默认从系统相册选取并设置头像）
+ * @param onPostClick 点击本人动态的缩略图或正文时触发，传递动态 ID
  * @param viewModel 朋友圈 ViewModel
  * @param modifier 布局修饰符
  */
@@ -107,6 +110,7 @@ fun UserMomentsScreen(
     onNotifications: () -> Unit = {},
     onCoverClick: (() -> Unit)? = null,
     onAvatarClick: (() -> Unit)? = null,
+    onPostClick: (String) -> Unit = {},
     viewModel: MomentsViewModel = run {
         val context = LocalContext.current.applicationContext
         viewModel(
@@ -189,6 +193,8 @@ fun UserMomentsScreen(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
             )
         },
+        onPostClick = onPostClick,
+        onDeletePost = viewModel::deletePost,
         modifier = modifier,
     )
 }
@@ -208,6 +214,8 @@ fun UserMomentsScreen(
  * @param onChangeCoverClick 点击“换封面”按钮时触发
  * @param onAvatarClick 点击头像时触发
  * @param onAvatarLongClick 长按头像时触发
+ * @param onPostClick 点击本人动态的缩略图或正文时触发
+ * @param onDeletePost 确认删除本人动态时触发
  * @param modifier 布局修饰符
  */
 @Composable
@@ -224,11 +232,12 @@ fun UserMomentsScreen(
     onChangeCoverClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAvatarLongClick: (() -> Unit)? = null,
+    onPostClick: (String) -> Unit = {},
+    onDeletePost: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    var previewPhotos by remember { mutableStateOf<List<String>?>(null) }
-    var previewIndex by remember { mutableStateOf(0) }
+    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     val scrollAlpha by remember {
         derivedStateOf {
             if (listState.firstVisibleItemIndex > 0) {
@@ -279,18 +288,8 @@ fun UserMomentsScreen(
                     todayPosts = todayPosts,
                     onPublish = onPublish,
                     onPrivatePublish = onPrivatePublish,
-                    onPostPhotoClick = { post, index ->
-                        previewPhotos = post.photoPaths
-                        previewIndex = index
-                    },
-                    onPostClick = { post ->
-                        if (post.photoPaths.isNotEmpty()) {
-                            previewPhotos = post.photoPaths
-                            previewIndex = 0
-                        } else {
-                            onPublish()
-                        }
-                    },
+                    onPostClick = { post -> onPostClick(post.id) },
+                    onDeletePost = { post -> pendingDeleteId = post.id },
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
                 )
             }
@@ -332,53 +331,23 @@ fun UserMomentsScreen(
                     lastDate = postDate
 
                     item(key = post.id) {
-                        UserMomentsTimelineItem(
-                            month = monthStr,
-                            day = dayStr,
-                            post = post,
-                            onPhotoClick = { index ->
-                                previewPhotos = post.photoPaths
-                                previewIndex = index
-                            },
-                            onClick = {
-                                if (post.photoPaths.isNotEmpty()) {
-                                    previewPhotos = post.photoPaths
-                                    previewIndex = 0
-                                } else {
-                                    onPublish()
-                                }
-                            },
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                        )
+                        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
+                            UserMomentsTimelineItem(
+                                month = monthStr,
+                                day = dayStr,
+                                post = post,
+                                onPhotoClick = { onPostClick(post.id) },
+                                onClick = { onPostClick(post.id) },
+                            )
+                            TextButton(
+                                onClick = { pendingDeleteId = post.id },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                                modifier = Modifier.padding(start = 68.dp).height(28.dp).testTag("user_moment_delete_${post.id}"),
+                            ) {
+                                Text("删除", color = momentsLinkColor(), fontSize = 12.sp)
+                            }
+                        }
                     }
-                }
-            } else {
-                // 年份分组标题（示例：2025 年）
-                item(key = "year_2025") {
-                    Text(
-                        text = "2025 年",
-                        style =
-                        MaterialTheme.typography.titleLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 24.sp,
-                        ),
-                        color = MaterialTheme.colorScheme.onSurface,
-                        modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 24.dp, vertical = 16.dp),
-                    )
-                }
-
-                // 历史时间轴动态项（示例：十月 16 日图文记录）
-                item(key = "item_oct_16") {
-                    UserMomentsTimelineItem(
-                        month = "十月",
-                        day = "16",
-                        photoPath = uiState.avatarPath,
-                        onClick = onPublish,
-                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                    )
                 }
             }
 
@@ -411,13 +380,11 @@ fun UserMomentsScreen(
             )
         }
 
-        // 大图预览弹窗
-        if (previewPhotos != null) {
-            MomentsPhotoPreviewDialog(
-                photos = previewPhotos.orEmpty(),
-                initialIndex = previewIndex,
-                onDismiss = { previewPhotos = null },
-            )
+        pendingDeleteId?.let { postId ->
+            MomentsDeleteDialog(onDismiss = { pendingDeleteId = null }, onConfirm = {
+                pendingDeleteId = null
+                onDeletePost(postId)
+            })
         }
     }
 }
@@ -550,8 +517,8 @@ private fun UserMomentsTodaySection(
     todayPosts: List<MomentPost> = emptyList(),
     onPublish: () -> Unit,
     onPrivatePublish: () -> Unit,
-    onPostPhotoClick: (post: MomentPost, photoIndex: Int) -> Unit = { _, _ -> },
     onPostClick: (post: MomentPost) -> Unit = {},
+    onDeletePost: (post: MomentPost) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -670,11 +637,21 @@ private fun UserMomentsTodaySection(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     todayPosts.forEach { post ->
-                        UserMomentsThumbnailCard(
-                            post = post,
-                            onPhotoClick = { index -> onPostPhotoClick(post, index) },
-                            onClick = { onPostClick(post) },
-                        )
+                        Column {
+                            UserMomentsThumbnailCard(
+                                post = post,
+                                onPhotoClick = { onPostClick(post) },
+                                onClick = { onPostClick(post) },
+                                modifier = Modifier.testTag("user_moment_${post.id}"),
+                            )
+                            TextButton(
+                                onClick = { onDeletePost(post) },
+                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
+                                modifier = Modifier.height(28.dp).testTag("user_moment_delete_${post.id}"),
+                            ) {
+                                Text("删除", color = momentsLinkColor(), fontSize = 12.sp)
+                            }
+                        }
                     }
                 }
             }

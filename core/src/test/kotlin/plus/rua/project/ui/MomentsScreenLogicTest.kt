@@ -4,6 +4,13 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class MomentsScreenLogicTest {
+    @Test
+    fun formatMomentDetailTime_formatsLocalDateAndZeroPaddedTime() {
+        val timestamp = kotlin.time.Instant.parse("2026-09-28T16:05:00Z").toEpochMilliseconds()
+        assertEquals("2026年9月29日 00:05", formatMomentDetailTime(timestamp, kotlinx.datetime.TimeZone.of("Asia/Shanghai")))
+        assertEquals("2026年9月28日 16:05", formatMomentDetailTime(timestamp, kotlinx.datetime.TimeZone.UTC))
+    }
+
     // ---- calculateTopBarAlpha ----
 
     @Test

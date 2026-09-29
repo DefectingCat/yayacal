@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -139,24 +140,29 @@ class MomentsViewModel(
         val postToDelete = storage.getPosts().find { it.id == postId }
         storage.deletePost(postId)
         if (postToDelete != null) {
-            viewModelScope.launch(ioDispatcher) {
-                val referencedPaths = storage.getPosts().flatMap { post ->
-                    post.photoPaths + post.comments.mapNotNull { it.photoPath }
-                }.toSet()
-                val ownedDir = File(filesDir, MOMENTS_DIR_NAME).canonicalFile
-                val paths = postToDelete.photoPaths + postToDelete.comments.mapNotNull { it.photoPath }
-                for (path in paths.distinct()) {
-                    // 只清理本功能的私有文件，保留其他动态仍在使用的图片。
-                    if (path !in referencedPaths) {
-                        runCatching {
-                            val file = File(path).canonicalFile
-                            if (file.parentFile == ownedDir) file.delete()
+            viewModelScope.launch {
+                // 详情页会在动态移除后关闭，先完成有限的文件清理，避免 Activity 销毁取消清理。
+                withContext(NonCancellable + ioDispatcher) {
+                    val referencedPaths = storage.getPosts().flatMap { post ->
+                        post.photoPaths + post.comments.mapNotNull { it.photoPath }
+                    }.toSet()
+                    val ownedDir = File(filesDir, MOMENTS_DIR_NAME).canonicalFile
+                    val paths = postToDelete.photoPaths + postToDelete.comments.mapNotNull { it.photoPath }
+                    for (path in paths.distinct()) {
+                        // 只清理本功能的私有文件，保留其他动态仍在使用的图片。
+                        if (path !in referencedPaths) {
+                            runCatching {
+                                val file = File(path).canonicalFile
+                                if (file.parentFile == ownedDir) file.delete()
+                            }
                         }
                     }
                 }
+                refreshPosts()
             }
+        } else {
+            refreshPosts()
         }
-        refreshPosts()
     }
 
     /**
