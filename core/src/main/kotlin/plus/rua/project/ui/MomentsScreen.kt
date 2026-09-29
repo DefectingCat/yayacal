@@ -209,6 +209,8 @@ fun MomentsScreen(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    var previewPhotos by remember { mutableStateOf<List<String>?>(null) }
+    var previewIndex by remember { mutableStateOf(0) }
     val scrollAlpha by remember {
         derivedStateOf {
             if (listState.firstVisibleItemIndex > 0) {
@@ -260,6 +262,10 @@ fun MomentsScreen(
                         authorName = uiState.username,
                         avatarPath = uiState.avatarPath,
                         onDelete = { onDeletePost(post.id) },
+                        onPhotoClick = { photos, index ->
+                            previewPhotos = photos
+                            previewIndex = index
+                        },
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                     )
                     HorizontalDivider(color = Color(0xFFF2F2F2), thickness = 0.6.dp)
@@ -285,6 +291,15 @@ fun MomentsScreen(
                 onBack = onBack,
                 onPublish = onPublish,
                 modifier = Modifier.align(Alignment.TopCenter),
+            )
+        }
+
+        // 大图预览弹窗
+        if (previewPhotos != null) {
+            MomentsPhotoPreviewDialog(
+                photos = previewPhotos.orEmpty(),
+                initialIndex = previewIndex,
+                onDismiss = { previewPhotos = null },
             )
         }
     }
@@ -492,6 +507,7 @@ fun calculateTopBarAlpha(
  * @param authorName 发布者昵称
  * @param avatarPath 头像本地路径
  * @param onDelete 点击“删除”按钮时触发
+ * @param onPhotoClick 点击配图时触发，提供图片路径列表与当前点击索引
  * @param modifier 布局修饰符
  */
 @Composable
@@ -500,6 +516,7 @@ fun MomentFeedItem(
     authorName: String,
     avatarPath: String?,
     onDelete: () -> Unit,
+    onPhotoClick: (photos: List<String>, index: Int) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -563,7 +580,10 @@ fun MomentFeedItem(
             // 配图展示
             if (post.photoPaths.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
-                MomentFeedPhotos(photos = post.photoPaths)
+                MomentFeedPhotos(
+                    photos = post.photoPaths,
+                    onPhotoClick = { index -> onPhotoClick(post.photoPaths, index) },
+                )
             }
 
             // 所在位置
@@ -622,10 +642,15 @@ fun MomentFeedItem(
 
 /**
  * 朋友圈动态九宫格照片排版组件。
+ *
+ * @param photos 配图路径列表
+ * @param onPhotoClick 点击某张图片回调，提供被点击图片在列表中的索引
+ * @param modifier 布局修饰符
  */
 @Composable
 private fun MomentFeedPhotos(
     photos: List<String>,
+    onPhotoClick: (Int) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     if (photos.size == 1) {
@@ -636,7 +661,8 @@ private fun MomentFeedPhotos(
             modifier
                 .size(width = 180.dp, height = 180.dp)
                 .clip(RoundedCornerShape(4.dp))
-                .background(Color(0xFFF2F2F2)),
+                .background(Color(0xFFF2F2F2))
+                .clickable { onPhotoClick(0) },
         ) {
             AsyncImage(
                 uri = uri,
@@ -652,12 +678,13 @@ private fun MomentFeedPhotos(
             verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = modifier.fillMaxWidth(if (photos.size == 4) 0.68f else 1f),
         ) {
-            rows.forEach { rowPhotos ->
+            rows.forEachIndexed { rowIndex, rowPhotos ->
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    rowPhotos.forEach { photoPath ->
+                    rowPhotos.forEachIndexed { colIndex, photoPath ->
+                        val photoIndex = rowIndex * columns + colIndex
                         val uri = if (photoPath.startsWith("content://") || photoPath.startsWith("file://")) photoPath else "file://${File(photoPath).absolutePath}"
                         Box(
                             modifier =
@@ -665,7 +692,8 @@ private fun MomentFeedPhotos(
                                 .weight(1f)
                                 .aspectRatio(1f)
                                 .clip(RoundedCornerShape(4.dp))
-                                .background(Color(0xFFF2F2F2)),
+                                .background(Color(0xFFF2F2F2))
+                                .clickable { onPhotoClick(photoIndex) },
                         ) {
                             AsyncImage(
                                 uri = uri,

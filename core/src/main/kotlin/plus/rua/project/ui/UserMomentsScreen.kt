@@ -221,6 +221,8 @@ fun UserMomentsScreen(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    var previewPhotos by remember { mutableStateOf<List<String>?>(null) }
+    var previewIndex by remember { mutableStateOf(0) }
     val scrollAlpha by remember {
         derivedStateOf {
             if (listState.firstVisibleItemIndex > 0) {
@@ -281,7 +283,14 @@ fun UserMomentsScreen(
                         day = dayStr,
                         photoPath = post.photoPaths.firstOrNull(),
                         text = post.text,
-                        onClick = onPublish,
+                        onClick = {
+                            if (post.photoPaths.isNotEmpty()) {
+                                previewPhotos = post.photoPaths
+                                previewIndex = 0
+                            } else {
+                                onPublish()
+                            }
+                        },
                         modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
                     )
                 }
@@ -341,6 +350,15 @@ fun UserMomentsScreen(
                 onViewModeChange = onViewModeChange,
                 onNotifications = onNotifications,
                 modifier = Modifier.align(Alignment.TopCenter),
+            )
+        }
+
+        // 大图预览弹窗
+        if (previewPhotos != null) {
+            MomentsPhotoPreviewDialog(
+                photos = previewPhotos.orEmpty(),
+                initialIndex = previewIndex,
+                onDismiss = { previewPhotos = null },
             )
         }
     }
