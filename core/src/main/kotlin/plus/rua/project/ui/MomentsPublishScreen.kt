@@ -127,6 +127,17 @@ fun MomentsPublishScreen(
             onCancel = viewModel::closeLocationPicker,
             modifier = modifier,
         )
+    } else if (uiState.isVisibilityPickerVisible) {
+        BackHandler { viewModel.closeVisibilityPicker() }
+        MomentsVisibilityScreen(
+            currentVisibility = uiState.visibility,
+            currentTags = uiState.visibilityTags,
+            onDone = { visibility, tags ->
+                viewModel.selectVisibility(visibility, tags)
+            },
+            onCancel = viewModel::closeVisibilityPicker,
+            modifier = modifier,
+        )
     } else {
         MomentsPublishScreen(
             uiState = uiState,
@@ -145,9 +156,7 @@ fun MomentsPublishScreen(
             onRemindClick = {
                 Toast.makeText(context, "“提醒谁看”功能正在开发中", Toast.LENGTH_SHORT).show()
             },
-            onVisibilityClick = {
-                Toast.makeText(context, "“谁可以看”功能正在开发中", Toast.LENGTH_SHORT).show()
-            },
+            onVisibilityClick = viewModel::openVisibilityPicker,
             modifier = modifier,
         )
     }
@@ -322,7 +331,7 @@ fun MomentsPublishScreen(
             PublishOptionRow(
                 icon = Icons.Outlined.Person,
                 title = "谁可以看",
-                subtitle = uiState.visibility,
+                subtitle = uiState.formattedVisibility,
                 onClick = onVisibilityClick,
                 testTag = "publish_option_visibility",
             )

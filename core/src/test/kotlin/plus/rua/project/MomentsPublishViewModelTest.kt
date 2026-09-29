@@ -128,6 +128,61 @@ class MomentsPublishViewModelTest {
         assertEquals(listOf("/path/p1.jpg"), posts[0].photoPaths)
         assertEquals("创维半导体设计大厦", posts[0].location)
     }
+
+    @Test
+    fun visibilityPicker_openAndClose_updatesUiState() {
+        val vm = MomentsPublishViewModel(
+            storage = storage,
+            filesDir = tempDir,
+            ioDispatcher = testDispatcher,
+        )
+
+        assertFalse(vm.uiState.value.isVisibilityPickerVisible)
+        vm.openVisibilityPicker()
+        assertTrue(vm.uiState.value.isVisibilityPickerVisible)
+        vm.closeVisibilityPicker()
+        assertFalse(vm.uiState.value.isVisibilityPickerVisible)
+    }
+
+    @Test
+    fun selectVisibility_updatesVisibilityAndTagsAndFormattedString() = runTest(testDispatcher) {
+        val vm = MomentsPublishViewModel(
+            storage = storage,
+            filesDir = tempDir,
+            ioDispatcher = testDispatcher,
+        )
+
+        // 默认公开
+        assertEquals("公开", vm.uiState.value.visibility)
+        assertEquals("公开", vm.uiState.value.formattedVisibility)
+
+        // 选择私密
+        vm.selectVisibility("私密")
+        assertEquals("私密", vm.uiState.value.visibility)
+        assertEquals("私密", vm.uiState.value.formattedVisibility)
+        assertFalse(vm.uiState.value.isVisibilityPickerVisible)
+
+        // 选择部分可见，带标签
+        vm.selectVisibility("部分可见", listOf("家人", "朋友"))
+        assertEquals("部分可见", vm.uiState.value.visibility)
+        assertEquals(listOf("家人", "朋友"), vm.uiState.value.visibilityTags)
+        assertEquals("部分可见 (家人、朋友)", vm.uiState.value.formattedVisibility)
+
+        // 选择不给谁看，带标签
+        vm.selectVisibility("不给谁看", listOf("同事"))
+        assertEquals("不给谁看", vm.uiState.value.visibility)
+        assertEquals(listOf("同事"), vm.uiState.value.visibilityTags)
+        assertEquals("不给谁看 (同事)", vm.uiState.value.formattedVisibility)
+
+        // 发布后持久化包含格式化可见性
+        vm.onTextChanged("仅家人可见的动态")
+        vm.selectVisibility("部分可见", listOf("家人"))
+        vm.publish {}
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val posts = storage.getPosts()
+        assertEquals("部分可见 (家人)", posts.first().visibility)
+    }
 }
 
 private class MomentsPublishVmTestInMemoryPrefs : SharedPreferences {

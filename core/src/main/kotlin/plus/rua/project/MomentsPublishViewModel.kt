@@ -23,8 +23,10 @@ import java.io.FileOutputStream
  * @param selectedLocation 当前选中的位置（为 null 表示不显示位置）
  * @param availableLocations 可选位置列表
  * @param locationSearchQuery 位置搜索框文本
- * @param visibility 可见性范围（"公开" / "私密"）
+ * @param visibility 可见性范围（"公开" / "私密" / "部分可见" / "不给谁看"）
+ * @param visibilityTags 可见性选中的标签/联系人列表
  * @param isLocationPickerVisible 是否正在展示选择位置子页面
+ * @param isVisibilityPickerVisible 是否正在展示“谁可以看”权限设置子页面
  * @param isPublishing 是否正在保存发布中
  */
 data class MomentsPublishUiState(
@@ -34,7 +36,9 @@ data class MomentsPublishUiState(
     val availableLocations: List<MomentLocationItem> = MomentsLocationProvider.getDefaultLocations(),
     val locationSearchQuery: String = "",
     val visibility: String = "公开",
+    val visibilityTags: List<String> = emptyList(),
     val isLocationPickerVisible: Boolean = false,
+    val isVisibilityPickerVisible: Boolean = false,
     val isPublishing: Boolean = false,
 ) {
     val canPublish: Boolean get() = text.isNotBlank() || photos.isNotEmpty()
@@ -42,6 +46,14 @@ data class MomentsPublishUiState(
 
     val displayedLocations: List<MomentLocationItem>
         get() = MomentsLocationProvider.filterLocations(availableLocations, locationSearchQuery)
+
+    val formattedVisibility: String
+        get() = when {
+            visibilityTags.isNotEmpty() && (visibility == "部分可见" || visibility == "不给谁看") ->
+                "$visibility (${visibilityTags.joinToString("、")})"
+
+            else -> visibility
+        }
 
     companion object {
         const val MAX_PHOTOS = 9
@@ -149,6 +161,24 @@ class MomentsPublishViewModel(
         _uiState.update { it.copy(isLocationPickerVisible = false, locationSearchQuery = "") }
     }
 
+    fun openVisibilityPicker() {
+        _uiState.update { it.copy(isVisibilityPickerVisible = true) }
+    }
+
+    fun closeVisibilityPicker() {
+        _uiState.update { it.copy(isVisibilityPickerVisible = false) }
+    }
+
+    fun selectVisibility(visibility: String, tags: List<String> = emptyList()) {
+        _uiState.update {
+            it.copy(
+                visibility = visibility,
+                visibilityTags = tags,
+                isVisibilityPickerVisible = false,
+            )
+        }
+    }
+
     fun onLocationSearchQueryChanged(query: String) {
         _uiState.update { it.copy(locationSearchQuery = query) }
     }
@@ -189,7 +219,7 @@ class MomentsPublishViewModel(
                 photoPaths = state.photos,
                 location = state.selectedLocation?.name,
                 locationAddress = state.selectedLocation?.address,
-                visibility = state.visibility,
+                visibility = state.formattedVisibility,
                 timestamp = System.currentTimeMillis(),
             )
             withContext(ioDispatcher) {
