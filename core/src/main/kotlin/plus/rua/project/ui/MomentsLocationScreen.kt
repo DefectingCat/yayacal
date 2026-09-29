@@ -1,9 +1,18 @@
 package plus.rua.project.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,10 +33,11 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +49,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.TextStyle
@@ -81,9 +92,8 @@ fun MomentsLocationScreen(
             .navigationBarsPadding()
             .testTag("moments_location_screen"),
     ) {
-        // 1. 顶部操作栏：取消 | 所在位置 | 完成
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
+        // 1. 顶部操作栏：取消 | 所在位置 (居中) | 完成
+        Box(
             modifier =
             Modifier
                 .fillMaxWidth()
@@ -92,7 +102,10 @@ fun MomentsLocationScreen(
         ) {
             TextButton(
                 onClick = onCancel,
-                modifier = Modifier.testTag("location_cancel_button"),
+                modifier =
+                Modifier
+                    .align(Alignment.CenterStart)
+                    .testTag("location_cancel_button"),
             ) {
                 Text(
                     text = "取消",
@@ -101,16 +114,13 @@ fun MomentsLocationScreen(
                 )
             }
 
-            Spacer(modifier = Modifier.weight(1f))
-
             Text(
                 text = "所在位置",
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF191919),
+                modifier = Modifier.align(Alignment.Center),
             )
-
-            Spacer(modifier = Modifier.weight(1f))
 
             Button(
                 onClick = { onSelectLocation(temporarySelected) },
@@ -120,8 +130,11 @@ fun MomentsLocationScreen(
                     containerColor = Color(0xFF07C160),
                     contentColor = Color.White,
                 ),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                modifier = Modifier.testTag("location_done_button"),
+                contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
+                modifier =
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .testTag("location_done_button"),
             ) {
                 Text(
                     text = "完成",
@@ -179,7 +192,11 @@ fun MomentsLocationScreen(
                             .testTag("location_search_input"),
                     )
                 }
-                if (searchQuery.isNotEmpty()) {
+                this@Row.AnimatedVisibility(
+                    visible = searchQuery.isNotEmpty(),
+                    enter = fadeIn(animationSpec = tween(150)) + scaleIn(initialScale = 0.7f),
+                    exit = fadeOut(animationSpec = tween(150)) + scaleOut(targetScale = 0.7f),
+                ) {
                     IconButton(
                         onClick = { onSearchQueryChange("") },
                         modifier = Modifier.size(24.dp),
@@ -196,32 +213,50 @@ fun MomentsLocationScreen(
         }
 
         // 3. 位置列表（不显示位置、城市、附近 POI）
-        LazyColumn(
-            modifier =
-            Modifier
-                .fillMaxWidth()
-                .weight(1f),
-        ) {
-            items(locations, key = { it.name + (it.address ?: "") }) { item ->
-                val isSelected =
-                    if (item.isNone) {
-                        temporarySelected == null
-                    } else {
-                        temporarySelected?.name == item.name
-                    }
+        if (locations.isEmpty() && searchQuery.isNotBlank()) {
+            Box(
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(top = 48.dp),
+                contentAlignment = Alignment.TopCenter,
+            ) {
+                Text(
+                    text = "没有找到相关位置",
+                    color = Color(0xFF999999),
+                    fontSize = 14.sp,
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+            ) {
+                items(locations, key = { it.name + (it.address ?: "") }) { item ->
+                    val isSelected =
+                        if (item.isNone) {
+                            temporarySelected == null
+                        } else {
+                            temporarySelected?.name == item.name
+                        }
 
-                LocationListItem(
-                    item = item,
-                    isSelected = isSelected,
-                    onClick = {
-                        temporarySelected = if (item.isNone) null else item
-                    },
-                )
-                HorizontalDivider(
-                    color = Color(0xFFF0F0F0),
-                    thickness = 0.6.dp,
-                    modifier = Modifier.padding(horizontal = 16.dp),
-                )
+                    LocationListItem(
+                        item = item,
+                        isSelected = isSelected,
+                        onClick = {
+                            temporarySelected = if (item.isNone) null else item
+                        },
+                        modifier = Modifier.animateItem(),
+                    )
+                    HorizontalDivider(
+                        color = Color(0xFFF0F0F0),
+                        thickness = 0.6.dp,
+                        modifier = Modifier.padding(horizontal = 16.dp),
+                    )
+                }
             }
         }
     }
@@ -237,40 +272,76 @@ private fun LocationListItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    val titleColor by animateColorAsState(
+        targetValue = if (isSelected) Color(0xFF07C160) else Color(0xFF191919),
+        animationSpec = tween(durationMillis = 200),
+        label = "location_item_title_color",
+    )
+
+    Card(
+        onClick = onClick,
+        shape = RectangleShape,
+        colors =
+        CardDefaults.cardColors(
+            containerColor = Color.Transparent,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier =
         modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
             .testTag("location_item_${item.name}"),
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = item.name,
-                fontSize = 16.sp,
-                fontWeight = if (item.isNone) FontWeight.Normal else FontWeight.Medium,
-                color = if (isSelected) Color(0xFF07C160) else Color(0xFF191919),
-            )
-            if (!item.address.isNullOrBlank()) {
-                Spacer(modifier = Modifier.height(3.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = item.address,
-                    fontSize = 12.sp,
-                    color = Color(0xFF999999),
-                    maxLines = 1,
+                    text = item.name,
+                    fontSize = 16.sp,
+                    fontWeight = if (item.isNone) FontWeight.Normal else FontWeight.Medium,
+                    color = titleColor,
+                )
+                if (!item.address.isNullOrBlank()) {
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Text(
+                        text = item.address,
+                        fontSize = 12.sp,
+                        color = Color(0xFF999999),
+                        maxLines = 1,
+                    )
+                }
+            }
+
+            this@Row.AnimatedVisibility(
+                visible = isSelected,
+                enter =
+                fadeIn(animationSpec = tween(180)) +
+                    scaleIn(
+                        initialScale = 0.5f,
+                        animationSpec =
+                        spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    ),
+                exit =
+                fadeOut(animationSpec = tween(150)) +
+                    scaleOut(
+                        targetScale = 0.5f,
+                        animationSpec = tween(150),
+                    ),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = "已选择",
+                    tint = Color(0xFF07C160),
+                    modifier = Modifier.size(20.dp),
                 )
             }
-        }
-
-        if (isSelected) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = "已选择",
-                tint = Color(0xFF07C160),
-                modifier = Modifier.size(20.dp),
-            )
         }
     }
 }

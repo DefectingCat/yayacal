@@ -5,6 +5,18 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +48,8 @@ import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -48,6 +62,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
@@ -66,6 +81,15 @@ import plus.rua.project.MomentsPublishUiState
 import plus.rua.project.MomentsPublishViewModel
 import plus.rua.project.MomentsStorage
 import java.io.File
+
+/**
+ * 朋友圈发布页面子页面导航状态枚举。
+ */
+private enum class MomentsPublishSubScreen {
+    MAIN,
+    LOCATION,
+    VISIBILITY,
+}
 
 /**
  * 朋友圈发布页面有状态组件，管理配图选取、自动定位、发布持久化及所在位置选择弹层。
@@ -116,49 +140,105 @@ fun MomentsPublishScreen(
             viewModel.addPhotosFromUris(context, uris)
         }
 
-    if (uiState.isLocationPickerVisible) {
-        BackHandler { viewModel.closeLocationPicker() }
-        MomentsLocationScreen(
-            locations = uiState.displayedLocations,
-            selectedLocation = uiState.selectedLocation,
-            searchQuery = uiState.locationSearchQuery,
-            onSearchQueryChange = viewModel::onLocationSearchQueryChanged,
-            onSelectLocation = viewModel::selectLocation,
-            onCancel = viewModel::closeLocationPicker,
-            modifier = modifier,
-        )
-    } else if (uiState.isVisibilityPickerVisible) {
-        BackHandler { viewModel.closeVisibilityPicker() }
-        MomentsVisibilityScreen(
-            currentVisibility = uiState.visibility,
-            currentTags = uiState.visibilityTags,
-            onDone = { visibility, tags ->
-                viewModel.selectVisibility(visibility, tags)
-            },
-            onCancel = viewModel::closeVisibilityPicker,
-            modifier = modifier,
-        )
-    } else {
-        MomentsPublishScreen(
-            uiState = uiState,
-            onCancel = onCancel,
-            onPublish = {
-                viewModel.publish(onSuccess = onPublishedSuccess)
-            },
-            onTextChange = viewModel::onTextChanged,
-            onAddPhotosClick = {
-                pickMultipleMediaLauncher.launch(
-                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+    val currentSubScreen = when {
+        uiState.isLocationPickerVisible -> MomentsPublishSubScreen.LOCATION
+        uiState.isVisibilityPickerVisible -> MomentsPublishSubScreen.VISIBILITY
+        else -> MomentsPublishSubScreen.MAIN
+    }
+
+    BackHandler(enabled = currentSubScreen != MomentsPublishSubScreen.MAIN) {
+        when (currentSubScreen) {
+            MomentsPublishSubScreen.LOCATION -> viewModel.closeLocationPicker()
+            MomentsPublishSubScreen.VISIBILITY -> viewModel.closeVisibilityPicker()
+            MomentsPublishSubScreen.MAIN -> Unit
+        }
+    }
+
+    AnimatedContent(
+        targetState = currentSubScreen,
+        transitionSpec = {
+            if (targetState != MomentsPublishSubScreen.MAIN && initialState == MomentsPublishSubScreen.MAIN) {
+                // 前进 Push：子页面从右侧滑入并淡入，主页面向左微移并微弱淡出
+                (
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                    ) + fadeIn(animationSpec = tween(240))
+                    ).togetherWith(
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> -fullWidth / 3 },
+                        animationSpec = tween(durationMillis = 320, easing = FastOutSlowInEasing),
+                    ) + fadeOut(animationSpec = tween(200)),
+                ).apply {
+                    targetContentZIndex = 1f
+                }
+            } else if (targetState == MomentsPublishSubScreen.MAIN && initialState != MomentsPublishSubScreen.MAIN) {
+                // 返回 Pop：子页面向右滑出退场，主页面自左微移恢复原位并淡入
+                (
+                    slideInHorizontally(
+                        initialOffsetX = { fullWidth -> -fullWidth / 3 },
+                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                    ) + fadeIn(animationSpec = tween(240))
+                    ).togetherWith(
+                    slideOutHorizontally(
+                        targetOffsetX = { fullWidth -> fullWidth },
+                        animationSpec = tween(durationMillis = 300, easing = FastOutSlowInEasing),
+                    ) + fadeOut(animationSpec = tween(200)),
+                ).apply {
+                    targetContentZIndex = 0f
+                }
+            } else {
+                fadeIn(animationSpec = tween(250)) togetherWith fadeOut(animationSpec = tween(200))
+            }
+        },
+        label = "moments_publish_screen_transition",
+        modifier = modifier.fillMaxSize(),
+    ) { subScreen ->
+        when (subScreen) {
+            MomentsPublishSubScreen.LOCATION -> {
+                MomentsLocationScreen(
+                    locations = uiState.displayedLocations,
+                    selectedLocation = uiState.selectedLocation,
+                    searchQuery = uiState.locationSearchQuery,
+                    onSearchQueryChange = viewModel::onLocationSearchQueryChanged,
+                    onSelectLocation = viewModel::selectLocation,
+                    onCancel = viewModel::closeLocationPicker,
                 )
-            },
-            onRemovePhoto = viewModel::removePhotoAt,
-            onLocationClick = viewModel::openLocationPicker,
-            onRemindClick = {
-                Toast.makeText(context, "“提醒谁看”功能正在开发中", Toast.LENGTH_SHORT).show()
-            },
-            onVisibilityClick = viewModel::openVisibilityPicker,
-            modifier = modifier,
-        )
+            }
+
+            MomentsPublishSubScreen.VISIBILITY -> {
+                MomentsVisibilityScreen(
+                    currentVisibility = uiState.visibility,
+                    currentTags = uiState.visibilityTags,
+                    onDone = { visibility, tags ->
+                        viewModel.selectVisibility(visibility, tags)
+                    },
+                    onCancel = viewModel::closeVisibilityPicker,
+                )
+            }
+
+            MomentsPublishSubScreen.MAIN -> {
+                MomentsPublishScreen(
+                    uiState = uiState,
+                    onCancel = onCancel,
+                    onPublish = {
+                        viewModel.publish(onSuccess = onPublishedSuccess)
+                    },
+                    onTextChange = viewModel::onTextChanged,
+                    onAddPhotosClick = {
+                        pickMultipleMediaLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                        )
+                    },
+                    onRemovePhoto = viewModel::removePhotoAt,
+                    onLocationClick = viewModel::openLocationPicker,
+                    onRemindClick = {
+                        Toast.makeText(context, "“提醒谁看”功能正在开发中", Toast.LENGTH_SHORT).show()
+                    },
+                    onVisibilityClick = viewModel::openVisibilityPicker,
+                )
+            }
+        }
     }
 }
 
@@ -498,43 +578,72 @@ private fun PublishOptionRow(
     testTag: String = "",
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    val iconTint by animateColorAsState(
+        targetValue = if (isHighlight) Color(0xFF07C160) else Color(0xFF191919),
+        animationSpec = tween(durationMillis = 250),
+        label = "option_icon_tint",
+    )
+    val subtitleColor by animateColorAsState(
+        targetValue = if (isHighlight) Color(0xFF07C160) else Color(0xFF888888),
+        animationSpec = tween(durationMillis = 250),
+        label = "option_subtitle_color",
+    )
+
+    Card(
+        onClick = onClick,
+        shape = RectangleShape,
+        colors =
+        CardDefaults.cardColors(
+            containerColor = Color.White,
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         modifier =
         modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 15.dp)
             .testTag(testTag),
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = title,
-            tint = if (isHighlight) Color(0xFF07C160) else Color(0xFF191919),
-            modifier = Modifier.size(22.dp),
-        )
-        Spacer(modifier = Modifier.width(14.dp))
-        Text(
-            text = title,
-            fontSize = 16.sp,
-            color = Color(0xFF191919),
-            modifier = Modifier.weight(1f),
-        )
-        if (!subtitle.isNullOrBlank()) {
-            Text(
-                text = subtitle,
-                fontSize = 15.sp,
-                color = if (isHighlight) Color(0xFF07C160) else Color(0xFF888888),
-                fontWeight = if (isHighlight) FontWeight.Medium else FontWeight.Normal,
-                maxLines = 1,
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 15.dp),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = title,
+                tint = iconTint,
+                modifier = Modifier.size(22.dp),
             )
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(14.dp))
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                color = Color(0xFF191919),
+                modifier = Modifier.weight(1f),
+            )
+            this@Row.AnimatedVisibility(
+                visible = !subtitle.isNullOrBlank(),
+                enter = fadeIn(tween(250)) + expandHorizontally(expandFrom = Alignment.End, animationSpec = tween(250)),
+                exit = fadeOut(tween(200)) + shrinkHorizontally(shrinkTowards = Alignment.End, animationSpec = tween(200)),
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = subtitle.orEmpty(),
+                        fontSize = 15.sp,
+                        color = subtitleColor,
+                        fontWeight = if (isHighlight) FontWeight.Medium else FontWeight.Normal,
+                        maxLines = 1,
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = "进入选项",
+                tint = Color(0xFFB2B2B2),
+                modifier = Modifier.size(18.dp),
+            )
         }
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = "进入选项",
-            tint = Color(0xFFB2B2B2),
-            modifier = Modifier.size(18.dp),
-        )
     }
 }
