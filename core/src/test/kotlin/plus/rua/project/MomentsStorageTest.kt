@@ -45,6 +45,26 @@ class MomentsStorageTest {
         storage.saveCoverPath(null)
         assertNull(storage.getCoverPath())
     }
+
+    @Test
+    fun saveAndGetPosts_roundTripsInReverseChronologicalOrder() {
+        storage.clear()
+        val post1 = MomentPost(id = "1", text = "First", timestamp = 1000L)
+        val post2 = MomentPost(id = "2", text = "Second", timestamp = 2000L)
+
+        storage.savePost(post1)
+        storage.savePost(post2)
+
+        val posts = storage.getPosts()
+        assertEquals(2, posts.size)
+        assertEquals("2", posts[0].id)
+        assertEquals("1", posts[1].id)
+
+        storage.deletePost("2")
+        val remaining = storage.getPosts()
+        assertEquals(1, remaining.size)
+        assertEquals("1", remaining[0].id)
+    }
 }
 
 private class MomentsStorageTestInMemoryPrefs : SharedPreferences {

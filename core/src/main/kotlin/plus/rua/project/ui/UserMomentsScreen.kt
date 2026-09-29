@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -59,15 +60,20 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 import plus.rua.project.MomentsStorage
 import plus.rua.project.MomentsUiState
 import plus.rua.project.MomentsViewModel
 import java.io.File
+import kotlin.time.Instant
 
 /**
  * 个人朋友圈相册视图页面（状态版），复刻微信朋友圈个人相册主页。
@@ -114,6 +120,10 @@ fun UserMomentsScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isCoverExpanded by remember { mutableStateOf(false) }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshPosts()
+    }
 
     BackHandler(enabled = isCoverExpanded) {
         isCoverExpanded = false
@@ -256,32 +266,53 @@ fun UserMomentsScreen(
                 )
             }
 
-            // 年份分组标题（示例：2025 年）
-            item(key = "year_2025") {
-                Text(
-                    text = "2025 年",
-                    style =
-                    MaterialTheme.typography.titleLarge.copy(
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 24.sp,
-                    ),
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 16.dp),
-                )
-            }
+            if (uiState.posts.isNotEmpty()) {
+                items(uiState.posts, key = { it.id }) { post ->
+                    val instant = Instant.fromEpochMilliseconds(post.timestamp)
+                    val dt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
 
-            // 历史时间轴动态项（示例：十月 16 日图文记录）
-            item(key = "item_oct_16") {
-                UserMomentsTimelineItem(
-                    month = "十月",
-                    day = "16",
-                    photoPath = uiState.avatarPath,
-                    onClick = onPublish,
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
-                )
+                    @Suppress("DEPRECATION") // kotlinx-datetime monthNumber
+                    val monthStr = formatTimelineMonth(dt.monthNumber)
+
+                    @Suppress("DEPRECATION") // kotlinx-datetime dayOfMonth
+                    val dayStr = dt.dayOfMonth.toString()
+                    UserMomentsTimelineItem(
+                        month = monthStr,
+                        day = dayStr,
+                        photoPath = post.photoPaths.firstOrNull(),
+                        text = post.text,
+                        onClick = onPublish,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    )
+                }
+            } else {
+                // 年份分组标题（示例：2025 年）
+                item(key = "year_2025") {
+                    Text(
+                        text = "2025 年",
+                        style =
+                        MaterialTheme.typography.titleLarge.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 24.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                    )
+                }
+
+                // 历史时间轴动态项（示例：十月 16 日图文记录）
+                item(key = "item_oct_16") {
+                    UserMomentsTimelineItem(
+                        month = "十月",
+                        day = "16",
+                        photoPath = uiState.avatarPath,
+                        onClick = onPublish,
+                        modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                    )
+                }
             }
 
             // 底部时间轴结束标志：— · —
@@ -545,13 +576,14 @@ private fun UserMomentsTodaySection(
 }
 
 /**
- * 历史时间轴动态单条组件（左侧月份与日期，右侧照片缩略图）。
+ * 历史时间轴动态单条组件（左侧月份与日期，右侧照片缩略图或纯文字卡片）。
  */
 @Composable
 private fun UserMomentsTimelineItem(
     month: String,
     day: String,
     photoPath: String?,
+    text: String? = null,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -559,7 +591,7 @@ private fun UserMomentsTimelineItem(
         modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.Top,
     ) {
-        // 左侧日期列：如“十月”与“16”
+        // 左侧日期列：如“九月”与“29”
         Column(
             modifier = Modifier.width(68.dp),
             verticalArrangement = Arrangement.spacedBy(2.dp),
@@ -584,37 +616,73 @@ private fun UserMomentsTimelineItem(
             )
         }
 
-        // 右侧动态照片缩略图
-        Card(
-            onClick = onClick,
-            shape = RoundedCornerShape(8.dp),
-            colors =
-            CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-            ),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.size(86.dp),
-        ) {
-            val photoUri =
-                remember(photoPath) {
-                    photoPath?.let { path ->
-                        if (path.startsWith("content://")) {
-                            path
-                        } else {
-                            val file = File(path.removePrefix("file://"))
-                            if (file.exists()) "file://${file.absolutePath}" else null
-                        }
+        val photoUri =
+            remember(photoPath) {
+                photoPath?.let { path ->
+                    if (path.startsWith("content://")) {
+                        path
+                    } else {
+                        val file = File(path.removePrefix("file://"))
+                        if (file.exists()) "file://${file.absolutePath}" else null
                     }
                 }
+            }
 
-            if (photoUri != null) {
+        if (photoUri != null) {
+            // 右侧动态照片缩略图
+            Card(
+                onClick = onClick,
+                shape = RoundedCornerShape(8.dp),
+                colors =
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.size(86.dp),
+            ) {
                 AsyncImage(
                     uri = photoUri,
                     contentDescription = "动态照片",
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize(),
                 )
-            } else {
+            }
+        } else if (!text.isNullOrBlank()) {
+            // 纯文字动态：微信个人相册灰底文字块
+            Card(
+                onClick = onClick,
+                shape = RoundedCornerShape(6.dp),
+                colors =
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.fillMaxWidth().padding(end = 8.dp),
+            ) {
+                Text(
+                    text = text,
+                    style =
+                    MaterialTheme.typography.bodyMedium.copy(
+                        fontSize = 15.sp,
+                        lineHeight = 20.sp,
+                    ),
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 4,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(12.dp),
+                )
+            }
+        } else {
+            Card(
+                onClick = onClick,
+                shape = RoundedCornerShape(8.dp),
+                colors =
+                CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                ),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.size(86.dp),
+            ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,

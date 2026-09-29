@@ -1,5 +1,6 @@
 package plus.rua.project
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
@@ -18,10 +19,16 @@ class UserMomentsActivity : BaseActivity() {
                 UserMomentsScreen(
                     onBack = { finishWithSlideBack() },
                     onPublish = {
-                        Toast.makeText(this, "发表动态功能正在开发中", Toast.LENGTH_SHORT).show()
+                        val intent = Intent(this, MomentsPublishActivity::class.java).apply {
+                            putExtra(MomentsPublishActivity.EXTRA_VISIBILITY, "公开")
+                        }
+                        startActivityWithSlide(intent)
                     },
                     onPrivatePublish = {
-                        Toast.makeText(this, "私密发表功能正在开发中", Toast.LENGTH_SHORT).show()
+                        val intent = Intent(this, MomentsPublishActivity::class.java).apply {
+                            putExtra(MomentsPublishActivity.EXTRA_VISIBILITY, "私密")
+                        }
+                        startActivityWithSlide(intent)
                     },
                     onSearch = {
                         Toast.makeText(this, "搜索朋友圈功能正在开发中", Toast.LENGTH_SHORT).show()

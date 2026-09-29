@@ -7,6 +7,7 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -24,14 +26,17 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,8 +51,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
@@ -57,13 +64,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import com.github.panpf.sketch.AsyncImage
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
+import plus.rua.project.MomentPost
 import plus.rua.project.MomentsStorage
 import plus.rua.project.MomentsUiState
 import plus.rua.project.MomentsViewModel
+import java.io.File
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * 朋友圈页面，复刻经典微信朋友圈布局结构。
@@ -101,6 +117,10 @@ fun MomentsScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isCoverExpanded by remember { mutableStateOf(false) }
+
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        viewModel.refreshPosts()
+    }
 
     BackHandler(enabled = isCoverExpanded) {
         isCoverExpanded = false
@@ -156,6 +176,7 @@ fun MomentsScreen(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
             )
         },
+        onDeletePost = viewModel::deletePost,
         modifier = modifier,
     )
 }
@@ -171,6 +192,7 @@ fun MomentsScreen(
  * @param onChangeCoverClick 点击“换封面”按钮时触发
  * @param onAvatarClick 点击用户头像时触发
  * @param onAvatarLongClick 长按用户头像时触发
+ * @param onDeletePost 点击某条动态的删除按钮时触发
  * @param modifier 布局修饰符
  */
 @Composable
@@ -183,6 +205,7 @@ fun MomentsScreen(
     onChangeCoverClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAvatarLongClick: (() -> Unit)? = null,
+    onDeletePost: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -223,11 +246,24 @@ fun MomentsScreen(
                 )
             }
 
-            // 底部朋友圈动态部分：空状态占位
-            item(key = "empty_content") {
-                MomentsEmptyContent(
-                    onPublish = onPublish,
-                )
+            if (uiState.posts.isEmpty()) {
+                // 底部朋友圈动态部分：空状态占位
+                item(key = "empty_content") {
+                    MomentsEmptyContent(
+                        onPublish = onPublish,
+                    )
+                }
+            } else {
+                items(uiState.posts, key = { it.id }) { post ->
+                    MomentFeedItem(
+                        post = post,
+                        authorName = uiState.username,
+                        avatarPath = uiState.avatarPath,
+                        onDelete = { onDeletePost(post.id) },
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    )
+                    HorizontalDivider(color = Color(0xFFF2F2F2), thickness = 0.6.dp)
+                }
             }
 
             // 底部系统手势栏安全留白
@@ -446,4 +482,233 @@ fun calculateTopBarAlpha(
 ): Float {
     if (maxScrollOffset <= 0f) return 1f
     return (scrollOffset / maxScrollOffset).coerceIn(0f, 1f)
+}
+
+/**
+ * 朋友圈动态列表单项组件，复刻微信朋友圈动态排版：
+ * 左侧用户头像，右侧依次展示蓝字昵称、文本、配图（1图大图、4图2x2、其他3列网格）、所在位置、时间、删除与操作按钮。
+ *
+ * @param post 朋友圈动态
+ * @param authorName 发布者昵称
+ * @param avatarPath 头像本地路径
+ * @param onDelete 点击“删除”按钮时触发
+ * @param modifier 布局修饰符
+ */
+@Composable
+fun MomentFeedItem(
+    post: MomentPost,
+    authorName: String,
+    avatarPath: String?,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier =
+        modifier
+            .fillMaxWidth()
+            .testTag("moment_feed_item_${post.id}"),
+    ) {
+        // 1. 头像
+        Surface(
+            shape = RoundedCornerShape(6.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            modifier = Modifier.size(42.dp),
+        ) {
+            val avatarUri =
+                avatarPath?.let {
+                    if (it.startsWith("content://") || it.startsWith("file://")) it else "file://${File(it).absolutePath}"
+                }
+            if (avatarUri != null) {
+                AsyncImage(
+                    uri = avatarUri,
+                    contentDescription = "作者头像",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            } else {
+                Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                    Icon(
+                        imageVector = Icons.Filled.Person,
+                        contentDescription = "头像占位",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        // 2. 右侧主体
+        Column(modifier = Modifier.weight(1f)) {
+            // 昵称（微信经典 #576B95 蓝）
+            Text(
+                text = authorName,
+                color = Color(0xFF576B95),
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+            )
+
+            // 正文
+            if (post.text.isNotBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = post.text,
+                    color = Color(0xFF191919),
+                    fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                )
+            }
+
+            // 配图展示
+            if (post.photoPaths.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                MomentFeedPhotos(photos = post.photoPaths)
+            }
+
+            // 所在位置
+            if (!post.location.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = post.location,
+                    color = Color(0xFF576B95),
+                    fontSize = 12.sp,
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 底部操作栏：时间戳、删除、操作按钮
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = formatMomentTime(post.timestamp),
+                    color = Color(0xFF999999),
+                    fontSize = 12.sp,
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Text(
+                    text = "删除",
+                    color = Color(0xFF576B95),
+                    fontSize = 12.sp,
+                    modifier = Modifier.clickable(onClick = onDelete),
+                )
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // 微信经典的“··”评论赞气泡图标
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color(0xFFF7F7F7),
+                    modifier = Modifier.size(width = 32.dp, height = 20.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "··",
+                            color = Color(0xFF576B95),
+                            fontWeight = FontWeight.ExtraBold,
+                            fontSize = 14.sp,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 朋友圈动态九宫格照片排版组件。
+ */
+@Composable
+private fun MomentFeedPhotos(
+    photos: List<String>,
+    modifier: Modifier = Modifier,
+) {
+    if (photos.size == 1) {
+        val path = photos[0]
+        val uri = if (path.startsWith("content://") || path.startsWith("file://")) path else "file://${File(path).absolutePath}"
+        Box(
+            modifier =
+            modifier
+                .size(width = 180.dp, height = 180.dp)
+                .clip(RoundedCornerShape(4.dp))
+                .background(Color(0xFFF2F2F2)),
+        ) {
+            AsyncImage(
+                uri = uri,
+                contentDescription = "配图",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+    } else {
+        val columns = if (photos.size == 4) 2 else 3
+        val rows = photos.chunked(columns)
+        Column(
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+            modifier = modifier.fillMaxWidth(if (photos.size == 4) 0.68f else 1f),
+        ) {
+            rows.forEach { rowPhotos ->
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    rowPhotos.forEach { photoPath ->
+                        val uri = if (photoPath.startsWith("content://") || photoPath.startsWith("file://")) photoPath else "file://${File(photoPath).absolutePath}"
+                        Box(
+                            modifier =
+                            Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFFF2F2F2)),
+                        ) {
+                            AsyncImage(
+                                uri = uri,
+                                contentDescription = "配图",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                    }
+                    if (rowPhotos.size < columns) {
+                        for (i in 0 until (columns - rowPhotos.size)) {
+                            Spacer(
+                                modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .aspectRatio(1f),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 将时间戳格式化为友好朋友圈时间显示。
+ */
+fun formatMomentTime(timestamp: Long): String {
+    val now = Clock.System.now().toEpochMilliseconds()
+    val diff = (now - timestamp).coerceAtLeast(0)
+    return when {
+        diff < 60_000L -> "刚刚"
+
+        diff < 3600_000L -> "${(diff / 60_000L).coerceAtLeast(1)}分钟前"
+
+        diff < 86400_000L -> "${diff / 3600_000L}小时前"
+
+        else -> {
+            val instant = Instant.fromEpochMilliseconds(timestamp)
+            val dt = instant.toLocalDateTime(TimeZone.currentSystemDefault())
+            @Suppress("DEPRECATION") // kotlinx-datetime monthNumber
+            "${dt.monthNumber}月${dt.dayOfMonth}日"
+        }
+    }
 }

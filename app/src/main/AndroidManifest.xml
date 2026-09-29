@@ -3,6 +3,9 @@
 
     <!-- 日期记录器：相机拍摄；照片存 filesDir，minSdk 24 免存储权限 -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- 声明相机功能但非必需，避免在无相机设备上被商店过滤 -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -94,6 +97,10 @@
         <activity
             android:name=".UserMomentsActivity"
             android:exported="false" />
+        <activity
+            android:name=".MomentsPublishActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <!-- 日期记录器：FileProvider，用于相机临时文件 URI 共享 -->
         <provider

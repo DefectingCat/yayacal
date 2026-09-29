@@ -22,7 +22,7 @@ class MomentsActivity : BaseActivity() {
                         startActivityWithSlide(Intent(this, UserMomentsActivity::class.java))
                     },
                     onPublish = {
-                        Toast.makeText(this, "发布动态功能正在开发中", Toast.LENGTH_SHORT).show()
+                        startActivityWithSlide(Intent(this, MomentsPublishActivity::class.java))
                     },
                 )
             }

@@ -16,6 +16,8 @@ class MomentsStorage(
         private const val KEY_AVATAR_PATH = "avatar_path"
         private const val KEY_COVER_PATH = "cover_path"
         private const val KEY_USERNAME = "username"
+        private const val KEY_POSTS = "moments_posts"
+        private const val POSTS_SEPARATOR = "\n"
         const val DEFAULT_USERNAME = "Defectink"
 
         fun fromContext(context: Context): MomentsStorage {
@@ -54,6 +56,36 @@ class MomentsStorage(
     /** 保存用户名 */
     fun saveUsername(name: String) {
         prefs.edit().putString(KEY_USERNAME, name).apply()
+    }
+
+    /** 获取保存的朋友圈动态列表，按发布时间倒序排列 */
+    fun getPosts(): List<MomentPost> {
+        val raw = prefs.getString(KEY_POSTS, null) ?: return emptyList()
+        if (raw.isBlank()) return emptyList()
+        return raw.split(POSTS_SEPARATOR)
+            .mapNotNull { MomentPost.decodeFromString(it) }
+            .sortedByDescending { it.timestamp }
+    }
+
+    /** 保存一条新的动态（插入到头部） */
+    fun savePost(post: MomentPost) {
+        val currentPosts = getPosts().toMutableList()
+        currentPosts.removeAll { it.id == post.id }
+        currentPosts.add(0, post)
+        val serialized = currentPosts.joinToString(POSTS_SEPARATOR) { it.encodeToString() }
+        prefs.edit().putString(KEY_POSTS, serialized).apply()
+    }
+
+    /** 删除指定 ID 的动态 */
+    fun deletePost(postId: String) {
+        val currentPosts = getPosts().filter { it.id != postId }
+        val serialized = currentPosts.joinToString(POSTS_SEPARATOR) { it.encodeToString() }
+        prefs.edit().putString(KEY_POSTS, serialized).apply()
+    }
+
+    /** 清空所有动态 */
+    fun clearPosts() {
+        prefs.edit().remove(KEY_POSTS).apply()
     }
 
     /** 清空偏好设置（用于测试） */

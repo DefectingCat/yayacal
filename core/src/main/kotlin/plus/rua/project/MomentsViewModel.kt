@@ -21,15 +21,17 @@ import java.io.FileOutputStream
  * @param username 用户名
  * @param avatarPath 当前设置的头像文件路径（为 null 时使用默认占位符）
  * @param coverPath 当前设置的封面文件路径（为 null 时使用默认占位符）
+ * @param posts 已发布的朋友圈动态列表
  */
 data class MomentsUiState(
     val username: String = MomentsStorage.DEFAULT_USERNAME,
     val avatarPath: String? = null,
     val coverPath: String? = null,
+    val posts: List<MomentPost> = emptyList(),
 )
 
 /**
- * 朋友圈页面 ViewModel，负责头像与相册封面设置与持久化。
+ * 朋友圈页面 ViewModel，负责头像、相册封面以及动态列表的展示与持久化。
  *
  * @param storage 朋友圈配置存储仓库
  * @param filesDir 应用 filesDir 目录，用于安全存放用户头像与封面文件
@@ -47,9 +49,36 @@ class MomentsViewModel(
                 username = storage.getUsername(),
                 avatarPath = storage.getAvatarPath(),
                 coverPath = storage.getCoverPath(),
+                posts = storage.getPosts(),
             ),
         )
     val uiState: StateFlow<MomentsUiState> = _uiState.asStateFlow()
+
+    /**
+     * 刷新已发布动态列表。
+     */
+    fun refreshPosts() {
+        val posts = storage.getPosts()
+        _uiState.update { it.copy(posts = posts) }
+    }
+
+    /**
+     * 删除指定的动态，并清理其关联的配图私有文件。
+     */
+    fun deletePost(postId: String) {
+        val postToDelete = _uiState.value.posts.find { it.id == postId }
+        storage.deletePost(postId)
+        if (postToDelete != null) {
+            viewModelScope.launch(ioDispatcher) {
+                for (path in postToDelete.photoPaths) {
+                    try {
+                        File(path).delete()
+                    } catch (_: Exception) {}
+                }
+            }
+        }
+        refreshPosts()
+    }
 
     /**
      * 将用户从系统相册选取的头像 URI 保存到应用本地私有目录，并更新持久化设置与 UI 状态。
