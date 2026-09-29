@@ -136,9 +136,9 @@ fun MomentsScreen(
             }
         },
         onPublish = onPublish,
-        onCoverClick =
-        onCoverClick ?: {
+        onCoverClick = {
             isCoverExpanded = !isCoverExpanded
+            onCoverClick?.invoke()
         },
         onChangeCoverClick = {
             coverPickerLauncher.launch(

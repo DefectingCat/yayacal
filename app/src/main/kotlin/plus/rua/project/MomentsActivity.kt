@@ -24,9 +24,6 @@ class MomentsActivity : BaseActivity() {
                     onPublish = {
                         Toast.makeText(this, "发布动态功能正在开发中", Toast.LENGTH_SHORT).show()
                     },
-                    onCoverClick = {
-                        Toast.makeText(this, "更换相册封面功能正在开发中", Toast.LENGTH_SHORT).show()
-                    },
                 )
             }
         }

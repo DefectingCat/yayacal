@@ -153,9 +153,9 @@ fun UserMomentsScreen(
         onSearch = onSearch,
         onViewModeChange = onViewModeChange,
         onNotifications = onNotifications,
-        onCoverClick =
-        onCoverClick ?: {
+        onCoverClick = {
             isCoverExpanded = !isCoverExpanded
+            onCoverClick?.invoke()
         },
         onChangeCoverClick = {
             coverPickerLauncher.launch(

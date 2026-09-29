@@ -32,9 +32,6 @@ class UserMomentsActivity : BaseActivity() {
                     onNotifications = {
                         Toast.makeText(this, "消息列表功能正在开发中", Toast.LENGTH_SHORT).show()
                     },
-                    onCoverClick = {
-                        Toast.makeText(this, "更换相册封面功能正在开发中", Toast.LENGTH_SHORT).show()
-                    },
                 )
             }
         }
