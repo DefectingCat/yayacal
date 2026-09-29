@@ -62,4 +62,36 @@ class MomentPostTest {
     fun decode_invalidString_returnsNull() {
         assertNull(MomentPost.decodeFromString("invalid|format"))
     }
+
+    @Test
+    fun encodeAndDecode_likesAndComments_preservesSeparatorsAndReplies() {
+        val post = MomentPost(
+            id = "interactions",
+            text = "正文 | ; +\n🐱",
+            isLikedByMe = true,
+            comments = listOf(
+                MomentComment(
+                    id = "comment-1",
+                    authorName = "鸭鸭 | +",
+                    text = "回复;带换行\n和表情😊",
+                    timestamp = 1234L,
+                    replyToName = "朋友;|+",
+                    photoPath = "/private/moments/图片 +;.jpg",
+                ),
+                MomentComment(id = "comment-2", authorName = "鸭鸭", text = "第二条", timestamp = 2345L),
+            ),
+        )
+
+        assertEquals(post, MomentPost.decodeFromString(post.encodeToString()))
+    }
+
+    @Test
+    fun decode_legacySevenFields_keepsPostWithEmptyInteractions() {
+        val post = MomentPost.decodeFromString("legacy|1000|私密||||%E6%97%A7%E5%8A%A8%E6%80%81")
+
+        assertNotNull(post)
+        assertEquals("旧动态", post.text)
+        assertEquals(false, post.isLikedByMe)
+        assertEquals(emptyList(), post.comments)
+    }
 }

@@ -12,7 +12,11 @@ import org.junit.Before
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MomentsViewModelTest {
@@ -84,6 +88,66 @@ class MomentsViewModelTest {
         viewModel.setCoverPath("/new/cover.jpg")
         assertEquals("/new/cover.jpg", viewModel.uiState.value.coverPath)
         assertEquals("/new/cover.jpg", storage.getCoverPath())
+    }
+
+    @Test
+    fun interactions_persistAndRejectEmptyOrDeletedPosts() = runTest(testDispatcher) {
+        storage.savePost(MomentPost(id = "post", timestamp = 100L))
+        storage.saveUsername("鸭鸭")
+        val clock = object : Clock {
+            override fun now(): Instant = Instant.fromEpochMilliseconds(200L)
+        }
+        val viewModel = MomentsViewModel(storage, tempDir, testDispatcher, clock)
+
+        viewModel.toggleLike("post")
+        assertTrue(storage.getPosts().single().isLikedByMe)
+        assertFalse(viewModel.addComment("post", " \n "))
+        assertTrue(viewModel.addComment("post", "  好可爱🐱 \n", replyToName = "朋友"))
+        assertTrue(viewModel.addComment("post", "", photoPath = "/private/comment.jpg"))
+
+        val reloaded = MomentsViewModel(storage, tempDir, testDispatcher).uiState.value.posts.single()
+        assertTrue(reloaded.isLikedByMe)
+        assertEquals(2, reloaded.comments.size)
+        assertEquals("好可爱🐱", reloaded.comments[0].text)
+        assertEquals("鸭鸭", reloaded.comments[0].authorName)
+        assertEquals("朋友", reloaded.comments[0].replyToName)
+        assertEquals(200L, reloaded.comments[0].timestamp)
+        assertEquals("/private/comment.jpg", reloaded.comments[1].photoPath)
+
+        viewModel.toggleLike("post")
+        assertFalse(storage.getPosts().single().isLikedByMe)
+        storage.deletePost("post")
+        viewModel.toggleLike("post")
+        assertFalse(viewModel.addComment("post", "不会复活已删除的动态"))
+        assertTrue(storage.getPosts().isEmpty())
+    }
+
+    @Test
+    fun deletePost_cleansOwnedPhotosAndKeepsSharedOrExternalFiles() = runTest(testDispatcher) {
+        val photoDir = File(tempDir, MomentsViewModel.MOMENTS_DIR_NAME).apply { mkdirs() }
+        val photo = File(photoDir, "post.jpg").apply { writeText("post") }
+        val commentPhoto = File(photoDir, "comment.jpg").apply { writeText("comment") }
+        val sharedPhoto = File(photoDir, "shared.jpg").apply { writeText("shared") }
+        val externalPhoto = File(tempDir, "keep.jpg").apply { writeText("external") }
+        storage.savePost(
+            MomentPost(
+                id = "delete",
+                photoPaths = listOf(photo.path, sharedPhoto.path, externalPhoto.path),
+                comments = listOf(MomentComment(authorName = "鸭鸭", text = "", photoPath = commentPhoto.path)),
+            ),
+        )
+        storage.savePost(MomentPost(id = "keep", photoPaths = listOf(sharedPhoto.path)))
+        val viewModel = MomentsViewModel(storage, tempDir, testDispatcher)
+
+        viewModel.deletePost("delete")
+        testScheduler.runCurrent()
+
+        assertEquals(listOf("keep"), viewModel.uiState.value.posts.map { it.id })
+        assertEquals(listOf("keep"), storage.getPosts().map { it.id })
+        assertFalse(photo.exists())
+        assertFalse(commentPhoto.exists())
+        assertTrue(sharedPhoto.exists())
+        assertTrue(externalPhoto.exists())
     }
 }
 

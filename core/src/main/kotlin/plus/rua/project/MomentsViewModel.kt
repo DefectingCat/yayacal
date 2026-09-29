@@ -14,6 +14,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.FileOutputStream
+import java.util.UUID
+import kotlin.time.Clock
 
 /**
  * 朋友圈页面 UI 状态。
@@ -36,11 +38,13 @@ data class MomentsUiState(
  * @param storage 朋友圈配置存储仓库
  * @param filesDir 应用 filesDir 目录，用于安全存放用户头像与封面文件
  * @param ioDispatcher IO 协程调度器（支持测试注入）
+ * @param clock 评论发送时间的时钟（支持测试注入）
  */
 class MomentsViewModel(
     private val storage: MomentsStorage,
     private val filesDir: File,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val clock: Clock = Clock.System,
 ) : ViewModel() {
 
     private val _uiState =
@@ -59,21 +63,96 @@ class MomentsViewModel(
      */
     fun refreshPosts() {
         val posts = storage.getPosts()
-        _uiState.update { it.copy(posts = posts) }
+        _uiState.update {
+            it.copy(
+                posts = posts,
+                username = storage.getUsername(),
+                avatarPath = storage.getAvatarPath(),
+                coverPath = storage.getCoverPath(),
+            )
+        }
+    }
+
+    /** 切换当前本地用户的点赞状态；已删除的动态不会被重新写入。 */
+    fun toggleLike(postId: String) {
+        val post = storage.getPosts().find { it.id == postId } ?: return
+        storage.savePost(post.copy(isLikedByMe = !post.isLikedByMe))
+        refreshPosts()
+    }
+
+    /**
+     * 保存文字或图片评论。空评论与不存在的动态返回 false。
+     *
+     * @param postId 被评论的动态 ID
+     * @param text 评论正文，会去除首尾空白
+     * @param replyToName 回复对象昵称，为 null 时评论整条动态
+     * @param photoPath 已保存的评论图片路径
+     * @return 是否保存成功
+     */
+    fun addComment(
+        postId: String,
+        text: String,
+        replyToName: String? = null,
+        photoPath: String? = null,
+    ): Boolean {
+        val trimmedText = text.trim()
+        if (trimmedText.isEmpty() && photoPath == null) return false
+        val post = storage.getPosts().find { it.id == postId } ?: return false
+        val comment = MomentComment(
+            authorName = storage.getUsername(),
+            text = trimmedText,
+            timestamp = clock.now().toEpochMilliseconds(),
+            replyToName = replyToName,
+            photoPath = photoPath,
+        )
+        storage.savePost(post.copy(comments = post.comments + comment))
+        refreshPosts()
+        return true
+    }
+
+    /** 将系统相册图片复制到私有目录后发送评论；复制失败时保留编辑器草稿。 */
+    suspend fun addPhotoComment(
+        context: Context,
+        postId: String,
+        uri: Uri,
+        text: String,
+        replyToName: String? = null,
+    ): Boolean {
+        var savedPath: String? = null
+        var saved = false
+        try {
+            withContext(ioDispatcher) {
+                savedPath = copyUriToFile(context, uri, prefix = "comment")
+            }
+            val path = savedPath ?: return false
+            saved = addComment(postId, text, replyToName, path)
+            return saved
+        } finally {
+            if (!saved) savedPath?.let { File(it).delete() }
+        }
     }
 
     /**
      * 删除指定的动态，并清理其关联的配图私有文件。
      */
     fun deletePost(postId: String) {
-        val postToDelete = _uiState.value.posts.find { it.id == postId }
+        val postToDelete = storage.getPosts().find { it.id == postId }
         storage.deletePost(postId)
         if (postToDelete != null) {
             viewModelScope.launch(ioDispatcher) {
-                for (path in postToDelete.photoPaths) {
-                    try {
-                        File(path).delete()
-                    } catch (_: Exception) {}
+                val referencedPaths = storage.getPosts().flatMap { post ->
+                    post.photoPaths + post.comments.mapNotNull { it.photoPath }
+                }.toSet()
+                val ownedDir = File(filesDir, MOMENTS_DIR_NAME).canonicalFile
+                val paths = postToDelete.photoPaths + postToDelete.comments.mapNotNull { it.photoPath }
+                for (path in paths.distinct()) {
+                    // 只清理本功能的私有文件，保留其他动态仍在使用的图片。
+                    if (path !in referencedPaths) {
+                        runCatching {
+                            val file = File(path).canonicalFile
+                            if (file.parentFile == ownedDir) file.delete()
+                        }
+                    }
                 }
             }
         }
@@ -168,9 +247,9 @@ class MomentsViewModel(
         uri: Uri,
         prefix: String,
     ): String? {
+        val momentsDir = File(filesDir, MOMENTS_DIR_NAME).apply { if (!exists()) mkdirs() }
+        val targetFile = File(momentsDir, "${prefix}_${UUID.randomUUID()}.jpg")
         return try {
-            val momentsDir = File(filesDir, MOMENTS_DIR_NAME).apply { if (!exists()) mkdirs() }
-            val targetFile = File(momentsDir, "${prefix}_${System.currentTimeMillis()}.jpg")
             context.contentResolver.openInputStream(uri)?.use { input ->
                 FileOutputStream(targetFile).use { output ->
                     input.copyTo(output)
@@ -178,6 +257,7 @@ class MomentsViewModel(
             } ?: return null
             targetFile.absolutePath
         } catch (_: Exception) {
+            targetFile.delete()
             null
         }
     }

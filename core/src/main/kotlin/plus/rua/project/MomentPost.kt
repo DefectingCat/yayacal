@@ -14,6 +14,8 @@ import java.util.UUID
  * @param locationAddress 所在地理位置详细地址或距离（可选）
  * @param timestamp 发布时的时间戳（毫秒）
  * @param visibility 可见性范围（如 "公开"、"私密"）
+ * @param isLikedByMe 当前本地用户是否已点赞
+ * @param comments 本机保存的评论，按发送顺序排列
  */
 data class MomentPost(
     val id: String = UUID.randomUUID().toString(),
@@ -23,6 +25,8 @@ data class MomentPost(
     val locationAddress: String? = null,
     val timestamp: Long = System.currentTimeMillis(),
     val visibility: String = "公开",
+    val isLikedByMe: Boolean = false,
+    val comments: List<MomentComment> = emptyList(),
 ) {
     /**
      * 将动态对象编码为持久化单行字符串（无 JSON 依赖）。
@@ -32,7 +36,8 @@ data class MomentPost(
         val encLocation = URLEncoder.encode(location ?: "", "UTF-8")
         val encAddress = URLEncoder.encode(locationAddress ?: "", "UTF-8")
         val encPhotos = photoPaths.joinToString(";") { URLEncoder.encode(it, "UTF-8") }
-        return "$id|$timestamp|$visibility|$encLocation|$encAddress|$encPhotos|$encText"
+        val encComments = comments.joinToString(";") { URLEncoder.encode(it.encodeToString(), "UTF-8") }
+        return "$id|$timestamp|$visibility|$encLocation|$encAddress|$encPhotos|$encText|${if (isLikedByMe) 1 else 0}|$encComments"
     }
 
     companion object {
@@ -40,7 +45,7 @@ data class MomentPost(
          * 从持久化字符串解码出动态对象。若解析失败返回 null。
          */
         fun decodeFromString(str: String): MomentPost? {
-            val parts = str.split("|", limit = 7)
+            val parts = str.split("|", limit = 9)
             if (parts.size < 7) return null
             return try {
                 val id = parts[0]
@@ -63,10 +68,57 @@ data class MomentPost(
                     locationAddress = address,
                     timestamp = timestamp,
                     visibility = visibility,
+                    isLikedByMe = parts.getOrNull(7) == "1",
+                    comments = parts.getOrNull(8).orEmpty().split(";")
+                        .filter { it.isNotEmpty() }
+                        .mapNotNull { MomentComment.decodeFromString(URLDecoder.decode(it, "UTF-8")) },
                 )
             } catch (_: Exception) {
                 null
             }
         }
+    }
+}
+
+/**
+ * 朋友圈本地评论。当前应用没有远端账号，发送者昵称来自本地个人资料。
+ *
+ * @param id 评论唯一标识
+ * @param authorName 发送时的用户昵称
+ * @param text 评论正文
+ * @param timestamp 发送时间（毫秒）
+ * @param replyToName 回复对象的昵称，为 null 时评论整条动态
+ * @param photoPath 评论图片的应用私有路径，为 null 时没有图片
+ */
+data class MomentComment(
+    val id: String = UUID.randomUUID().toString(),
+    val authorName: String,
+    val text: String,
+    val timestamp: Long = System.currentTimeMillis(),
+    val replyToName: String? = null,
+    val photoPath: String? = null,
+) {
+    internal fun encodeToString(): String = listOf(
+        id,
+        timestamp.toString(),
+        authorName,
+        text,
+        replyToName.orEmpty(),
+        photoPath.orEmpty(),
+    ).joinToString("|") { URLEncoder.encode(it, "UTF-8") }
+
+    companion object {
+        internal fun decodeFromString(raw: String): MomentComment? = runCatching {
+            val fields = raw.split("|", limit = 6).map { URLDecoder.decode(it, "UTF-8") }
+            if (fields.size != 6) return null
+            MomentComment(
+                id = fields[0],
+                timestamp = fields[1].toLong(),
+                authorName = fields[2],
+                text = fields[3],
+                replyToName = fields[4].ifEmpty { null },
+                photoPath = fields[5].ifEmpty { null },
+            )
+        }.getOrNull()
     }
 }
