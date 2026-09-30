@@ -70,6 +70,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -77,6 +78,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -116,7 +118,7 @@ import kotlin.time.Instant
  * 朋友圈页面，复刻经典微信朋友圈布局结构。
  * 包含沉浸式顶部渐变导航栏、可自定义相册封面（点击平滑展开放大动画与换封面）、用户名与悬浮跨界头像、以及底部朋友圈动态区域。
  * 首次进入时选择账号并保存，后续直接进入上次使用账号的朋友圈；点击切换账号或长按头像时可重新选择。
- * 选择账号后以平滑动画将头像飞入朋友圈顶部右上角完成进入。
+ * 选择账号后头像平滑飞入朋友圈右上角，返回账号页时沿原路径回到账号卡片，同时淡入淡出页面。
  *
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击右上角发布动态/相机按钮时触发
@@ -167,7 +169,7 @@ fun MomentsScreen(
     var isAccountSelected by remember { mutableStateOf(storage.getCurrentAccountId() != null) }
     var isTransitioning by remember { mutableStateOf(false) }
     var animatingAccount by remember { mutableStateOf<MomentAccount?>(null) }
-    val animProgress = remember { Animatable(0f) }
+    val animProgress = remember { Animatable(if (isAccountSelected) 1f else 0f) }
 
     val accountBoundsMap = remember { mutableStateMapOf<String, Rect>() }
     var headerAvatarRect by remember { mutableStateOf<Rect?>(null) }
@@ -179,15 +181,6 @@ fun MomentsScreen(
     BackHandler(enabled = isCoverExpanded) {
         isCoverExpanded = false
     }
-
-    val onAccountSelectBack: () -> Unit = {
-        if (storage.getCurrentAccountId() != null) {
-            isAccountSelected = true
-        } else {
-            onBack()
-        }
-    }
-    BackHandler(enabled = !isAccountSelected && !isTransitioning, onBack = onAccountSelectBack)
 
     val photoPickerLauncher =
         rememberLauncherForActivityResult(
@@ -208,24 +201,48 @@ fun MomentsScreen(
             }
         }
 
-    val onSelectAccount: (MomentAccount) -> Unit = { account ->
+    fun animateAccountTransition(account: MomentAccount, toFeed: Boolean) {
         if (!isTransitioning) {
             animatingAccount = account
             isTransitioning = true
-            viewModel.switchAccount(context, account)
+            isAccountSelected = false
             coroutineScope.launch {
+                // 先完成账号页首帧布局与头像定位，避免加载耗时挤占动画开头。
+                withFrameNanos { }
                 animProgress.animateTo(
-                    targetValue = 1f,
+                    targetValue = if (toFeed) 1f else 0f,
                     animationSpec = tween(
                         durationMillis = 520,
                         easing = FastOutSlowInEasing,
                     ),
                 )
+                isAccountSelected = toFeed
                 isTransitioning = false
-                isAccountSelected = true
+                animatingAccount = null
             }
         }
     }
+
+    val onSelectAccount: (MomentAccount) -> Unit = { account ->
+        if (!isTransitioning) {
+            viewModel.switchAccount(context, account)
+            animateAccountTransition(account, toFeed = true)
+        }
+    }
+    val onSwitchAccount: () -> Unit = {
+        animateAccountTransition(MomentAccount.findById(uiState.currentAccountId), toFeed = false)
+    }
+    val onAccountSelectBack: () -> Unit = {
+        if (!isTransitioning) {
+            val currentAccountId = storage.getCurrentAccountId()
+            if (currentAccountId != null) {
+                animateAccountTransition(MomentAccount.findById(currentAccountId), toFeed = true)
+            } else {
+                onBack()
+            }
+        }
+    }
+    BackHandler(enabled = !isAccountSelected, onBack = onAccountSelectBack)
 
     Box(
         modifier =
@@ -242,11 +259,7 @@ fun MomentsScreen(
             onAvatarPositioned = { rect ->
                 headerAvatarRect = rect
             },
-            onSwitchAccount = {
-                isAccountSelected = false
-                animatingAccount = null
-                coroutineScope.launch { animProgress.snapTo(0f) }
-            },
+            onSwitchAccount = onSwitchAccount,
             onBack = {
                 if (isCoverExpanded) {
                     isCoverExpanded = false
@@ -270,12 +283,7 @@ fun MomentsScreen(
                     PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
                 )
             },
-            onAvatarLongClick = {
-                // 长按头像快速调出切换账号
-                isAccountSelected = false
-                animatingAccount = null
-                coroutineScope.launch { animProgress.snapTo(0f) }
-            },
+            onAvatarLongClick = onSwitchAccount,
             onAuthorClick = onAuthorClick,
             onPostClick = onPostClick,
             onCommentClick = onCommentClick,
@@ -288,7 +296,7 @@ fun MomentsScreen(
                 .alpha(momentsFeedAlpha),
         )
 
-        // Layer 2：账号选择页面（未完成选择时展示，点击后淡出）
+        // Layer 2：账号选择页面（与朋友圈页面共用进度，双向淡入淡出）
         if (!isAccountSelected) {
             val selectAlpha =
                 if (isTransitioning) {
@@ -309,10 +317,14 @@ fun MomentsScreen(
                     .fillMaxSize()
                     .alpha(selectAlpha),
             )
-            androidx.compose.material3.TextButton(onClick = { showConnection = true }, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)) { Text("连接设置") }
+            TextButton(
+                onClick = { showConnection = true },
+                enabled = !isTransitioning,
+                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp).alpha(selectAlpha),
+            ) { Text("连接设置") }
         }
 
-        // Layer 3：飞行动画浮层（点击账号后，所选头像平滑飞跃缩放至朋友圈头部头像目标位置）
+        // Layer 3：飞行动画浮层（共用头像路径与样式，按进度正向进入或反向回到账号卡片）
         if (isTransitioning && animatingAccount != null) {
             val account = animatingAccount!!
             val startRect = accountBoundsMap[account.id] ?: Rect.Zero
@@ -368,6 +380,19 @@ fun MomentsScreen(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
+        }
+
+        if (isTransitioning) {
+            // 过渡期间消费触摸，避免淡出的页面响应点击或滑动。
+            Box(
+                Modifier.fillMaxSize().pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            awaitPointerEvent().changes.forEach { it.consume() }
+                        }
+                    }
+                },
+            )
         }
     }
 }
