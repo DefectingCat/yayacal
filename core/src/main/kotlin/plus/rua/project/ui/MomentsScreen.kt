@@ -115,7 +115,8 @@ import kotlin.time.Instant
 /**
  * 朋友圈页面，复刻经典微信朋友圈布局结构。
  * 包含沉浸式顶部渐变导航栏、可自定义相册封面（点击平滑展开放大动画与换封面）、用户名与悬浮跨界头像、以及底部朋友圈动态区域。
- * 点击入口后首先进入极简居中的账号选择界面（支持小白与小鸡毛双账号），轻触头像后以平滑动画将头像飞入朋友圈顶部右上角完成进入。
+ * 首次进入时选择账号并保存，后续直接进入上次使用账号的朋友圈；点击切换账号或长按头像时可重新选择。
+ * 选择账号后以平滑动画将头像飞入朋友圈顶部右上角完成进入。
  *
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击右上角发布动态/相机按钮时触发
@@ -124,7 +125,6 @@ import kotlin.time.Instant
  * @param onAuthorClick 点击动态作者头像时触发，进入该作者主页
  * @param onPostClick 点击动态正文或互动区时触发，传递动态 ID
  * @param onCommentClick 点击动态“评论”操作时触发，传递动态 ID
- * @param initialShowAccountSelect 进入页面时是否初始展示账号选择界面，默认为 true
  * @param viewModel 朋友圈 ViewModel，加载当前账号的远端数据
  * @param modifier 布局修饰符
  */
@@ -137,7 +137,6 @@ fun MomentsScreen(
     onAuthorClick: (String) -> Unit = {},
     onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = onPostClick,
-    initialShowAccountSelect: Boolean = true,
     viewModel: MomentsViewModel = run {
         val context = LocalContext.current.applicationContext
         viewModel(
@@ -164,7 +163,8 @@ fun MomentsScreen(
     }
     MomentsPoll(uiState.currentAccountId) { if (!uiState.isLoading && uiState.posts.size <= 20) viewModel.refreshPosts() }
 
-    var isAccountSelected by remember { mutableStateOf(!initialShowAccountSelect) }
+    val storage = remember(context) { MomentsStorage.fromContext(context) }
+    var isAccountSelected by remember { mutableStateOf(storage.getCurrentAccountId() != null) }
     var isTransitioning by remember { mutableStateOf(false) }
     var animatingAccount by remember { mutableStateOf<MomentAccount?>(null) }
     val animProgress = remember { Animatable(0f) }
@@ -180,13 +180,14 @@ fun MomentsScreen(
         isCoverExpanded = false
     }
 
-    BackHandler(enabled = isAccountSelected && initialShowAccountSelect && !isTransitioning) {
-        isAccountSelected = false
-        animatingAccount = null
-        coroutineScope.launch {
-            animProgress.snapTo(0f)
+    val onAccountSelectBack: () -> Unit = {
+        if (storage.getCurrentAccountId() != null) {
+            isAccountSelected = true
+        } else {
+            onBack()
         }
     }
+    BackHandler(enabled = !isAccountSelected && !isTransitioning, onBack = onAccountSelectBack)
 
     val photoPickerLauncher =
         rememberLauncherForActivityResult(
@@ -249,10 +250,6 @@ fun MomentsScreen(
             onBack = {
                 if (isCoverExpanded) {
                     isCoverExpanded = false
-                } else if (initialShowAccountSelect) {
-                    isAccountSelected = false
-                    animatingAccount = null
-                    coroutineScope.launch { animProgress.snapTo(0f) }
                 } else {
                     onBack()
                 }
@@ -300,13 +297,13 @@ fun MomentsScreen(
                     1f
                 }
             MomentsAccountSelectScreen(
-                currentAccountId = uiState.currentAccountId,
+                currentAccountId = storage.getCurrentAccountId(),
                 animatingAccountId = if (isTransitioning) animatingAccount?.id else null,
                 onAccountClick = onSelectAccount,
                 onAccountPositioned = { account, rect ->
                     accountBoundsMap[account.id] = rect
                 },
-                onBack = onBack,
+                onBack = onAccountSelectBack,
                 modifier =
                 Modifier
                     .fillMaxSize()
