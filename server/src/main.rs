@@ -1,11 +1,13 @@
 mod accounts;
 mod error;
+mod interactions;
 mod media;
+mod posts;
 
 use axum::{
     Router,
     extract::DefaultBodyLimit,
-    routing::{get, patch, post},
+    routing::{delete, get, patch, post, put},
 };
 use sqlx::postgres::PgPoolOptions;
 use std::{path::PathBuf, time::Duration};
@@ -57,6 +59,29 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             post(media::upload).layer(DefaultBodyLimit::max(11 * 1024 * 1024)),
         )
         .route("/api/v1/media/{id}", get(media::download))
+        .route("/api/v1/posts", get(posts::list).post(posts::create))
+        .route(
+            "/api/v1/posts/{id}",
+            get(posts::get).patch(posts::update).delete(posts::delete),
+        )
+        .route(
+            "/api/v1/posts/{id}/like",
+            put(interactions::like).delete(interactions::unlike),
+        )
+        .route(
+            "/api/v1/posts/{id}/comments",
+            get(interactions::comments).post(interactions::comment),
+        )
+        .route(
+            "/api/v1/comments/{id}",
+            delete(interactions::delete_comment),
+        )
+        .route(
+            "/api/v1/notifications",
+            get(interactions::notifications).delete(interactions::clear),
+        )
+        .route("/api/v1/notifications/read", post(interactions::read))
+        .route("/api/v1/notifications/{id}", delete(interactions::dismiss))
         .layer(TraceLayer::new_for_http())
         .with_state(app);
     let address = std::env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8088".into());

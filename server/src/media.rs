@@ -128,8 +128,8 @@ pub async fn download(
     }
     let visible: bool = sqlx::query_scalar(r#"SELECT EXISTS (SELECT 1 FROM media m WHERE m.id=$1 AND (
         m.owner_id=$2 OR EXISTS (SELECT 1 FROM accounts a WHERE a.avatar_id=m.id OR a.cover_id=m.id)
-        OR EXISTS (SELECT 1 FROM post_media pm JOIN posts p ON p.id=pm.post_id WHERE pm.media_id=m.id AND (p.visibility='public' OR p.author_id=$2))
-        OR EXISTS (SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.media_id=m.id AND NOT c.deleted AND (p.visibility='public' OR p.author_id=$2))
+        OR EXISTS (SELECT 1 FROM post_media pm JOIN posts p ON p.id=pm.post_id WHERE pm.media_id=m.id AND NOT p.deleted AND (p.visibility='public' OR p.author_id=$2))
+        OR EXISTS (SELECT 1 FROM comments c JOIN posts p ON p.id=c.post_id WHERE c.media_id=m.id AND NOT c.deleted AND NOT p.deleted AND (p.visibility='public' OR p.author_id=$2))
     ))"#).bind(id).bind(query.account_id).fetch_one(&app.db).await?;
     if !visible {
         return Err(Error::missing());
