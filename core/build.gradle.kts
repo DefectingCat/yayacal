@@ -102,6 +102,8 @@ dependencies {
 
     implementation(libs.kotlinx.datetime)
     implementation(libs.tyme4kt)
+    implementation(libs.okhttp)
+    implementation(libs.sketch.http.okhttp)
     implementation(libs.sketch.compose)
     implementation(libs.sketch.animated.webp)
     implementation(libs.androidx.profileinstaller)
@@ -124,4 +126,5 @@ dependencies {
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit:${libs.versions.kotlin.get()}")
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.room.testing)
+    testImplementation(libs.json.test)
 }

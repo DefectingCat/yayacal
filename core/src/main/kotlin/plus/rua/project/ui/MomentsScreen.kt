@@ -1,3 +1,5 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package plus.rua.project.ui
 
 import android.net.Uri
@@ -119,6 +121,7 @@ import kotlin.time.Instant
  * @param onPublish 点击右上角发布动态/相机按钮时触发
  * @param onCoverClick 点击相册封面占位区域时触发（为 null 时默认切换封面展开状态）
  * @param onAvatarClick 点击用户头像时触发（为 null 时默认拉起系统相册选择头像）
+ * @param onAuthorClick 点击动态作者头像时触发，进入该作者主页
  * @param onPostClick 点击动态正文或互动区时触发，传递动态 ID
  * @param onCommentClick 点击动态“评论”操作时触发，传递动态 ID
  * @param initialShowAccountSelect 进入页面时是否初始展示账号选择界面，默认为 true
@@ -131,6 +134,7 @@ fun MomentsScreen(
     onPublish: () -> Unit = {},
     onCoverClick: (() -> Unit)? = null,
     onAvatarClick: (() -> Unit)? = null,
+    onAuthorClick: (String) -> Unit = {},
     onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = onPostClick,
     initialShowAccountSelect: Boolean = true,
@@ -140,10 +144,7 @@ fun MomentsScreen(
             factory =
             viewModelFactory {
                 initializer {
-                    MomentsViewModel(
-                        storage = MomentsStorage.fromContext(context),
-                        filesDir = context.filesDir,
-                    )
+                    MomentsViewModel.fromContext(context)
                 }
             },
         )
@@ -154,6 +155,14 @@ fun MomentsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     var isCoverExpanded by remember { mutableStateOf(false) }
+    var showConnection by remember { mutableStateOf(false) }
+    if (showConnection) {
+        MomentsConnectionDialog(onSaved = {
+            showConnection = false
+            viewModel.reconnect(context)
+        }, onDismiss = { showConnection = false })
+    }
+    MomentsPoll(uiState.currentAccountId) { if (!uiState.isLoading && uiState.posts.size <= 20) viewModel.refreshPosts() }
 
     var isAccountSelected by remember { mutableStateOf(!initialShowAccountSelect) }
     var isTransitioning by remember { mutableStateOf(false) }
@@ -270,9 +279,12 @@ fun MomentsScreen(
                 animatingAccount = null
                 coroutineScope.launch { animProgress.snapTo(0f) }
             },
+            onAuthorClick = onAuthorClick,
             onPostClick = onPostClick,
             onCommentClick = onCommentClick,
             onLikePost = viewModel::toggleLike,
+            onRefresh = { viewModel.refreshPosts() },
+            onLoadMore = viewModel::loadMore,
             modifier =
             Modifier
                 .fillMaxSize()
@@ -300,6 +312,7 @@ fun MomentsScreen(
                     .fillMaxSize()
                     .alpha(selectAlpha),
             )
+            androidx.compose.material3.TextButton(onClick = { showConnection = true }, modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp)) { Text("连接设置") }
         }
 
         // Layer 3：飞行动画浮层（点击账号后，所选头像平滑飞跃缩放至朋友圈头部头像目标位置）
@@ -376,8 +389,11 @@ fun MomentsScreen(
  * @param onChangeCoverClick 点击“换封面”按钮时触发
  * @param onAvatarClick 点击用户头像时触发
  * @param onAvatarLongClick 长按用户头像时触发
+ * @param onAuthorClick 点击动态作者头像时触发，进入该作者主页
  * @param onPostClick 点击动态正文或互动区时触发
  * @param onCommentClick 点击“评论”操作时触发
+ * @param onRefresh 下拉或点击刷新时触发
+ * @param onLoadMore 点击加载更多时触发
  * @param onLikePost 点击“赞/取消”操作时触发
  * @param modifier 布局修饰符
  */
@@ -394,9 +410,12 @@ fun MomentsScreen(
     onChangeCoverClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAvatarLongClick: (() -> Unit)? = null,
+    onAuthorClick: (String) -> Unit = {},
     onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = onPostClick,
     onLikePost: (String) -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -421,89 +440,93 @@ fun MomentsScreen(
             .testTag("moments_screen"),
     ) {
         // 主滚动列表：从屏幕最顶端开始绘制，使相册封面能够沉浸延伸至状态栏之下
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-        ) {
-            // 头部：相册封面 + 用户名 + 跨界悬浮头像
-            item(key = "header") {
-                MomentsHeader(
-                    username = uiState.username,
-                    avatarPath = uiState.avatarPath,
-                    coverPath = uiState.coverPath,
-                    isCoverExpanded = isCoverExpanded,
-                    onCoverClick = onCoverClick,
-                    onChangeCoverClick = onChangeCoverClick,
-                    onAvatarClick = onAvatarClick,
-                    onAvatarLongClick = onAvatarLongClick,
-                    isAvatarVisible = isAvatarVisible,
-                    onAvatarPositioned = onAvatarPositioned,
-                )
-            }
-
-            if (uiState.posts.isEmpty()) {
-                // 底部朋友圈动态部分：空状态占位
-                item(key = "empty_content") {
-                    MomentsEmptyContent(
-                        onPublish = onPublish,
+        androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = uiState.isLoading, onRefresh = onRefresh) {
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                // 头部：相册封面 + 用户名 + 跨界悬浮头像
+                item(key = "header") {
+                    MomentsHeader(
+                        username = uiState.username,
+                        avatarPath = uiState.avatarPath,
+                        coverPath = uiState.coverPath,
+                        isCoverExpanded = isCoverExpanded,
+                        onCoverClick = onCoverClick,
+                        onChangeCoverClick = onChangeCoverClick,
+                        onAvatarClick = onAvatarClick,
+                        onAvatarLongClick = onAvatarLongClick,
+                        isAvatarVisible = isAvatarVisible,
+                        onAvatarPositioned = onAvatarPositioned,
                     )
                 }
-            } else {
-                items(uiState.posts, key = { it.id }) { post ->
-                    Card(
-                        onClick = { onPostClick(post.id) },
-                        shape = RoundedCornerShape(0.dp),
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    ) {
-                        MomentFeedItem(
-                            post = post,
-                            authorName = uiState.username,
-                            avatarPath = uiState.avatarPath,
-                            onLike = { onLikePost(post.id) },
-                            onComment = { onCommentClick(post.id) },
-                            onPhotoClick = { photos, index ->
-                                previewPhotos = photos
-                                previewIndex = index
-                            },
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+
+                item(key = "network") { MomentsLoadStatus(uiState.isLoading, uiState.error, false, onRefresh, onLoadMore) }
+                if (uiState.posts.isEmpty() && !uiState.isLoading && uiState.error == null) {
+                    // 底部朋友圈动态部分：空状态占位
+                    item(key = "empty_content") {
+                        MomentsEmptyContent(
+                            onPublish = onPublish,
                         )
-                        if (post.isLikedByMe || post.comments.isNotEmpty()) {
-                            Column(
-                                Modifier.padding(start = 68.dp, end = 16.dp, bottom = 12.dp)
-                                    .fillMaxWidth().background(momentsBarColor(), RoundedCornerShape(4.dp)).padding(8.dp),
-                            ) {
-                                if (post.isLikedByMe) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Icon(Icons.Outlined.FavoriteBorder, "点赞", tint = momentsLinkColor(), modifier = Modifier.size(14.dp))
-                                        Text(uiState.username, color = momentsLinkColor(), fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp))
+                    }
+                } else {
+                    items(uiState.posts, key = { it.id }) { post ->
+                        Card(
+                            onClick = { onPostClick(post.id) },
+                            shape = RoundedCornerShape(0.dp),
+                            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        ) {
+                            MomentFeedItem(
+                                post = post,
+                                onAuthorClick = { onAuthorClick(post.authorId) },
+                                authorName = post.authorName,
+                                avatarPath = post.authorAvatarPath,
+                                onLike = { onLikePost(post.id) },
+                                onComment = { onCommentClick(post.id) },
+                                onPhotoClick = { photos, index ->
+                                    previewPhotos = photos
+                                    previewIndex = index
+                                },
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                            )
+                            if (post.likes.isNotEmpty() || post.comments.isNotEmpty()) {
+                                Column(
+                                    Modifier.padding(start = 68.dp, end = 16.dp, bottom = 12.dp)
+                                        .fillMaxWidth().background(momentsBarColor(), RoundedCornerShape(4.dp)).padding(8.dp),
+                                ) {
+                                    if (post.likes.isNotEmpty()) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(Icons.Outlined.FavoriteBorder, "点赞", tint = momentsLinkColor(), modifier = Modifier.size(14.dp))
+                                            Text(post.likes.joinToString("、") { it.name }, color = momentsLinkColor(), fontSize = 13.sp, modifier = Modifier.padding(start = 6.dp))
+                                        }
                                     }
-                                }
-                                post.comments.takeLast(3).forEach { comment ->
-                                    Text(
-                                        "${comment.authorName}${comment.replyToName?.let { " 回复 $it" }.orEmpty()}: ${comment.text.ifBlank { "[图片]" }}",
-                                        fontSize = 13.sp,
-                                        lineHeight = 19.sp,
-                                    )
+                                    post.comments.takeLast(3).forEach { comment ->
+                                        Text(
+                                            "${comment.authorName}${comment.replyToName?.let { " 回复 $it" }.orEmpty()}: ${comment.text.ifBlank { "[图片]" }}",
+                                            fontSize = 13.sp,
+                                            lineHeight = 19.sp,
+                                        )
+                                    }
                                 }
                             }
                         }
+                        HorizontalDivider(color = Color(0xFFF2F2F2), thickness = 0.6.dp)
                     }
-                    HorizontalDivider(color = Color(0xFFF2F2F2), thickness = 0.6.dp)
+                }
+
+                if (uiState.nextCursor != null) item(key = "more") { MomentsLoadStatus(uiState.isLoading, null, true, onRefresh, onLoadMore) }
+                // 底部系统手势栏安全留白
+                item(key = "bottom_spacer") {
+                    Spacer(
+                        modifier =
+                        Modifier
+                            .navigationBarsPadding()
+                            .height(16.dp),
+                    )
                 }
             }
-
-            // 底部系统手势栏安全留白
-            item(key = "bottom_spacer") {
-                Spacer(
-                    modifier =
-                    Modifier
-                        .navigationBarsPadding()
-                        .height(16.dp),
-                )
-            }
         }
-
         // 顶部悬浮导航栏：随着列表滚动动态变化背景不透明度与图标颜色（封面展开时隐藏）
         if (!isCoverExpanded) {
             MomentsTopBar(
@@ -758,6 +781,7 @@ fun calculateTopBarAlpha(
  * @param post 朋友圈动态
  * @param authorName 发布者昵称
  * @param avatarPath 头像本地路径
+ * @param onAuthorClick 点击作者头像时触发
  * @param onDelete 详情模式点击删除图标时触发；为 null 时隐藏删除入口，由调用方确认后删除
  * @param onLike 点击“赞/取消”操作时触发
  * @param onComment 点击“评论”操作时触发
@@ -771,6 +795,7 @@ fun MomentFeedItem(
     authorName: String,
     avatarPath: String?,
     onDelete: (() -> Unit)? = null,
+    onAuthorClick: () -> Unit = {},
     onLike: () -> Unit = {},
     onComment: () -> Unit = {},
     showFullTimestamp: Boolean = false,
@@ -786,7 +811,9 @@ fun MomentFeedItem(
             .testTag("moment_feed_item_${post.id}"),
     ) {
         // 1. 头像
-        MomentAvatar(avatarPath, authorName, Modifier.size(42.dp))
+        Card(onClick = onAuthorClick, elevation = CardDefaults.cardElevation(0.dp)) {
+            MomentAvatar(avatarPath, authorName, Modifier.size(42.dp))
+        }
 
         Spacer(modifier = Modifier.width(10.dp))
 
@@ -923,7 +950,7 @@ private fun MomentFeedPhotos(
 ) {
     if (photos.size == 1) {
         val path = photos[0]
-        val uri = if (path.startsWith("content://") || path.startsWith("file://")) path else "file://${File(path).absolutePath}"
+        val uri = resolvePhotoUri(path)
         if (preserveSinglePhoto) {
             AsyncImage(
                 uri = uri,
@@ -962,7 +989,7 @@ private fun MomentFeedPhotos(
                 ) {
                     rowPhotos.forEachIndexed { colIndex, photoPath ->
                         val photoIndex = rowIndex * columns + colIndex
-                        val uri = if (photoPath.startsWith("content://") || photoPath.startsWith("file://")) photoPath else "file://${File(photoPath).absolutePath}"
+                        val uri = resolvePhotoUri(photoPath)
                         Box(
                             modifier =
                             Modifier

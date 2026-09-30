@@ -52,6 +52,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -115,6 +116,8 @@ fun MomentsPublishScreen(
                         storage = MomentsStorage.fromContext(context),
                         filesDir = context.filesDir,
                         initialVisibility = initialVisibility,
+                        repository = plus.rua.project.MomentsConnection.repository(context),
+                        draftNamespace = plus.rua.project.MomentsConnection.url(context),
                     )
                 }
             },
@@ -209,7 +212,6 @@ fun MomentsPublishScreen(
             MomentsPublishSubScreen.VISIBILITY -> {
                 MomentsVisibilityScreen(
                     currentVisibility = uiState.visibility,
-                    currentTags = uiState.visibilityTags,
                     onDone = { visibility, tags ->
                         viewModel.selectVisibility(visibility, tags)
                     },
@@ -232,9 +234,6 @@ fun MomentsPublishScreen(
                     },
                     onRemovePhoto = viewModel::removePhotoAt,
                     onLocationClick = viewModel::openLocationPicker,
-                    onRemindClick = {
-                        Toast.makeText(context, "“提醒谁看”功能正在开发中", Toast.LENGTH_SHORT).show()
-                    },
                     onVisibilityClick = viewModel::openVisibilityPicker,
                 )
             }
@@ -252,7 +251,6 @@ fun MomentsPublishScreen(
  * @param onAddPhotosClick 点击“+”添加照片方块时触发
  * @param onRemovePhoto 点击某张配图右上角删除按钮时触发
  * @param onLocationClick 点击“所在位置”选项时触发
- * @param onRemindClick 点击“提醒谁看”选项时触发
  * @param onVisibilityClick 点击“谁可以看”选项时触发
  * @param modifier 布局修饰符
  */
@@ -265,7 +263,6 @@ fun MomentsPublishScreen(
     onAddPhotosClick: () -> Unit,
     onRemovePhoto: (Int) -> Unit,
     onLocationClick: () -> Unit,
-    onRemindClick: () -> Unit,
     onVisibilityClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -280,6 +277,8 @@ fun MomentsPublishScreen(
             .navigationBarsPadding()
             .testTag("moments_publish_screen"),
     ) {
+        uiState.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
+        if (uiState.isPreparingPhotos) Text("正在准备图片…", modifier = Modifier.padding(16.dp))
         // 1. 顶部操作栏：取消 | 占位 | 微信绿“发表”按钮
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -387,19 +386,6 @@ fun MomentsPublishScreen(
                 isHighlight = uiState.selectedLocation != null,
                 onClick = onLocationClick,
                 testTag = "publish_option_location",
-            )
-            HorizontalDivider(
-                color = Color(0xFFF2F2F2),
-                thickness = 0.6.dp,
-                modifier = Modifier.padding(start = 56.dp),
-            )
-
-            // 提醒谁看
-            PublishOptionRow(
-                icon = Icons.Outlined.AlternateEmail,
-                title = "提醒谁看",
-                onClick = onRemindClick,
-                testTag = "publish_option_remind",
             )
             HorizontalDivider(
                 color = Color(0xFFF2F2F2),

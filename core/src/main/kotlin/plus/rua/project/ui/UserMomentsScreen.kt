@@ -86,6 +86,7 @@ import kotlin.time.Instant
  * 包含沉浸式顶部栏（搜索、相册网格视图、消息通知）、相册封面（点击平滑展开放大动画与换封面）、用户名与头像、
  * 以及时间轴视图（“今天”发表/私密发表卡片、年份分组、月份与日期条目）。
  *
+ * @param authorId 要展示的作者，为 null 时展示当前账号
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击“发表”按钮时触发
  * @param onPrivatePublish 点击“私密发表”按钮时触发
@@ -101,6 +102,7 @@ import kotlin.time.Instant
 @Composable
 fun UserMomentsScreen(
     onBack: () -> Unit,
+    authorId: String? = null,
     onPublish: () -> Unit = {},
     onPrivatePublish: () -> Unit = {},
     onSearch: () -> Unit = {},
@@ -115,10 +117,7 @@ fun UserMomentsScreen(
             factory =
             viewModelFactory {
                 initializer {
-                    MomentsViewModel(
-                        storage = MomentsStorage.fromContext(context),
-                        filesDir = context.filesDir,
-                    )
+                    MomentsViewModel.fromContext(context)
                 }
             },
         )
@@ -128,9 +127,10 @@ fun UserMomentsScreen(
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isCoverExpanded by remember { mutableStateOf(false) }
+    val isOwnProfile = authorId == null || authorId == viewModel.accountId
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.refreshPosts()
+        viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId)
     }
 
     BackHandler(enabled = isCoverExpanded) {
@@ -141,7 +141,7 @@ fun UserMomentsScreen(
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.PickVisualMedia(),
         ) { uri: Uri? ->
-            if (uri != null) {
+            if (uri != null && isOwnProfile) {
                 viewModel.setAvatarFromUri(context, uri)
             }
         }
@@ -150,7 +150,7 @@ fun UserMomentsScreen(
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.PickVisualMedia(),
         ) { uri: Uri? ->
-            if (uri != null) {
+            if (uri != null && isOwnProfile) {
                 viewModel.setCoverFromUri(context, uri)
                 isCoverExpanded = false
             }
@@ -158,6 +158,9 @@ fun UserMomentsScreen(
 
     UserMomentsScreen(
         uiState = uiState,
+        isOwnProfile = isOwnProfile,
+        onRefresh = { viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId) },
+        onLoadMore = viewModel::loadMore,
         isCoverExpanded = isCoverExpanded,
         onBack = {
             if (isCoverExpanded) {
@@ -199,6 +202,9 @@ fun UserMomentsScreen(
 /**
  * 个人朋友圈相册视图无状态内容组件。
  *
+ * @param isOwnProfile 是否正在展示本人主页，控制资料编辑及发布入口
+ * @param onRefresh 点击刷新时触发
+ * @param onLoadMore 点击加载更多时触发
  * @param uiState 当前 UI 状态
  * @param isCoverExpanded 封面是否展开
  * @param onBack 点击返回按钮时触发
@@ -219,6 +225,9 @@ fun UserMomentsScreen(
     uiState: MomentsUiState,
     onBack: () -> Unit,
     isCoverExpanded: Boolean = false,
+    isOwnProfile: Boolean = true,
+    onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     onPublish: () -> Unit = {},
     onPrivatePublish: () -> Unit = {},
     onSearch: () -> Unit = {},
@@ -270,16 +279,19 @@ fun UserMomentsScreen(
                     coverPath = uiState.coverPath,
                     isCoverExpanded = isCoverExpanded,
                     onCoverClick = onCoverClick,
-                    onChangeCoverClick = onChangeCoverClick,
-                    onAvatarClick = onAvatarClick,
-                    onAvatarLongClick = onAvatarLongClick,
+                    canEdit = isOwnProfile,
+                    onChangeCoverClick = { if (isOwnProfile) onChangeCoverClick() },
+                    onAvatarClick = { if (isOwnProfile) onAvatarClick() },
+                    onAvatarLongClick = if (isOwnProfile) onAvatarLongClick else null,
                 )
             }
 
+            item(key = "network") { MomentsLoadStatus(uiState.isLoading, uiState.error, false, onRefresh, onLoadMore) }
             // “今天” 分组：发表与私密发表入口及今天发表的动态
             item(key = "today_section") {
                 UserMomentsTodaySection(
                     todayPosts = todayPosts,
+                    canPublish = isOwnProfile,
                     onPublish = onPublish,
                     onPrivatePublish = onPrivatePublish,
                     onPostClick = { post -> onPostClick(post.id) },
@@ -336,6 +348,7 @@ fun UserMomentsScreen(
                 }
             }
 
+            if (uiState.nextCursor != null) item(key = "more") { MomentsLoadStatus(uiState.isLoading, null, true, onRefresh, onLoadMore) }
             // 底部时间轴结束标志：— · —
             item(key = "timeline_footer") {
                 UserMomentsFooter()
@@ -355,7 +368,7 @@ fun UserMomentsScreen(
         // 顶部悬浮操作栏（带搜索、网格视图、通知图标，封面展开时隐藏）
         if (!isCoverExpanded) {
             UserMomentsTopBar(
-                title = uiState.username,
+                title = uiState.username + if (isOwnProfile && uiState.unreadCount > 0) " · ${uiState.unreadCount}条新消息" else "",
                 alpha = scrollAlpha,
                 onBack = onBack,
                 onSearch = onSearch,
@@ -496,6 +509,7 @@ private fun UserMomentsTodaySection(
     onPublish: () -> Unit,
     onPrivatePublish: () -> Unit,
     onPostClick: (post: MomentPost) -> Unit = {},
+    canPublish: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -522,79 +536,81 @@ private fun UserMomentsTodaySection(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 发表卡片
-                Card(
-                    onClick = onPublish,
-                    shape = RoundedCornerShape(8.dp),
-                    colors =
-                    CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    modifier =
-                    Modifier
-                        .size(86.dp)
-                        .testTag("user_moments_publish_card"),
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
+                if (canPublish) {
+                    // 发表卡片
+                    Card(
+                        onClick = onPublish,
+                        shape = RoundedCornerShape(8.dp),
+                        colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier =
+                        Modifier
+                            .size(86.dp)
+                            .testTag("user_moments_publish_card"),
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.PhotoCamera,
-                            contentDescription = null,
-                            tint = Color(0xFF576B95),
-                            modifier = Modifier.size(28.dp),
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "发表",
-                            style =
-                            MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                            ),
-                            color = Color(0xFF576B95),
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.PhotoCamera,
+                                contentDescription = null,
+                                tint = Color(0xFF576B95),
+                                modifier = Modifier.size(28.dp),
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "发表",
+                                style =
+                                MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                ),
+                                color = Color(0xFF576B95),
+                            )
+                        }
                     }
-                }
 
-                // 私密发表卡片
-                Card(
-                    onClick = onPrivatePublish,
-                    shape = RoundedCornerShape(8.dp),
-                    colors =
-                    CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    ),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    modifier =
-                    Modifier
-                        .size(86.dp)
-                        .testTag("user_moments_private_publish_card"),
-                ) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center,
+                    // 私密发表卡片
+                    Card(
+                        onClick = onPrivatePublish,
+                        shape = RoundedCornerShape(8.dp),
+                        colors =
+                        CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                        ),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier =
+                        Modifier
+                            .size(86.dp)
+                            .testTag("user_moments_private_publish_card"),
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Lock,
-                            contentDescription = null,
-                            tint = Color(0xFF576B95),
-                            modifier = Modifier.size(28.dp),
-                        )
-                        Spacer(modifier = Modifier.height(6.dp))
-                        Text(
-                            text = "私密发表",
-                            style =
-                            MaterialTheme.typography.bodySmall.copy(
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium,
-                            ),
-                            color = Color(0xFF576B95),
-                        )
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Lock,
+                                contentDescription = null,
+                                tint = Color(0xFF576B95),
+                                modifier = Modifier.size(28.dp),
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = "私密发表",
+                                style =
+                                MaterialTheme.typography.bodySmall.copy(
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                ),
+                                color = Color(0xFF576B95),
+                            )
+                        }
                     }
                 }
             }
@@ -968,15 +984,7 @@ fun MomentsThumbnailPhotos(
  * 记忆并解析配图 URI，兼容 content:// 与本地文件路径。
  */
 @Composable
-private fun rememberPhotoUri(path: String?): String? = remember(path) {
-    if (path == null) return@remember null
-    if (path.startsWith("content://") || path.startsWith("file://")) {
-        path
-    } else {
-        val file = File(path.removePrefix("file://"))
-        if (file.exists()) "file://${file.absolutePath}" else path
-    }
-}
+private fun rememberPhotoUri(path: String?): String? = remember(path) { resolvePhotoUri(path) }
 
 /**
  * 判断指定时间戳（毫秒）是否落在给定的本地日期当天。

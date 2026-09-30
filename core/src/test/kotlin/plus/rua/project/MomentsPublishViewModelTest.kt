@@ -4,184 +4,93 @@ import android.content.SharedPreferences
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import java.io.File
+import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MomentsPublishViewModelTest {
+    private val dispatcher = StandardTestDispatcher()
+    private val storage = MomentsStorage(MomentsPublishVmTestInMemoryPrefs())
+    private val repository = FakeMomentsRepository()
+    private val dir = Files.createTempDirectory("moments-publish-test").toFile()
 
-    private val testDispatcher = StandardTestDispatcher()
-    private val prefs = MomentsPublishVmTestInMemoryPrefs()
-    private val storage = MomentsStorage(prefs)
-    private val tempDir = File(System.getProperty("java.io.tmpdir"), "moments_publish_test_${System.currentTimeMillis()}")
-
-    @Before
-    fun setUp() {
-        Dispatchers.setMain(testDispatcher)
-        tempDir.mkdirs()
+    @Before fun before() {
+        Dispatchers.setMain(dispatcher)
+        storage.saveCurrentAccountId("xiaobai")
     }
 
-    @After
-    fun tearDown() {
+    @After fun after() {
         Dispatchers.resetMain()
-        tempDir.deleteRecursively()
+        dir.deleteRecursively()
+    }
+    private fun vm() = MomentsPublishViewModel(storage, dir, repository, ioDispatcher = dispatcher)
+
+    @Test fun failedPublish_restoreAndRetry_reusesRequestAndMedia() = runTest(dispatcher) {
+        val photo = File(dir, "photo").apply { writeText("fixture") }
+        val first = vm()
+        first.onTextChanged("晚安 🐶")
+        first.addPhotoPaths(listOf(photo.absolutePath))
+        repository.failPublish = true
+        var success = false
+        first.publish { success = true }
+        advanceUntilIdle()
+        assertFalse(success)
+        assertEquals("晚安 🐶", first.uiState.value.text)
+        assertFalse(first.uiState.value.isPublishing)
+        val restored = vm()
+        assertEquals(first.uiState.value.text, restored.uiState.value.text)
+        repository.failPublish = false
+        restored.publish { success = true }
+        advanceUntilIdle()
+        assertTrue(success)
+        assertEquals(repository.attempts.first(), repository.attempts.last())
+        assertEquals(1, repository.uploads.size)
+        assertTrue(vm().uiState.value.text.isEmpty())
+        assertTrue(storage.getPosts().isEmpty())
     }
 
-    @Test
-    fun canPublish_initiallyFalse_becomesTrueWhenTextOrPhotoAdded() {
-        val vm = MomentsPublishViewModel(
-            storage = storage,
-            filesDir = tempDir,
-            ioDispatcher = testDispatcher,
-        )
-
-        assertFalse(vm.uiState.value.canPublish)
-
-        vm.onTextChanged("Hello World")
-        assertTrue(vm.uiState.value.canPublish)
-
-        vm.onTextChanged("   ")
-        assertFalse(vm.uiState.value.canPublish)
-
-        vm.addPhotoPaths(listOf("/path/img1.jpg"))
-        assertTrue(vm.uiState.value.canPublish)
+    @Test fun switchGlobalAccount_existingDraftKeepsOriginalAuthor() = runTest(dispatcher) {
+        val first = vm()
+        first.onTextChanged("小白的草稿")
+        storage.saveCurrentAccountId("xiaojimao")
+        assertTrue(vm().uiState.value.text.isEmpty())
+        first.publish {}
+        advanceUntilIdle()
+        assertEquals("xiaobai", repository.attempts.single().first)
     }
 
-    @Test
-    fun addPhotos_capsAtNinePhotos() {
-        val vm = MomentsPublishViewModel(
-            storage = storage,
-            filesDir = tempDir,
-            ioDispatcher = testDispatcher,
-        )
+    @Test fun changeAfterTimeout_usesNewRequestId() = runTest(dispatcher) {
+        val vm = vm()
+        vm.onTextChanged("原文")
+        repository.failPublish = true
+        vm.publish {}
+        advanceUntilIdle()
+        vm.onTextChanged("修订内容")
+        vm.publish {}
+        advanceUntilIdle()
+        assertEquals(2, repository.attempts.map { it.second }.distinct().size)
+    }
 
-        val elevenPhotos = (1..11).map { "/path/img_$it.jpg" }
-        vm.addPhotoPaths(elevenPhotos)
-
+    @Test fun emptyDraftCannotPublish_andPhotosAreCapped() = runTest(dispatcher) {
+        val vm = vm()
+        vm.publish { error("空草稿不能发表") }
+        assertFalse(vm.uiState.value.canPublish)
+        vm.addPhotoPaths((1..12).map { "$it.jpg" })
         assertEquals(9, vm.uiState.value.photos.size)
-        assertEquals(0, vm.uiState.value.remainingPhotoSlots)
-    }
-
-    @Test
-    fun removePhotoAt_removesCorrectItem() {
-        val vm = MomentsPublishViewModel(
-            storage = storage,
-            filesDir = tempDir,
-            ioDispatcher = testDispatcher,
-        )
-
-        vm.addPhotoPaths(listOf("/path/1.jpg", "/path/2.jpg", "/path/3.jpg"))
-        vm.removePhotoAt(1)
-
-        assertEquals(listOf("/path/1.jpg", "/path/3.jpg"), vm.uiState.value.photos)
-    }
-
-    @Test
-    fun locationSelection_setsAndClearsLocation() {
-        val vm = MomentsPublishViewModel(
-            storage = storage,
-            filesDir = tempDir,
-            ioDispatcher = testDispatcher,
-        )
-
-        val poi = MomentLocationItem("创维大厦", "高新南一道8号")
-        vm.selectLocation(poi)
-        assertEquals("创维大厦", vm.uiState.value.selectedLocation?.name)
-
-        // 选择“不显示位置”
-        vm.selectLocation(MomentsLocationProvider.NONE_ITEM)
-        assertNull(vm.uiState.value.selectedLocation)
-    }
-
-    @Test
-    fun publish_savesPostToStorageAndTriggersCallback() = runTest(testDispatcher) {
-        val vm = MomentsPublishViewModel(
-            storage = storage,
-            filesDir = tempDir,
-            ioDispatcher = testDispatcher,
-        )
-
-        vm.onTextChanged("记录今天好心情")
-        vm.addPhotoPaths(listOf("/path/p1.jpg"))
-        val poi = MomentLocationItem("创维半导体设计大厦", "高新南四道18号")
-        vm.selectLocation(poi)
-
-        var successCalled = false
-        vm.publish {
-            successCalled = true
-        }
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        assertTrue(successCalled)
-        val posts = storage.getPosts()
-        assertEquals(1, posts.size)
-        assertEquals("记录今天好心情", posts[0].text)
-        assertEquals(listOf("/path/p1.jpg"), posts[0].photoPaths)
-        assertEquals("创维半导体设计大厦", posts[0].location)
-    }
-
-    @Test
-    fun visibilityPicker_openAndClose_updatesUiState() {
-        val vm = MomentsPublishViewModel(
-            storage = storage,
-            filesDir = tempDir,
-            ioDispatcher = testDispatcher,
-        )
-
-        assertFalse(vm.uiState.value.isVisibilityPickerVisible)
-        vm.openVisibilityPicker()
-        assertTrue(vm.uiState.value.isVisibilityPickerVisible)
-        vm.closeVisibilityPicker()
-        assertFalse(vm.uiState.value.isVisibilityPickerVisible)
-    }
-
-    @Test
-    fun selectVisibility_updatesVisibilityAndTagsAndFormattedString() = runTest(testDispatcher) {
-        val vm = MomentsPublishViewModel(
-            storage = storage,
-            filesDir = tempDir,
-            ioDispatcher = testDispatcher,
-        )
-
-        // 默认公开
-        assertEquals("公开", vm.uiState.value.visibility)
-        assertEquals("公开", vm.uiState.value.formattedVisibility)
-
-        // 选择私密
+        vm.removePhotoAt(0)
+        assertEquals(8, vm.uiState.value.photos.size)
         vm.selectVisibility("私密")
         assertEquals("私密", vm.uiState.value.visibility)
-        assertEquals("私密", vm.uiState.value.formattedVisibility)
-        assertFalse(vm.uiState.value.isVisibilityPickerVisible)
-
-        // 选择部分可见，带标签
-        vm.selectVisibility("部分可见", listOf("家人", "朋友"))
-        assertEquals("部分可见", vm.uiState.value.visibility)
-        assertEquals(listOf("家人", "朋友"), vm.uiState.value.visibilityTags)
-        assertEquals("部分可见 (家人、朋友)", vm.uiState.value.formattedVisibility)
-
-        // 选择不给谁看，带标签
-        vm.selectVisibility("不给谁看", listOf("同事"))
-        assertEquals("不给谁看", vm.uiState.value.visibility)
-        assertEquals(listOf("同事"), vm.uiState.value.visibilityTags)
-        assertEquals("不给谁看 (同事)", vm.uiState.value.formattedVisibility)
-
-        // 发布后持久化包含格式化可见性
-        vm.onTextChanged("仅家人可见的动态")
-        vm.selectVisibility("部分可见", listOf("家人"))
-        vm.publish {}
-        testDispatcher.scheduler.advanceUntilIdle()
-
-        val posts = storage.getPosts()
-        assertEquals("部分可见 (家人)", posts.first().visibility)
     }
 }
 

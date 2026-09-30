@@ -4,307 +4,242 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
 import java.util.UUID
-import kotlin.time.Clock
 
-/**
- * 朋友圈页面 UI 状态。
- *
- * @param currentAccountId 当前选中的账号 ID
- * @param username 用户名
- * @param avatarPath 当前设置的头像文件路径（为 null 时使用默认占位符）
- * @param coverPath 当前设置的封面文件路径（为 null 时使用默认占位符）
- * @param posts 已发布的朋友圈动态列表
- */
+/** 网络朋友圈状态；加载/失败与空列表分别表示，账号切换时清空上一账号内容。 */
 data class MomentsUiState(
     val currentAccountId: String? = null,
-    val username: String = MomentsStorage.DEFAULT_USERNAME,
+    val username: String = "小白",
     val avatarPath: String? = null,
     val coverPath: String? = null,
     val posts: List<MomentPost> = emptyList(),
+    val isLoading: Boolean = false,
+    val error: String? = null,
+    val nextCursor: String? = null,
+    val commentsCursor: String? = null,
+    val unreadCount: Int = 0,
+    val unavailable: Boolean = false,
 )
 
-/**
- * 朋友圈页面 ViewModel，负责头像、相册封面以及动态列表的展示与持久化。
- *
- * @param storage 朋友圈配置存储仓库
- * @param filesDir 应用 filesDir 目录，用于安全存放用户头像与封面文件
- * @param ioDispatcher IO 协程调度器（支持测试注入）
- * @param clock 评论发送时间的时钟（支持测试注入）
- */
+/** 朋友圈网络状态。请求捕获账号和加载版本，迟到结果不能覆盖切号后的页面。 */
 class MomentsViewModel(
     private val storage: MomentsStorage,
-    private val filesDir: File,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val clock: Clock = Clock.System,
+    private var repository: MomentsRepository,
 ) : ViewModel() {
+    val accountId: String get() = MomentAccount.findById(storage.getCurrentAccountId()).id
+    private val _uiState = MutableStateFlow(MomentsUiState(currentAccountId = storage.getCurrentAccountId(), username = MomentAccount.findById(storage.getCurrentAccountId()).name))
+    val uiState = _uiState.asStateFlow()
+    private var generation = 0
+    private var refreshJob: Job? = null
+    private var author: String? = null
+    private var query: String? = null
+    private var detailId: String? = null
+    private var commentSignature: List<String?>? = null
+    private var commentRequestId = ""
+    private var commentMediaId: String? = null
+    private val liking = mutableSetOf<String>()
 
-    private val _uiState =
-        MutableStateFlow(
-            MomentsUiState(
-                currentAccountId = storage.getCurrentAccountId(),
-                username = storage.getUsername(),
-                avatarPath = storage.getAvatarPath(),
-                coverPath = storage.getCoverPath(),
-                posts = storage.getPosts(),
-            ),
-        )
-    val uiState: StateFlow<MomentsUiState> = _uiState.asStateFlow()
-
-    /**
-     * 刷新已发布动态列表。
-     */
-    fun refreshPosts() {
-        val posts = storage.getPosts()
-        _uiState.update {
-            it.copy(
-                posts = posts,
-                currentAccountId = storage.getCurrentAccountId(),
-                username = storage.getUsername(),
-                avatarPath = storage.getAvatarPath(),
-                coverPath = storage.getCoverPath(),
-            )
-        }
+    fun reconnect(context: Context) {
+        repository = MomentsConnection.repository(context.applicationContext)
+        _uiState.update { it.copy(posts = emptyList(), avatarPath = null, coverPath = null) }
+        refreshPosts()
     }
 
-    /**
-     * 切换选中的账号，持久化账号信息，并更新 UI 状态。
-     *
-     * @param account 选中的朋友圈账号
-     * @param avatarPath 指定的头像文件路径（为 null 时保留现有头像路径）
-     */
     fun switchAccount(account: MomentAccount, avatarPath: String? = null) {
+        generation++
+        refreshJob?.cancel()
         storage.saveCurrentAccountId(account.id)
-        storage.saveUsername(account.name)
-        if (avatarPath != null) {
-            storage.saveAvatarPath(avatarPath)
-        }
-        _uiState.update {
-            it.copy(
-                currentAccountId = account.id,
-                username = account.name,
-                avatarPath = avatarPath ?: it.avatarPath,
-            )
+        _uiState.value = MomentsUiState(currentAccountId = account.id, username = account.name, avatarPath = avatarPath)
+        author = null
+        query = null
+        detailId = null
+        commentSignature = null
+        refreshPosts()
+    }
+
+    fun switchAccount(context: Context, account: MomentAccount) = switchAccount(account, "android.resource://${context.packageName}/${account.avatarResId}")
+
+    fun refreshPosts(authorId: String? = author, keyword: String? = query) {
+        author = authorId
+        query = keyword
+        load(false)
+    }
+
+    fun refreshPost(id: String) {
+        detailId = id
+        load(false)
+    }
+
+    fun loadMore() {
+        if (!_uiState.value.isLoading && _uiState.value.nextCursor != null) load(true)
+    }
+
+    private fun load(more: Boolean) {
+        refreshJob?.cancel()
+        val version = ++generation
+        val actor = accountId
+        val api = repository
+        val id = detailId
+        val selectedAuthor = author
+        val keyword = query
+        val cursor = if (more) _uiState.value.nextCursor else null
+        _uiState.update { it.copy(isLoading = true, error = null, unavailable = false) }
+        refreshJob = viewModelScope.launch {
+            try {
+                val profile = api.accounts(actor).first { it.id == (selectedAuthor ?: actor) }
+                var commentsCursor: String? = null
+                val page = if (id == null) {
+                    api.posts(actor, selectedAuthor, keyword, cursor)
+                } else {
+                    val post = api.post(actor, id)
+                    val comments = api.comments(actor, id)
+                    commentsCursor = comments.nextCursor
+                    MomentsPage(listOf(post.copy(comments = comments.items)))
+                }
+                val unread = api.notifications(actor).unreadCount
+                if (version == generation && actor == accountId) {
+                    _uiState.update {
+                        it.copy(
+                            currentAccountId = actor, username = profile.name, avatarPath = profile.avatarPath, coverPath = profile.coverPath,
+                            posts = if (more) (it.posts + page.items).distinctBy { post -> post.id } else page.items,
+                            nextCursor = page.nextCursor, commentsCursor = commentsCursor, unreadCount = unread, isLoading = false,
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (version == generation && actor == accountId) {
+                    _uiState.update {
+                        val missing = id != null && e is MomentsApiException && e.status == 404
+                        it.copy(isLoading = false, error = e.message ?: "加载失败，请重试", unavailable = missing, posts = if (missing) emptyList() else it.posts)
+                    }
+                }
+            }
         }
     }
 
-    /**
-     * 切换选中的账号，确保内置头像文件已写入应用私有目录，持久化账号信息，并更新 UI 状态。
-     *
-     * @param context Android 上下文，用于确保内置头像资源已写入本地应用私有文件
-     * @param account 选中的朋友圈账号
-     */
-    fun switchAccount(context: Context, account: MomentAccount) {
-        val avatarPath = MomentAccount.ensureAvatarFile(context, account)
-        switchAccount(account, avatarPath)
+    fun loadMoreComments() {
+        val id = detailId ?: return
+        val cursor = _uiState.value.commentsCursor ?: return
+        if (_uiState.value.isLoading) return
+        val actor = accountId
+        val version = generation
+        _uiState.update { it.copy(isLoading = true) }
+        viewModelScope.launch {
+            try {
+                val page = repository.comments(actor, id, cursor)
+                if (version == generation && actor == accountId) {
+                    _uiState.update {
+                        it.copy(isLoading = false, commentsCursor = page.nextCursor, posts = it.posts.map { p -> p.copy(comments = (p.comments + page.items).distinctBy { c -> c.id }) })
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (version == generation && actor == accountId) _uiState.update { it.copy(isLoading = false, error = e.message) }
+            }
+        }
     }
 
-    /** 切换当前本地用户的点赞状态；已删除的动态不会被重新写入。 */
+    private fun mutate(action: suspend (MomentsRepository, String) -> Unit) {
+        val actor = accountId
+        val api = repository
+        val version = generation
+        viewModelScope.launch {
+            try {
+                action(api, actor)
+                if (actor == accountId && version == generation) load(false)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (actor == accountId && version == generation) _uiState.update { it.copy(error = e.message ?: "操作失败，请重试") }
+            }
+        }
+    }
+
     fun toggleLike(postId: String) {
-        val post = storage.getPosts().find { it.id == postId } ?: return
-        storage.savePost(post.copy(isLikedByMe = !post.isLikedByMe))
-        refreshPosts()
+        val post = _uiState.value.posts.find { it.id == postId } ?: return
+        val key = "$accountId:$postId"
+        if (!liking.add(key)) return
+        mutate { api, actor ->
+            try {
+                api.like(actor, postId, !post.isLikedByMe)
+            } finally {
+                liking.remove(key)
+            }
+        }
     }
+    fun deletePost(id: String) = mutate { api, actor -> api.deletePost(actor, id) }
+    fun deleteComment(id: String) = mutate { api, actor -> api.deleteComment(actor, id) }
+    fun setVisibility(id: String, visibility: String) = mutate { api, actor -> api.visibility(actor, id, visibility) }
 
-    /**
-     * 保存文字或图片评论。空评论与不存在的动态返回 false。
-     *
-     * @param postId 被评论的动态 ID
-     * @param text 评论正文，会去除首尾空白
-     * @param replyToName 回复对象昵称，为 null 时评论整条动态
-     * @param photoPath 已保存的评论图片路径
-     * @return 是否保存成功
-     */
-    fun addComment(
-        postId: String,
-        text: String,
-        replyToName: String? = null,
-        photoPath: String? = null,
-    ): Boolean {
-        val trimmedText = text.trim()
-        if (trimmedText.isEmpty() && photoPath == null) return false
-        val post = storage.getPosts().find { it.id == postId } ?: return false
-        val comment = MomentComment(
-            authorName = storage.getUsername(),
-            text = trimmedText,
-            timestamp = clock.now().toEpochMilliseconds(),
-            replyToName = replyToName,
-            photoPath = photoPath,
-        )
-        storage.savePost(post.copy(comments = post.comments + comment))
-        refreshPosts()
+    /** 失败时保留同一请求 ID 和已上传图片，网络超时后的重试不会产生第二条评论。 */
+    suspend fun sendComment(context: Context, id: String, text: String, replyTo: String?, photo: Uri?): Boolean {
+        val actor = accountId
+        val api = repository
+        val signature = listOf(actor, id, text.trim(), replyTo, photo?.toString())
+        if (signature != commentSignature) {
+            commentSignature = signature
+            commentRequestId = UUID.randomUUID().toString()
+            commentMediaId = null
+        }
+        if (photo != null && commentMediaId == null) {
+            val file = copyMomentPhoto(context, photo)
+            try {
+                commentMediaId = api.upload(actor, file)
+            } finally {
+                file.delete()
+            }
+        }
+        api.comment(actor, id, commentRequestId, text.trim(), commentMediaId, replyTo)
+        commentSignature = null
+        if (actor == accountId) refreshPost(id)
         return true
     }
 
-    /** 将系统相册图片复制到私有目录后发送评论；复制失败时保留编辑器草稿。 */
-    suspend fun addPhotoComment(
-        context: Context,
-        postId: String,
-        uri: Uri,
-        text: String,
-        replyToName: String? = null,
-    ): Boolean {
-        var savedPath: String? = null
-        var saved = false
+    fun setAvatarFromUri(context: Context, uri: Uri) = setProfile(context, uri, false)
+    fun setCoverFromUri(context: Context, uri: Uri) = setProfile(context, uri, true)
+    private fun setProfile(context: Context, uri: Uri, cover: Boolean) = mutate { api, actor ->
+        val file = copyMomentPhoto(context, uri)
         try {
-            withContext(ioDispatcher) {
-                savedPath = copyUriToFile(context, uri, prefix = "comment")
-            }
-            val path = savedPath ?: return false
-            saved = addComment(postId, text, replyToName, path)
-            return saved
+            api.profile(actor, api.upload(actor, file), cover)
         } finally {
-            if (!saved) savedPath?.let { File(it).delete() }
-        }
-    }
-
-    /**
-     * 删除指定的动态，并清理其关联的配图私有文件。
-     */
-    fun deletePost(postId: String) {
-        val postToDelete = storage.getPosts().find { it.id == postId }
-        storage.deletePost(postId)
-        if (postToDelete != null) {
-            viewModelScope.launch {
-                // 详情页会在动态移除后关闭，先完成有限的文件清理，避免 Activity 销毁取消清理。
-                withContext(NonCancellable + ioDispatcher) {
-                    val referencedPaths = storage.getPosts().flatMap { post ->
-                        post.photoPaths + post.comments.mapNotNull { it.photoPath }
-                    }.toSet()
-                    val ownedDir = File(filesDir, MOMENTS_DIR_NAME).canonicalFile
-                    val paths = postToDelete.photoPaths + postToDelete.comments.mapNotNull { it.photoPath }
-                    for (path in paths.distinct()) {
-                        // 只清理本功能的私有文件，保留其他动态仍在使用的图片。
-                        if (path !in referencedPaths) {
-                            runCatching {
-                                val file = File(path).canonicalFile
-                                if (file.parentFile == ownedDir) file.delete()
-                            }
-                        }
-                    }
-                }
-                refreshPosts()
-            }
-        } else {
-            refreshPosts()
-        }
-    }
-
-    /**
-     * 将用户从系统相册选取的头像 URI 保存到应用本地私有目录，并更新持久化设置与 UI 状态。
-     *
-     * @param context Android 上下文（用于 openInputStream 读取图片）
-     * @param uri 用户从系统相册选取的 content:// URI
-     */
-    fun setAvatarFromUri(context: Context, uri: Uri) {
-        viewModelScope.launch {
-            val savedPath =
-                withContext(ioDispatcher) {
-                    copyUriToFile(context, uri, prefix = "avatar")
-                }
-
-            if (savedPath != null) {
-                // 删除旧头像文件以释放存储空间
-                val oldPath = _uiState.value.avatarPath
-                if (oldPath != null && oldPath != savedPath) {
-                    withContext(ioDispatcher) {
-                        try {
-                            File(oldPath).delete()
-                        } catch (_: Exception) {}
-                    }
-                }
-
-                storage.saveAvatarPath(savedPath)
-                _uiState.update { it.copy(avatarPath = savedPath) }
-            }
-        }
-    }
-
-    /**
-     * 设置自定义头像路径（主要用于测试与直接设置）。
-     *
-     * @param path 头像绝对路径
-     */
-    fun setAvatarPath(path: String?) {
-        storage.saveAvatarPath(path)
-        _uiState.update { it.copy(avatarPath = path) }
-    }
-
-    /**
-     * 将用户从系统相册选取的封面 URI 保存到应用本地私有目录，并更新持久化设置与 UI 状态。
-     *
-     * @param context Android 上下文
-     * @param uri 用户从系统相册选取的封面图片 content:// URI
-     */
-    fun setCoverFromUri(context: Context, uri: Uri) {
-        viewModelScope.launch {
-            val savedPath =
-                withContext(ioDispatcher) {
-                    copyUriToFile(context, uri, prefix = "cover")
-                }
-
-            if (savedPath != null) {
-                // 删除旧封面文件以释放存储空间
-                val oldPath = _uiState.value.coverPath
-                if (oldPath != null && oldPath != savedPath) {
-                    withContext(ioDispatcher) {
-                        try {
-                            File(oldPath).delete()
-                        } catch (_: Exception) {}
-                    }
-                }
-
-                storage.saveCoverPath(savedPath)
-                _uiState.update { it.copy(coverPath = savedPath) }
-            }
-        }
-    }
-
-    /**
-     * 设置自定义封面路径（主要用于测试与直接设置）。
-     *
-     * @param path 封面绝对路径
-     */
-    fun setCoverPath(path: String?) {
-        storage.saveCoverPath(path)
-        _uiState.update { it.copy(coverPath = path) }
-    }
-
-    /**
-     * 将 URI 流复制到 filesDir/moments/ 目录下。
-     */
-    private fun copyUriToFile(
-        context: Context,
-        uri: Uri,
-        prefix: String,
-    ): String? {
-        val momentsDir = File(filesDir, MOMENTS_DIR_NAME).apply { if (!exists()) mkdirs() }
-        val targetFile = File(momentsDir, "${prefix}_${UUID.randomUUID()}.jpg")
-        return try {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                FileOutputStream(targetFile).use { output ->
-                    input.copyTo(output)
-                }
-            } ?: return null
-            targetFile.absolutePath
-        } catch (_: Exception) {
-            targetFile.delete()
-            null
+            file.delete()
         }
     }
 
     companion object {
         const val MOMENTS_DIR_NAME = "moments"
+        fun fromContext(context: Context): MomentsViewModel = MomentsViewModel(MomentsStorage.fromContext(context), MomentsConnection.repository(context.applicationContext))
+    }
+}
+
+/** 将系统图片流复制到临时文件；文件数量由调用方的成功/失败清理负责。 */
+internal suspend fun copyMomentPhoto(context: Context, uri: Uri): File = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+    val file = File.createTempFile("moment-upload-", ".image", context.cacheDir)
+    try {
+        val input = context.contentResolver.openInputStream(uri) ?: error("无法读取图片")
+        input.use { source ->
+            file.outputStream().use { target ->
+                val buffer = ByteArray(8192)
+                var total = 0
+                while (true) {
+                    val read = source.read(buffer)
+                    if (read < 0) break
+                    total += read
+                    require(total <= 10 * 1024 * 1024) { "图片不能超过 10 MiB" }
+                    target.write(buffer, 0, read)
+                }
+            }
+        }
+        file
+    } catch (e: Exception) {
+        file.delete()
+        throw e
     }
 }

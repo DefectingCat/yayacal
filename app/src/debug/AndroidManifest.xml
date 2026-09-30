@@ -1,0 +1,4 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 本地开发可连接模拟器宿主机；release 仍使用 HTTPS。 -->
+    <application android:usesCleartextTraffic="true" />
+</manifest>

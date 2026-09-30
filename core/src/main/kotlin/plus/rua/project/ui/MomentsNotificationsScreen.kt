@@ -87,9 +87,7 @@ fun MomentsNotificationsScreen(
             factory =
             viewModelFactory {
                 initializer {
-                    MomentsNotificationsViewModel(
-                        storage = MomentsNotificationStorage.fromContext(context),
-                    )
+                    MomentsNotificationsViewModel.fromContext(context)
                 }
             },
         )
@@ -102,12 +100,15 @@ fun MomentsNotificationsScreen(
         viewModel.refresh()
     }
 
+    MomentsPoll(Unit) { if (!uiState.isLoading && uiState.notifications.size <= 20) viewModel.refresh() }
     MomentsNotificationsScreen(
         uiState = uiState,
         onBack = onBack,
         onPostClick = onPostClick,
         onDeleteNotification = { viewModel.deleteNotification(it) },
         onClearAll = { viewModel.clearAll() },
+        onRefresh = { viewModel.refresh() },
+        onLoadMore = { viewModel.refresh(more = true) },
         modifier = modifier,
     )
 }
@@ -119,6 +120,8 @@ fun MomentsNotificationsScreen(
  * @param onBack 点击左上角返回按钮时触发
  * @param onPostClick 点击消息条目时触发，参数为对应的动态 ID
  * @param onDeleteNotification 单条消息删除回调
+ * @param onRefresh 点击刷新时触发
+ * @param onLoadMore 点击加载更多时触发
  * @param onClearAll 清空全部消息回调
  * @param modifier 布局修饰符
  */
@@ -129,6 +132,8 @@ fun MomentsNotificationsScreen(
     onPostClick: (String) -> Unit = {},
     onDeleteNotification: (String) -> Unit = {},
     onClearAll: () -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -211,7 +216,8 @@ fun MomentsNotificationsScreen(
             )
 
             LazyColumn(modifier = Modifier.fillMaxSize()) {
-                if (uiState.notifications.isEmpty()) {
+                item(key = "network") { MomentsLoadStatus(uiState.isLoading, uiState.error, uiState.nextCursor != null, onRefresh, onLoadMore) }
+                if (uiState.notifications.isEmpty() && !uiState.isLoading && uiState.error == null) {
                     item(key = "empty_state") {
                         Box(
                             modifier =
@@ -413,7 +419,7 @@ private fun MomentsNotificationItem(
                         )
                     }
 
-                    MomentNotificationType.COMMENT -> {
+                    MomentNotificationType.COMMENT, MomentNotificationType.REPLY -> {
                         Text(
                             text = notification.content.orEmpty(),
                             color = MaterialTheme.colorScheme.onSurface,
@@ -550,12 +556,4 @@ private fun getAvatarBackgroundColor(name: String): Color {
  * 记忆并解析配图 URI。
  */
 @Composable
-private fun rememberPhotoUri(path: String?): String? = remember(path) {
-    if (path == null) return@remember null
-    if (path.startsWith("content://") || path.startsWith("file://")) {
-        path
-    } else {
-        val file = File(path.removePrefix("file://"))
-        if (file.exists()) "file://${file.absolutePath}" else path
-    }
-}
+private fun rememberPhotoUri(path: String?): String? = remember(path) { resolvePhotoUri(path) }

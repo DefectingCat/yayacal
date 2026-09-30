@@ -1,180 +1,101 @@
 package plus.rua.project
 
 import android.content.SharedPreferences
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Before
-import java.io.File
+import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlin.time.Clock
-import kotlin.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MomentsViewModelTest {
-    private val testDispatcher = StandardTestDispatcher()
-    private val prefs = MomentsVmTestInMemoryPrefs()
-    private val storage = MomentsStorage(prefs)
-    private val tempDir = File(System.getProperty("java.io.tmpdir"), "moments_vm_test")
+    private val dispatcher = StandardTestDispatcher()
+    private val storage = MomentsStorage(MomentsVmTestInMemoryPrefs())
+    private val repository = FakeMomentsRepository()
 
-    @Before
-    fun setUp() {
-        Dispatchers.setMain(testDispatcher)
-        tempDir.mkdirs()
+    @Before fun before() {
+        Dispatchers.setMain(dispatcher)
+        storage.saveCurrentAccountId("xiaobai")
     }
 
-    @After
-    fun tearDown() {
+    @After fun after() {
         Dispatchers.resetMain()
-        tempDir.deleteRecursively()
     }
 
-    @Test
-    fun initialState_loadsFromStorage() = runTest(testDispatcher) {
-        storage.clear()
-        storage.saveUsername("CustomUser")
-        storage.saveAvatarPath("/custom/avatar.jpg")
-
-        val viewModel =
-            MomentsViewModel(
-                storage = storage,
-                filesDir = tempDir,
-                ioDispatcher = testDispatcher,
-            )
-
-        val state = viewModel.uiState.value
-        assertEquals("CustomUser", state.username)
-        assertEquals("/custom/avatar.jpg", state.avatarPath)
-        assertNull(state.coverPath)
-    }
-
-    @Test
-    fun setAvatarPath_updatesStorageAndUiState() = runTest(testDispatcher) {
-        storage.clear()
-        val viewModel =
-            MomentsViewModel(
-                storage = storage,
-                filesDir = tempDir,
-                ioDispatcher = testDispatcher,
-            )
-
-        assertNull(viewModel.uiState.value.avatarPath)
-
-        viewModel.setAvatarPath("/new/avatar.jpg")
-        assertEquals("/new/avatar.jpg", viewModel.uiState.value.avatarPath)
-        assertEquals("/new/avatar.jpg", storage.getAvatarPath())
-    }
-
-    @Test
-    fun setCoverPath_updatesStorageAndUiState() = runTest(testDispatcher) {
-        storage.clear()
-        val viewModel =
-            MomentsViewModel(
-                storage = storage,
-                filesDir = tempDir,
-                ioDispatcher = testDispatcher,
-            )
-
-        assertNull(viewModel.uiState.value.coverPath)
-
-        viewModel.setCoverPath("/new/cover.jpg")
-        assertEquals("/new/cover.jpg", viewModel.uiState.value.coverPath)
-        assertEquals("/new/cover.jpg", storage.getCoverPath())
-    }
-
-    @Test
-    fun switchAccount_updatesUsernameAvatarAndStorage() = runTest(testDispatcher) {
-        storage.clear()
-        val viewModel =
-            MomentsViewModel(
-                storage = storage,
-                filesDir = tempDir,
-                ioDispatcher = testDispatcher,
-            )
-
-        viewModel.switchAccount(MomentAccount.ACCOUNT_XIAOBAI, "/path/to/avatar_xiaobai.jpg")
-        assertEquals(MomentAccount.ID_XIAOBAI, viewModel.uiState.value.currentAccountId)
-        assertEquals("小白", viewModel.uiState.value.username)
-        assertEquals("/path/to/avatar_xiaobai.jpg", viewModel.uiState.value.avatarPath)
-        assertEquals(MomentAccount.ID_XIAOBAI, storage.getCurrentAccountId())
-        assertEquals("小白", storage.getUsername())
-        assertEquals("/path/to/avatar_xiaobai.jpg", storage.getAvatarPath())
-
-        viewModel.switchAccount(MomentAccount.ACCOUNT_XIAOJIMAO, "/path/to/avatar_xiaojimao.jpg")
-        assertEquals(MomentAccount.ID_XIAOJIMAO, viewModel.uiState.value.currentAccountId)
-        assertEquals("小鸡毛", viewModel.uiState.value.username)
-        assertEquals("/path/to/avatar_xiaojimao.jpg", viewModel.uiState.value.avatarPath)
-        assertEquals(MomentAccount.ID_XIAOJIMAO, storage.getCurrentAccountId())
-        assertEquals("小鸡毛", storage.getUsername())
-        assertEquals("/path/to/avatar_xiaojimao.jpg", storage.getAvatarPath())
-    }
-
-    @Test
-    fun interactions_persistAndRejectEmptyOrDeletedPosts() = runTest(testDispatcher) {
-        storage.savePost(MomentPost(id = "post", timestamp = 100L))
-        storage.saveUsername("鸭鸭")
-        val clock = object : Clock {
-            override fun now(): Instant = Instant.fromEpochMilliseconds(200L)
+    @Test fun switchAccount_lateOldResponse_doesNotLeakPreviousAccount() = runTest(dispatcher) {
+        val oldResponse = CompletableDeferred<Unit>()
+        repository.load = { actor, _, _, _ ->
+            if (actor == "xiaobai") withContext(NonCancellable) { oldResponse.await() }
+            MomentsPage(listOf(MomentPost(id = actor, authorId = actor)))
         }
-        val viewModel = MomentsViewModel(storage, tempDir, testDispatcher, clock)
-
-        viewModel.toggleLike("post")
-        assertTrue(storage.getPosts().single().isLikedByMe)
-        assertFalse(viewModel.addComment("post", " \n "))
-        assertTrue(viewModel.addComment("post", "  好可爱🐱 \n", replyToName = "朋友"))
-        assertTrue(viewModel.addComment("post", "", photoPath = "/private/comment.jpg"))
-
-        val reloaded = MomentsViewModel(storage, tempDir, testDispatcher).uiState.value.posts.single()
-        assertTrue(reloaded.isLikedByMe)
-        assertEquals(2, reloaded.comments.size)
-        assertEquals("好可爱🐱", reloaded.comments[0].text)
-        assertEquals("鸭鸭", reloaded.comments[0].authorName)
-        assertEquals("朋友", reloaded.comments[0].replyToName)
-        assertEquals(200L, reloaded.comments[0].timestamp)
-        assertEquals("/private/comment.jpg", reloaded.comments[1].photoPath)
-
-        viewModel.toggleLike("post")
-        assertFalse(storage.getPosts().single().isLikedByMe)
-        storage.deletePost("post")
-        viewModel.toggleLike("post")
-        assertFalse(viewModel.addComment("post", "不会复活已删除的动态"))
-        assertTrue(storage.getPosts().isEmpty())
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        runCurrent()
+        vm.switchAccount(MomentAccount.ACCOUNT_XIAOJIMAO)
+        assertTrue(vm.uiState.value.posts.isEmpty())
+        runCurrent()
+        oldResponse.complete(Unit)
+        advanceUntilIdle()
+        assertEquals("小鸡毛", vm.uiState.value.username)
+        assertEquals(listOf("xiaojimao"), vm.uiState.value.posts.map { it.id })
     }
 
-    @Test
-    fun deletePost_cleansOwnedPhotosAndKeepsSharedOrExternalFiles() = runTest(testDispatcher) {
-        val photoDir = File(tempDir, MomentsViewModel.MOMENTS_DIR_NAME).apply { mkdirs() }
-        val photo = File(photoDir, "post.jpg").apply { writeText("post") }
-        val commentPhoto = File(photoDir, "comment.jpg").apply { writeText("comment") }
-        val sharedPhoto = File(photoDir, "shared.jpg").apply { writeText("shared") }
-        val externalPhoto = File(tempDir, "keep.jpg").apply { writeText("external") }
-        storage.savePost(
-            MomentPost(
-                id = "delete",
-                photoPaths = listOf(photo.path, sharedPhoto.path, externalPhoto.path),
-                comments = listOf(MomentComment(authorName = "鸭鸭", text = "", photoPath = commentPhoto.path)),
-            ),
-        )
-        storage.savePost(MomentPost(id = "keep", photoPaths = listOf(sharedPhoto.path)))
-        val viewModel = MomentsViewModel(storage, tempDir, testDispatcher)
+    @Test fun refresh_failure_preservesLoadedDataAndOffersRetry() = runTest(dispatcher) {
+        storage.savePost(MomentPost(id = "legacy"))
+        repository.posts = listOf(MomentPost(id = "remote", authorId = "xiaobai"))
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        repository.load = { _, _, _, _ -> throw IOException("离线") }
+        vm.refreshPosts()
+        advanceUntilIdle()
+        assertEquals("离线", vm.uiState.value.error)
+        assertFalse(vm.uiState.value.isLoading)
+        assertEquals("remote", vm.uiState.value.posts.single().id)
+        assertEquals("legacy", storage.getPosts().single().id)
+    }
 
-        viewModel.deletePost("delete")
-        testScheduler.runCurrent()
+    @Test fun paging_preservesAuthorAndSearchScope_deduplicatesPosts() = runTest(dispatcher) {
+        val requests = mutableListOf<List<String?>>()
+        repository.load = { actor, author, query, cursor ->
+            requests += listOf(actor, author, query, cursor)
+            MomentsPage(if (cursor == null) listOf(MomentPost(id = "1")) else listOf(MomentPost(id = "1"), MomentPost(id = "2")), if (cursor == null) "next" else null)
+        }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts(authorId = "xiaojimao", keyword = "照片")
+        advanceUntilIdle()
+        vm.loadMore()
+        advanceUntilIdle()
+        assertEquals(listOf("1", "2"), vm.uiState.value.posts.map { it.id })
+        assertEquals(listOf("xiaobai", "xiaojimao", "照片", "next"), requests.last())
+        assertEquals("小鸡毛", vm.uiState.value.username)
+    }
 
-        assertEquals(listOf("keep"), viewModel.uiState.value.posts.map { it.id })
-        assertEquals(listOf("keep"), storage.getPosts().map { it.id })
-        assertFalse(photo.exists())
-        assertFalse(commentPhoto.exists())
-        assertTrue(sharedPhoto.exists())
-        assertTrue(externalPhoto.exists())
+    @Test fun notifications_refreshAndClear_areAccountScoped() = runTest(dispatcher) {
+        repository.notes["xiaobai"] = listOf(MomentNotification(id = "a"))
+        repository.notes["xiaojimao"] = listOf(MomentNotification(id = "b"))
+        val vm = MomentsNotificationsViewModel(storage, repository)
+        vm.refresh()
+        advanceUntilIdle()
+        assertEquals("a", vm.uiState.value.notifications.single().id)
+        assertEquals("xiaobai" to listOf("a"), repository.read.single())
+        vm.clearAll()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.notifications.isEmpty())
+        assertEquals("b", repository.notes["xiaojimao"]!!.single().id)
     }
 }
 

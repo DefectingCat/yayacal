@@ -14,6 +14,7 @@ class MomentsSearchActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 MomentsSearchScreen(
+                    authorId = intent.getStringExtra(MomentsNav.EXTRA_AUTHOR_ID),
                     onBack = { finishWithSlideBack() },
                     onPostClick = { postId ->
                         startActivityWithSlide(

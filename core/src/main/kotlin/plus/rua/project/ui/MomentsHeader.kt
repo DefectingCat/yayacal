@@ -63,6 +63,7 @@ import java.io.File
  * @param onAvatarPositioned 头像在根坐标系中完成布局时的回调，传递其 Rect 坐标
  * @param onAvatarClick 点击头像时触发
  * @param onAvatarLongClick 长按头像时触发（可选）
+ * @param canEdit 是否显示更换封面的入口
  * @param modifier 布局修饰符
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -78,6 +79,7 @@ fun MomentsHeader(
     onAvatarLongClick: (() -> Unit)? = null,
     isAvatarVisible: Boolean = true,
     onAvatarPositioned: ((androidx.compose.ui.geometry.Rect) -> Unit)? = null,
+    canEdit: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     val normalCoverHeight = 300.dp
@@ -86,22 +88,22 @@ fun MomentsHeader(
     val avatarOverlapBelow = 34.dp
 
     val animatedCoverHeight by animateDpAsState(
-        targetValue = if (isCoverExpanded) expandedCoverHeight else normalCoverHeight,
+        targetValue = if (isCoverExpanded && canEdit) expandedCoverHeight else normalCoverHeight,
         animationSpec = tween(durationMillis = 350, easing = FastOutSlowInEasing),
         label = "cover_height",
     )
     val contentAlpha by animateFloatAsState(
-        targetValue = if (isCoverExpanded) 0f else 1f,
+        targetValue = if (isCoverExpanded && canEdit) 0f else 1f,
         animationSpec = tween(durationMillis = 200),
         label = "content_alpha",
     )
     val changeCoverBtnAlpha by animateFloatAsState(
-        targetValue = if (isCoverExpanded) 1f else 0f,
+        targetValue = if (isCoverExpanded && canEdit) 1f else 0f,
         animationSpec = tween(durationMillis = 250),
         label = "change_btn_alpha",
     )
 
-    val totalHeight = animatedCoverHeight + if (isCoverExpanded) 0.dp else avatarOverlapBelow
+    val totalHeight = animatedCoverHeight + if (isCoverExpanded && canEdit) 0.dp else avatarOverlapBelow
 
     Box(
         modifier =
@@ -131,13 +133,7 @@ fun MomentsHeader(
                 .testTag("moments_cover"),
             contentAlignment = Alignment.Center,
         ) {
-            val coverUri =
-                remember(coverPath) {
-                    coverPath?.let { path ->
-                        val file = File(path.removePrefix("file://"))
-                        if (file.exists()) "file://${file.absolutePath}" else null
-                    }
-                }
+            val coverUri = remember(coverPath) { resolvePhotoUri(coverPath) }
 
             if (coverUri != null) {
                 AsyncImage(
@@ -266,17 +262,7 @@ fun MomentsHeader(
                     )
                     .testTag("moments_avatar"),
             ) {
-                val avatarUri =
-                    remember(avatarPath) {
-                        avatarPath?.let { path ->
-                            if (path.startsWith("content://") || path.startsWith("android.resource://") || path.startsWith("file://")) {
-                                path
-                            } else {
-                                val file = File(path.removePrefix("file://"))
-                                if (file.exists()) "file://${file.absolutePath}" else null
-                            }
-                        }
-                    }
+                val avatarUri = remember(avatarPath) { resolvePhotoUri(avatarPath) }
 
                 if (avatarUri != null) {
                     AsyncImage(

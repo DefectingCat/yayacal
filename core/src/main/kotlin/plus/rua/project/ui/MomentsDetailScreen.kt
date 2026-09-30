@@ -123,7 +123,7 @@ fun MomentsDetailScreen(
         val context = LocalContext.current.applicationContext
         viewModel(
             factory = viewModelFactory {
-                initializer { MomentsViewModel(MomentsStorage.fromContext(context), context.filesDir) }
+                initializer { MomentsViewModel.fromContext(context) }
             },
         )
     },
@@ -131,29 +131,37 @@ fun MomentsDetailScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshPosts() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshPost(postId) }
     val post = uiState.posts.find { it.id == postId }
     if (post == null) {
-        LaunchedEffect(postId) { onBack() }
+        Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp)) {
+            TextButton(onClick = onBack) { Text("返回") }
+            MomentsLoadStatus(uiState.isLoading, uiState.error, false, { viewModel.refreshPost(postId) }, {})
+        }
         return
     }
-    MomentsDetailScreen(
-        post = post,
-        username = uiState.username,
-        avatarPath = uiState.avatarPath,
-        onBack = onBack,
-        onLike = { viewModel.toggleLike(post.id) },
-        onDelete = { viewModel.deletePost(post.id) },
-        onSendComment = { text, replyTo, photoUri ->
-            if (photoUri == null) {
-                viewModel.addComment(post.id, text, replyTo)
-            } else {
-                viewModel.addPhotoComment(context, post.id, photoUri, text, replyTo)
-            }
-        },
-        focusComment = focusComment,
-        modifier = modifier,
-    )
+    MomentsPoll(postId) {
+        if (!uiState.isLoading && post.comments.size <= 50) viewModel.refreshPost(postId)
+    }
+    Column(modifier.fillMaxSize()) {
+        MomentsDetailScreen(
+            post = post,
+            username = uiState.username,
+            avatarPath = uiState.avatarPath,
+            currentAccountId = uiState.currentAccountId,
+            onBack = onBack,
+            onLike = { viewModel.toggleLike(post.id) },
+            onDelete = if (post.authorId == uiState.currentAccountId) ({ viewModel.deletePost(post.id) }) else null,
+            onChangeVisibility = if (post.authorId == uiState.currentAccountId) ({ viewModel.setVisibility(post.id, if (post.visibility == "私密") "公开" else "私密") }) else null,
+            onDeleteComment = viewModel::deleteComment,
+            onSendComment = { text, replyTo, photoUri -> viewModel.sendComment(context, post.id, text, replyTo, photoUri) },
+            focusComment = focusComment,
+            networkState = uiState,
+            onRefresh = { viewModel.refreshPost(postId) },
+            onLoadComments = viewModel::loadMoreComments,
+            modifier = Modifier.weight(1f),
+        )
+    }
 }
 
 /**
@@ -167,6 +175,12 @@ fun MomentsDetailScreen(
  * @param onDelete 确认删除本人动态时触发；为 null 时隐藏所有删除入口
  * @param onSendComment 点击发送或键盘发送时触发，返回成功后才清空草稿
  * @param focusComment 是否在首次进入时聚焦评论框
+ * @param currentAccountId 当前操作账号，决定本人评论的删除入口
+ * @param onChangeVisibility 作者点击切换可见性时触发
+ * @param onDeleteComment 点击本人评论的删除按钮时触发
+ * @param networkState 加载与分页状态
+ * @param onRefresh 点击刷新或重试时触发
+ * @param onLoadComments 点击加载更多评论时触发
  * @param modifier 布局修饰符
  */
 @Composable
@@ -179,6 +193,12 @@ fun MomentsDetailScreen(
     onDelete: (() -> Unit)? = null,
     onSendComment: suspend (String, String?, Uri?) -> Boolean,
     focusComment: Boolean = false,
+    currentAccountId: String? = null,
+    onChangeVisibility: (() -> Unit)? = null,
+    onDeleteComment: (String) -> Unit = {},
+    networkState: plus.rua.project.MomentsUiState = plus.rua.project.MomentsUiState(),
+    onRefresh: () -> Unit = {},
+    onLoadComments: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -187,6 +207,7 @@ fun MomentsDetailScreen(
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
     var draft by rememberSaveable(post.id) { mutableStateOf("") }
+    var replyToId by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
     var replyToName by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
     var photoUri by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
     var showEmoji by rememberSaveable { mutableStateOf(false) }
@@ -208,9 +229,10 @@ fun MomentsDetailScreen(
             error = null
             scope.launch {
                 try {
-                    if (onSendComment(draft, replyToName, photoUri?.let(Uri::parse))) {
+                    if (onSendComment(draft, replyToId, photoUri?.let(Uri::parse))) {
                         draft = ""
                         replyToName = null
+                        replyToId = null
                         photoUri = null
                         showEmoji = false
                         focusManager.clearFocus()
@@ -238,6 +260,7 @@ fun MomentsDetailScreen(
     BackHandler(enabled = showEmoji || replyToName != null) {
         showEmoji = false
         replyToName = null
+        replyToId = null
         focusManager.clearFocus()
     }
 
@@ -269,6 +292,12 @@ fun MomentsDetailScreen(
                     if (onDelete != null) {
                         IconButton(onClick = { showMore = true }) { Icon(Icons.Filled.MoreHoriz, "更多") }
                         DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
+                            onChangeVisibility?.let { change ->
+                                DropdownMenuItem(text = { Text(if (post.visibility == "私密") "设为公开" else "设为仅自己可见") }, onClick = {
+                                    showMore = false
+                                    change()
+                                })
+                            }
                             DropdownMenuItem(text = { Text("删除该朋友圈") }, onClick = {
                                 showMore = false
                                 showDelete = true
@@ -280,11 +309,12 @@ fun MomentsDetailScreen(
             LazyColumn(state = listState, modifier = Modifier.weight(1f).testTag("moments_detail_list")) {
                 item(key = "post") {
                     MomentFeedItem(
-                        post = post, authorName = username, avatarPath = avatarPath,
+                        post = post, authorName = post.authorName, avatarPath = post.authorAvatarPath,
                         onDelete = onDelete?.let { { showDelete = true } },
                         onLike = onLike,
                         onComment = {
                             replyToName = null
+                            replyToId = null
                             showEmoji = false
                             focusRequester.requestFocus()
                             keyboard?.show()
@@ -297,7 +327,7 @@ fun MomentsDetailScreen(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
                     )
                 }
-                if (post.isLikedByMe) {
+                if (post.likes.isNotEmpty()) {
                     item(key = "likes") {
                         Row(
                             Modifier.padding(horizontal = 12.dp).fillMaxWidth().background(barColor)
@@ -306,20 +336,23 @@ fun MomentsDetailScreen(
                         ) {
                             Icon(Icons.Outlined.FavoriteBorder, "点赞", tint = linkColor, modifier = Modifier.size(18.dp))
                             Spacer(Modifier.width(14.dp))
-                            MomentAvatar(avatarPath, username, Modifier.size(30.dp))
+                            post.likes.forEach { liker -> MomentAvatar(liker.avatarPath, liker.name, Modifier.size(30.dp).padding(end = 4.dp)) }
                         }
                     }
                 }
                 itemsIndexed(post.comments, key = { _, comment -> comment.id }) { index, comment ->
                     MomentCommentRow(
                         comment = comment,
-                        avatarPath = if (comment.authorName == username) avatarPath else null,
+                        avatarPath = comment.authorAvatarPath,
                         showCommentIcon = index == 0,
                         onReply = {
-                            replyToName = comment.authorName
-                            showEmoji = false
-                            focusRequester.requestFocus()
-                            keyboard?.show()
+                            if (!comment.deleted) {
+                                replyToName = comment.authorName
+                                replyToId = comment.id
+                                showEmoji = false
+                                focusRequester.requestFocus()
+                                keyboard?.show()
+                            }
                         },
                         onPhotoClick = {
                             previewPhotos = listOfNotNull(comment.photoPath)
@@ -327,6 +360,12 @@ fun MomentsDetailScreen(
                         },
                         modifier = Modifier.padding(horizontal = 12.dp),
                     )
+                    if (!comment.deleted && comment.authorId == currentAccountId) {
+                        TextButton(onClick = { onDeleteComment(comment.id) }, modifier = Modifier.padding(start = 48.dp)) { Text("删除评论") }
+                    }
+                }
+                item(key = "network") {
+                    MomentsLoadStatus(networkState.isLoading, networkState.error, networkState.commentsCursor != null, onRefresh, onLoadComments)
                 }
                 item(key = "bottom") { Spacer(Modifier.height(20.dp)) }
             }
@@ -335,7 +374,10 @@ fun MomentsDetailScreen(
                 if (replyToName != null) {
                     Row(Modifier.padding(start = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                         Text("回复 $replyToName", color = linkColor, fontSize = 12.sp, modifier = Modifier.weight(1f))
-                        IconButton(onClick = { replyToName = null }, modifier = Modifier.size(32.dp)) {
+                        IconButton(onClick = {
+                            replyToName = null
+                            replyToId = null
+                        }, modifier = Modifier.size(32.dp)) {
                             Icon(Icons.Filled.Close, "取消回复", modifier = Modifier.size(16.dp))
                         }
                     }

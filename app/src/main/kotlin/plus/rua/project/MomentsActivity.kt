@@ -24,6 +24,9 @@ class MomentsActivity : BaseActivity() {
                     onPublish = {
                         startActivityWithSlide(Intent(this, MomentsPublishActivity::class.java))
                     },
+                    onAuthorClick = { authorId ->
+                        startActivityWithSlide(Intent(this, UserMomentsActivity::class.java).apply { putExtra(MomentsNav.EXTRA_AUTHOR_ID, authorId) })
+                    },
                     onPostClick = { postId ->
                         startActivityWithSlide(
                             Intent(this, MomentsDetailActivity::class.java).apply {

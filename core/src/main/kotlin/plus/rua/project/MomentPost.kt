@@ -27,6 +27,11 @@ data class MomentPost(
     val visibility: String = "公开",
     val isLikedByMe: Boolean = false,
     val comments: List<MomentComment> = emptyList(),
+    val authorId: String = "",
+    val authorName: String = "",
+    val authorAvatarPath: String? = null,
+    val likes: List<MomentPerson> = emptyList(),
+    val commentCount: Int = comments.size,
 ) {
     /**
      * 将动态对象编码为持久化单行字符串（无 JSON 依赖）。
@@ -97,6 +102,10 @@ data class MomentComment(
     val timestamp: Long = System.currentTimeMillis(),
     val replyToName: String? = null,
     val photoPath: String? = null,
+    val authorId: String = "",
+    val authorAvatarPath: String? = null,
+    val replyToId: String? = null,
+    val deleted: Boolean = false,
 ) {
     internal fun encodeToString(): String = listOf(
         id,
@@ -122,3 +131,6 @@ data class MomentComment(
         }.getOrNull()
     }
 }
+
+/** 服务端返回的账号身份，用于作者资料与点赞人列表。 */
+data class MomentPerson(val id: String, val name: String, val avatarPath: String? = null, val coverPath: String? = null)

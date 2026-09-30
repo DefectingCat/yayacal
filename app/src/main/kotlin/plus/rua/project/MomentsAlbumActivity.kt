@@ -17,6 +17,7 @@ class MomentsAlbumActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 MomentsAlbumScreen(
+                    authorId = intent.getStringExtra(MomentsNav.EXTRA_AUTHOR_ID),
                     onBack = { finishWithSlideBack() },
                     onPostClick = { postId ->
                         startActivityWithSlide(

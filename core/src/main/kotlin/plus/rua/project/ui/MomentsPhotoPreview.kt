@@ -374,7 +374,7 @@ private fun ActionMenuItem(
  */
 fun resolvePhotoUri(path: String?): String? {
     if (path.isNullOrBlank()) return null
-    return if (path.startsWith("content://") || path.startsWith("file://")) {
+    return if (path.startsWith("content://") || path.startsWith("file://") || path.startsWith("http://") || path.startsWith("https://") || path.startsWith("android.resource://")) {
         path
     } else {
         val file = File(path)
@@ -392,7 +392,12 @@ fun resolvePhotoUri(path: String?): String? {
 suspend fun saveImageToGallery(context: Context, photoPath: String): Boolean = withContext(Dispatchers.IO) {
     runCatching {
         val inputStream: InputStream? =
-            if (photoPath.startsWith("content://")) {
+            if (photoPath.startsWith("http://") || photoPath.startsWith("https://")) {
+                java.net.URL(photoPath).openConnection().apply {
+                    connectTimeout = 10000
+                    readTimeout = 30000
+                }.getInputStream()
+            } else if (photoPath.startsWith("content://")) {
                 context.contentResolver.openInputStream(Uri.parse(photoPath))
             } else {
                 val cleanPath = photoPath.removePrefix("file://")
@@ -401,12 +406,15 @@ suspend fun saveImageToGallery(context: Context, photoPath: String): Boolean = w
 
         if (inputStream == null) return@runCatching false
 
-        val fileName = "yaya_moments_${System.currentTimeMillis()}.jpg"
+        val remote = photoPath.startsWith("http")
+        val extension = if (remote) "webp" else "jpg"
+        val mimeType = if (remote) "image/webp" else "image/jpeg"
+        val fileName = "yaya_moments_${System.currentTimeMillis()}.$extension"
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val contentValues = ContentValues().apply {
                 put(MediaStore.Images.Media.DISPLAY_NAME, fileName)
-                put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                put(MediaStore.Images.Media.MIME_TYPE, mimeType)
                 put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/YaYa")
                 put(MediaStore.Images.Media.IS_PENDING, 1)
             }

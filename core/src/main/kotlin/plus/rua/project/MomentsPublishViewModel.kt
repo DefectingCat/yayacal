@@ -4,31 +4,19 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
-import java.io.FileOutputStream
+import java.util.Properties
+import java.util.UUID
 
-/**
- * 发布朋友圈页面 UI 状态。
- *
- * @param text 正文文本
- * @param photos 已选取的配图路径列表（最多 9 张）
- * @param selectedLocation 当前选中的位置（为 null 表示不显示位置）
- * @param availableLocations 可选位置列表
- * @param locationSearchQuery 位置搜索框文本
- * @param visibility 可见性范围（"公开" / "私密" / "部分可见" / "不给谁看"）
- * @param visibilityTags 可见性选中的标签/联系人列表
- * @param isLocationPickerVisible 是否正在展示选择位置子页面
- * @param isVisibilityPickerVisible 是否正在展示“谁可以看”权限设置子页面
- * @param isPublishing 是否正在保存发布中
- */
+/** 发布草稿、上传状态及位置/可见性选择状态；失败时保留全部草稿。 */
 data class MomentsPublishUiState(
     val text: String = "",
     val photos: List<String> = emptyList(),
@@ -40,193 +28,164 @@ data class MomentsPublishUiState(
     val isLocationPickerVisible: Boolean = false,
     val isVisibilityPickerVisible: Boolean = false,
     val isPublishing: Boolean = false,
+    val isPreparingPhotos: Boolean = false,
+    val error: String? = null,
 ) {
-    val canPublish: Boolean get() = text.isNotBlank() || photos.isNotEmpty()
+    val canPublish: Boolean get() = (text.isNotBlank() || photos.isNotEmpty()) && !isPublishing && !isPreparingPhotos
     val remainingPhotoSlots: Int get() = (MAX_PHOTOS - photos.size).coerceAtLeast(0)
-
-    val displayedLocations: List<MomentLocationItem>
-        get() = MomentsLocationProvider.filterLocations(availableLocations, locationSearchQuery)
-
-    val formattedVisibility: String
-        get() = when {
-            visibilityTags.isNotEmpty() && (visibility == "部分可见" || visibility == "不给谁看") ->
-                "$visibility (${visibilityTags.joinToString("、")})"
-
-            else -> visibility
-        }
-
+    val displayedLocations: List<MomentLocationItem> get() = MomentsLocationProvider.filterLocations(availableLocations, locationSearchQuery)
+    val formattedVisibility: String get() = visibility
     companion object {
         const val MAX_PHOTOS = 9
     }
 }
 
-/**
- * 朋友圈发布页面 ViewModel。
- *
- * @param storage 朋友圈数据存储仓库
- * @param filesDir 应用私有 filesDir 目录
- * @param initialVisibility 初始可见性（默认 "公开"）
- * @param ioDispatcher IO 调度器（支持测试注入）
- */
+/** 草稿按服务地址和账号隔离；发布身份在打开页面时固定，不随全局选择改变。 */
 class MomentsPublishViewModel(
-    private val storage: MomentsStorage,
+    storage: MomentsStorage,
     private val filesDir: File,
+    private val repository: MomentsRepository,
     initialVisibility: String = "公开",
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    draftNamespace: String = "default",
 ) : ViewModel() {
+    private val actor = MomentAccount.findById(storage.getCurrentAccountId()).id
+    private val draftDir = File(filesDir, "moments/drafts/${draftNamespace.hashCode()}/$actor").apply { mkdirs() }
+    private val draftFile = File(draftDir, "draft.properties")
+    private var requestId = UUID.randomUUID().toString()
+    private val uploaded = mutableMapOf<String, String>()
+    private val _uiState = MutableStateFlow(restore(initialVisibility))
+    val uiState = _uiState.asStateFlow()
 
-    private val _uiState = MutableStateFlow(
-        MomentsPublishUiState(visibility = initialVisibility),
-    )
-    val uiState: StateFlow<MomentsPublishUiState> = _uiState.asStateFlow()
+    private fun restore(initialVisibility: String): MomentsPublishUiState = runCatching {
+        if (!draftFile.exists()) return@runCatching MomentsPublishUiState(visibility = initialVisibility)
+        val data = Properties().apply { draftFile.inputStream().use { load(it) } }
+        requestId = data.getProperty("requestId", requestId)
+        val photos = data.getProperty("photos", "").split('\n').filter { it.isNotBlank() && File(it).isFile }
+        photos.forEach { path -> data.getProperty("media:$path")?.let { uploaded[path] = it } }
+        MomentsPublishUiState(
+            text = data.getProperty("text", ""),
+            photos = photos,
+            visibility = data.getProperty("visibility", initialVisibility),
+            selectedLocation = data.getProperty("location")?.let { MomentLocationItem(it, data.getProperty("address")) },
+        )
+    }.getOrDefault(MomentsPublishUiState(visibility = initialVisibility))
 
-    fun onTextChanged(newText: String) {
-        _uiState.update { it.copy(text = newText) }
+    private fun saveDraft() {
+        val state = _uiState.value
+        val data = Properties().apply {
+            setProperty("requestId", requestId)
+            setProperty("text", state.text)
+            setProperty("photos", state.photos.joinToString("\n"))
+            setProperty("visibility", state.visibility)
+            state.selectedLocation?.let {
+                setProperty("location", it.name)
+                it.address?.let { address -> setProperty("address", address) }
+            }
+            uploaded.forEach { (path, id) -> setProperty("media:$path", id) }
+        }
+        try {
+            val temp = File(draftDir, "draft.tmp")
+            temp.outputStream().use { data.store(it, null) }
+            check(temp.renameTo(draftFile)) { "草稿保存失败" }
+        } catch (e: Exception) {
+            _uiState.update { it.copy(error = "草稿保存失败，请检查存储空间") }
+        }
     }
 
-    /**
-     * 将用户从系统多图选择器中选择的 URI 复制到本地私有目录，并添加到图片列表。
-     */
+    private fun edit(change: (MomentsPublishUiState) -> MomentsPublishUiState) {
+        if (_uiState.value.isPublishing) return
+        val old = _uiState.value
+        val updated = change(old)
+        if (old != updated) requestId = UUID.randomUUID().toString()
+        _uiState.value = updated.copy(error = null)
+        saveDraft()
+    }
+    fun onTextChanged(text: String) = edit { it.copy(text = text) }
+    fun addPhotoPaths(paths: List<String>) = edit { it.copy(photos = (it.photos + paths).take(9)) }
     fun addPhotosFromUris(context: Context, uris: List<Uri>) {
-        if (uris.isEmpty()) return
-        val currentCount = _uiState.value.photos.size
-        val allowedUris = uris.take(MomentsPublishUiState.MAX_PHOTOS - currentCount)
-        if (allowedUris.isEmpty()) return
-
+        if (_uiState.value.isPublishing || _uiState.value.isPreparingPhotos) return
+        val selected = uris.take(_uiState.value.remainingPhotoSlots)
+        _uiState.update { it.copy(isPreparingPhotos = true, error = null) }
         viewModelScope.launch {
-            val copiedPaths = withContext(ioDispatcher) {
-                val momentsDir = File(filesDir, MomentsViewModel.MOMENTS_DIR_NAME).apply {
-                    if (!exists()) mkdirs()
-                }
-                allowedUris.mapNotNull { uri ->
-                    try {
-                        val targetFile = File(
-                            momentsDir,
-                            "moment_photo_${System.currentTimeMillis()}_${System.nanoTime() % 1000}.jpg",
-                        )
-                        context.contentResolver.openInputStream(uri)?.use { input ->
-                            FileOutputStream(targetFile).use { output ->
-                                input.copyTo(output)
-                            }
-                        } ?: return@mapNotNull null
-                        targetFile.absolutePath
-                    } catch (_: Exception) {
-                        null
+            try {
+                for (uri in selected) {
+                    val path = withContext(ioDispatcher) {
+                        val temp = copyMomentPhoto(context, uri)
+                        try {
+                            val photo = File(draftDir, "${UUID.randomUUID()}.image")
+                            temp.copyTo(photo)
+                            photo.absolutePath
+                        } finally {
+                            temp.delete()
+                        }
                     }
+                    addPhotoPaths(listOf(path))
                 }
-            }
-
-            _uiState.update { state ->
-                val combined = (state.photos + copiedPaths).take(MomentsPublishUiState.MAX_PHOTOS)
-                state.copy(photos = combined)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(error = e.message ?: "读取图片失败") }
+            } finally {
+                _uiState.update { it.copy(isPreparingPhotos = false) }
             }
         }
     }
-
-    /**
-     * 直接添加图片路径（用于测试）。
-     */
-    fun addPhotoPaths(paths: List<String>) {
-        _uiState.update { state ->
-            val combined = (state.photos + paths).take(MomentsPublishUiState.MAX_PHOTOS)
-            state.copy(photos = combined)
-        }
-    }
-
-    /**
-     * 移除指定索引处的配图。
-     */
     fun removePhotoAt(index: Int) {
-        _uiState.update { state ->
-            if (index in state.photos.indices) {
-                val removedPath = state.photos[index]
-                viewModelScope.launch(ioDispatcher) {
-                    try {
-                        File(removedPath).delete()
-                    } catch (_: Exception) {}
-                }
-                val updated = state.photos.toMutableList().apply { removeAt(index) }
-                state.copy(photos = updated)
-            } else {
-                state
-            }
-        }
+        if (_uiState.value.isPublishing) return
+        val path = _uiState.value.photos.getOrNull(index) ?: return
+        edit { it.copy(photos = it.photos.filterIndexed { i, _ -> i != index }) }
+        uploaded.remove(path)
+        if (File(path).parentFile == draftDir) File(path).delete()
     }
-
     fun openLocationPicker() {
         _uiState.update { it.copy(isLocationPickerVisible = true, locationSearchQuery = "") }
     }
-
     fun closeLocationPicker() {
-        _uiState.update { it.copy(isLocationPickerVisible = false, locationSearchQuery = "") }
+        _uiState.update { it.copy(isLocationPickerVisible = false) }
     }
-
     fun openVisibilityPicker() {
         _uiState.update { it.copy(isVisibilityPickerVisible = true) }
     }
-
     fun closeVisibilityPicker() {
         _uiState.update { it.copy(isVisibilityPickerVisible = false) }
     }
-
     fun selectVisibility(visibility: String, tags: List<String> = emptyList()) {
-        _uiState.update {
-            it.copy(
-                visibility = visibility,
-                visibilityTags = tags,
-                isVisibilityPickerVisible = false,
-            )
-        }
+        require(visibility in listOf("公开", "私密") && tags.isEmpty())
+        edit { it.copy(visibility = visibility, visibilityTags = emptyList(), isVisibilityPickerVisible = false) }
     }
-
     fun onLocationSearchQueryChanged(query: String) {
         _uiState.update { it.copy(locationSearchQuery = query) }
     }
-
-    fun selectLocation(item: MomentLocationItem?) {
-        val selected = if (item == null || item.isNone) null else item
-        _uiState.update {
-            it.copy(
-                selectedLocation = selected,
-                isLocationPickerVisible = false,
-                locationSearchQuery = "",
-            )
-        }
-    }
-
-    /**
-     * 自动通过系统 GPS/网络定位并刷新可选位置列表。
-     */
+    fun selectLocation(item: MomentLocationItem?) = edit { it.copy(selectedLocation = item?.takeUnless { location -> location.isNone }, isLocationPickerVisible = false, locationSearchQuery = "") }
     fun autoDetectLocation(context: Context) {
         viewModelScope.launch {
-            val resolved = MomentsLocationProvider.resolveLocation(context)
-            _uiState.update { it.copy(availableLocations = resolved) }
+            val locations = MomentsLocationProvider.resolveLocation(context)
+            _uiState.update { it.copy(availableLocations = locations) }
         }
     }
 
-    /**
-     * 点击“发表”按钮，将动态写入存储，并通知外部完成。
-     */
+    /** 只有服务端确认成功才触发 onSuccess；失败或取消不清空草稿。 */
     fun publish(onSuccess: () -> Unit) {
         val state = _uiState.value
-        if (!state.canPublish || state.isPublishing) return
-
-        _uiState.update { it.copy(isPublishing = true) }
-
+        if (!state.canPublish) return
+        _uiState.update { it.copy(isPublishing = true, error = null) }
         viewModelScope.launch {
-            val post = MomentPost(
-                text = state.text.trim(),
-                photoPaths = state.photos,
-                location = state.selectedLocation?.name,
-                locationAddress = state.selectedLocation?.address,
-                visibility = state.formattedVisibility,
-                timestamp = System.currentTimeMillis(),
-            )
-            withContext(ioDispatcher) {
-                storage.savePost(post)
+            try {
+                val media = state.photos.map { path ->
+                    uploaded[path] ?: repository.upload(actor, File(path)).also {
+                        uploaded[path] = it
+                        saveDraft()
+                    }
+                }
+                repository.publish(actor, requestId, state.text.trim(), media, state.visibility, state.selectedLocation?.name, state.selectedLocation?.address)
+                draftFile.delete()
+                state.photos.forEach { if (File(it).parentFile == draftDir) File(it).delete() }
+                _uiState.update { it.copy(isPublishing = false) }
+                onSuccess()
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                _uiState.update { it.copy(isPublishing = false, error = e.message ?: "发布失败，请重试") }
             }
-            _uiState.update { it.copy(isPublishing = false) }
-            onSuccess()
         }
     }
 }

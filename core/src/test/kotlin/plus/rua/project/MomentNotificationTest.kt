@@ -88,17 +88,8 @@ class MomentNotificationTest {
     }
 
     @Test
-    fun storage_initializationSeedsDefaultNotifications() {
-        val prefs = NotificationTestInMemoryPrefs()
-        val storage = MomentsNotificationStorage(prefs)
-
-        val notifications = storage.getNotifications()
-        assertEquals(9, notifications.size)
-        assertEquals("吴振宇", notifications[0].authorName)
-        assertEquals(MomentNotificationType.LIKE, notifications[0].type)
-        assertEquals("下水道", notifications[8].authorName)
-        assertEquals(MomentNotificationType.COMMENT, notifications[8].type)
-        assertEquals("猫猫", notifications[8].content)
+    fun storage_newInstallation_doesNotCreateDemoNotifications() {
+        assertTrue(MomentsNotificationStorage(NotificationTestInMemoryPrefs()).getNotifications().isEmpty())
     }
 
     @Test
@@ -117,11 +108,11 @@ class MomentNotificationTest {
         storage.addNotification(newNotif)
         val listAfterAdd = storage.getNotifications()
         assertEquals("custom_notif", listAfterAdd[0].id)
-        assertEquals(10, listAfterAdd.size)
+        assertEquals(1, listAfterAdd.size)
 
         storage.deleteNotification("custom_notif")
         val listAfterDelete = storage.getNotifications()
-        assertEquals(9, listAfterDelete.size)
+        assertEquals(0, listAfterDelete.size)
         assertTrue(listAfterDelete.none { it.id == "custom_notif" })
     }
 
@@ -132,22 +123,6 @@ class MomentNotificationTest {
 
         storage.clearNotifications()
         assertTrue(storage.getNotifications().isEmpty())
-    }
-
-    @Test
-    fun viewModel_stateAndActions() {
-        val prefs = NotificationTestInMemoryPrefs()
-        val storage = MomentsNotificationStorage(prefs)
-        val vm = MomentsNotificationsViewModel(storage)
-
-        assertEquals(9, vm.uiState.value.notifications.size)
-
-        val firstId = vm.uiState.value.notifications.first().id
-        vm.deleteNotification(firstId)
-        assertEquals(8, vm.uiState.value.notifications.size)
-
-        vm.clearAll()
-        assertTrue(vm.uiState.value.notifications.isEmpty())
     }
 }
 

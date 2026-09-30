@@ -13,6 +13,7 @@ import kotlin.time.Instant
 enum class MomentNotificationType {
     LIKE,
     COMMENT,
+    REPLY,
 }
 
 /**
@@ -38,6 +39,7 @@ data class MomentNotification(
     val timestamp: Long = System.currentTimeMillis(),
     val postPhotoPath: String? = null,
     val postText: String = "",
+    val isRead: Boolean = false,
 ) {
     /**
      * 将互动消息对象编码为持久化单行字符串（无 JSON 依赖）。

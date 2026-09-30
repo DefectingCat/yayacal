@@ -112,12 +112,14 @@ fun groupPostsForAlbum(
  *
  * @param onBack 点击左上角返回按钮时触发
  * @param onPostClick 点击动态缩略图卡片时触发，参数为动态 ID
+ * @param authorId 要展示的作者，为 null 时展示当前账号
  * @param viewModel 朋友圈 ViewModel
  * @param modifier 布局修饰符
  */
 @Composable
 fun MomentsAlbumScreen(
     onBack: () -> Unit,
+    authorId: String? = null,
     onPostClick: (String) -> Unit = {},
     viewModel: MomentsViewModel = run {
         val context = LocalContext.current.applicationContext
@@ -125,10 +127,7 @@ fun MomentsAlbumScreen(
             factory =
             viewModelFactory {
                 initializer {
-                    MomentsViewModel(
-                        storage = MomentsStorage.fromContext(context),
-                        filesDir = context.filesDir,
-                    )
+                    MomentsViewModel.fromContext(context)
                 }
             },
         )
@@ -138,11 +137,13 @@ fun MomentsAlbumScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-        viewModel.refreshPosts()
+        viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId)
     }
 
     MomentsAlbumScreen(
         uiState = uiState,
+        onRefresh = { viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId) },
+        onLoadMore = viewModel::loadMore,
         onBack = onBack,
         onPostClick = onPostClick,
         modifier = modifier,
@@ -152,6 +153,8 @@ fun MomentsAlbumScreen(
 /**
  * 朋友圈相册页面（无状态版）。
  *
+ * @param onRefresh 点击刷新时触发
+ * @param onLoadMore 点击加载更多时触发
  * @param uiState 朋友圈当前 UI 状态
  * @param onBack 点击左上角返回按钮时触发
  * @param onPostClick 点击动态缩略图卡片时触发，参数为动态 ID
@@ -162,6 +165,8 @@ fun MomentsAlbumScreen(
     uiState: MomentsUiState,
     onBack: () -> Unit,
     onPostClick: (String) -> Unit = {},
+    onRefresh: () -> Unit = {},
+    onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val groupedYears = remember(uiState.posts) {
@@ -188,7 +193,8 @@ fun MomentsAlbumScreen(
             LazyColumn(
                 modifier = Modifier.fillMaxSize(),
             ) {
-                if (groupedYears.isEmpty()) {
+                item(key = "network") { MomentsLoadStatus(uiState.isLoading, uiState.error, uiState.nextCursor != null, onRefresh, onLoadMore) }
+                if (groupedYears.isEmpty() && !uiState.isLoading && uiState.error == null) {
                     item(key = "empty_state") {
                         Box(
                             modifier =

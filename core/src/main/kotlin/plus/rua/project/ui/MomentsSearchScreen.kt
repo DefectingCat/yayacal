@@ -85,28 +85,38 @@ import kotlin.time.Instant
  *
  * @param onBack 点击“取消”时触发，返回个人相册
  * @param onPostClick 点击搜索结果时触发，参数为动态 ID
+ * @param authorId 搜索的作者，为 null 时搜索当前账号
  * @param viewModel 本地朋友圈状态；从详情返回时刷新动态和评论
  * @param modifier 布局修饰符
  */
 @Composable
 fun MomentsSearchScreen(
     onBack: () -> Unit,
+    authorId: String? = null,
     onPostClick: (String) -> Unit,
     viewModel: MomentsViewModel = run {
         val context = LocalContext.current.applicationContext
         viewModel(
             factory = viewModelFactory {
-                initializer { MomentsViewModel(MomentsStorage.fromContext(context), context.filesDir) }
+                initializer { MomentsViewModel.fromContext(context) }
             },
         )
     },
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshPosts() }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId) }
     var query by rememberSaveable { mutableStateOf("") }
     val keyword = query.trim()
-    val results = remember(uiState.posts, keyword) { searchMoments(uiState.posts, keyword) }
+    LaunchedEffect(keyword) {
+        kotlinx.coroutines.delay(250)
+        viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId, keyword = keyword)
+    }
+    val results = remember(uiState.posts, keyword) {
+        uiState.posts.map { post ->
+            searchMoments(listOf(post), keyword).firstOrNull() ?: plus.rua.project.MomentSearchResult(post, listOf("评论"), "动态中的评论包含搜索内容")
+        }
+    }
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
@@ -195,6 +205,7 @@ fun MomentsSearchScreen(
             }
         }
 
+        MomentsLoadStatus(uiState.isLoading, uiState.error, uiState.nextCursor != null, { viewModel.refreshPosts() }, viewModel::loadMore)
         if (keyword.isNotEmpty()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth().background(momentsBackgroundColor())) {
                 key(keyword) {
@@ -204,7 +215,7 @@ fun MomentsSearchScreen(
                     ) {
                         item(key = "summary") {
                             Text(
-                                highlightedSearchText("找到与「$keyword」相关的朋友圈，共${results.size}条。", keyword, highlightColor),
+                                highlightedSearchText("找到与「$keyword」相关的朋友圈，已加载${results.size}条。", keyword, highlightColor),
                                 color = mutedColor,
                                 fontSize = 14.sp,
                                 modifier = Modifier.padding(bottom = 24.dp).testTag("moments_search_count"),

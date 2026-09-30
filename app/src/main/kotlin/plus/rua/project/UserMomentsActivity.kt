@@ -18,6 +18,7 @@ class UserMomentsActivity : BaseActivity() {
         setContent {
             YaYaTheme {
                 UserMomentsScreen(
+                    authorId = intent.getStringExtra(MomentsNav.EXTRA_AUTHOR_ID),
                     onBack = { finishWithSlideBack() },
                     onPublish = {
                         val intent = Intent(this, MomentsPublishActivity::class.java).apply {
@@ -39,10 +40,10 @@ class UserMomentsActivity : BaseActivity() {
                         )
                     },
                     onSearch = {
-                        startActivityWithSlide(Intent(this, MomentsSearchActivity::class.java))
+                        startActivityWithSlide(Intent(this, MomentsSearchActivity::class.java).apply { putExtra(MomentsNav.EXTRA_AUTHOR_ID, this@UserMomentsActivity.intent.getStringExtra(MomentsNav.EXTRA_AUTHOR_ID)) })
                     },
                     onViewModeChange = {
-                        startActivityWithSlide(Intent(this, MomentsAlbumActivity::class.java))
+                        startActivityWithSlide(Intent(this, MomentsAlbumActivity::class.java).apply { putExtra(MomentsNav.EXTRA_AUTHOR_ID, this@UserMomentsActivity.intent.getStringExtra(MomentsNav.EXTRA_AUTHOR_ID)) })
                     },
                     onNotifications = {
                         startActivityWithSlide(Intent(this, MomentsNotificationsActivity::class.java))
