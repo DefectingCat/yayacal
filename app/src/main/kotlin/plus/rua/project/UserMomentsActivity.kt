@@ -42,7 +42,7 @@ class UserMomentsActivity : BaseActivity() {
                         startActivityWithSlide(Intent(this, MomentsSearchActivity::class.java))
                     },
                     onViewModeChange = {
-                        Toast.makeText(this, "相册视图切换功能正在开发中", Toast.LENGTH_SHORT).show()
+                        startActivityWithSlide(Intent(this, MomentsAlbumActivity::class.java))
                     },
                     onNotifications = {
                         Toast.makeText(this, "消息列表功能正在开发中", Toast.LENGTH_SHORT).show()

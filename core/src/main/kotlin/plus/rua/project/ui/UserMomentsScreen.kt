@@ -994,7 +994,7 @@ fun isTimestampToday(
  * 个人相册时间轴底部图标：— · —
  */
 @Composable
-private fun UserMomentsFooter(modifier: Modifier = Modifier) {
+internal fun UserMomentsFooter(modifier: Modifier = Modifier) {
     Row(
         modifier =
         modifier
