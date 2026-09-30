@@ -10,7 +10,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -43,7 +42,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -194,7 +192,6 @@ fun UserMomentsScreen(
             )
         },
         onPostClick = onPostClick,
-        onDeletePost = viewModel::deletePost,
         modifier = modifier,
     )
 }
@@ -215,7 +212,6 @@ fun UserMomentsScreen(
  * @param onAvatarClick 点击头像时触发
  * @param onAvatarLongClick 长按头像时触发
  * @param onPostClick 点击本人动态的缩略图或正文时触发
- * @param onDeletePost 确认删除本人动态时触发
  * @param modifier 布局修饰符
  */
 @Composable
@@ -233,11 +229,9 @@ fun UserMomentsScreen(
     onAvatarClick: () -> Unit = {},
     onAvatarLongClick: (() -> Unit)? = null,
     onPostClick: (String) -> Unit = {},
-    onDeletePost: (String) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
-    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     val scrollAlpha by remember {
         derivedStateOf {
             if (listState.firstVisibleItemIndex > 0) {
@@ -289,7 +283,6 @@ fun UserMomentsScreen(
                     onPublish = onPublish,
                     onPrivatePublish = onPrivatePublish,
                     onPostClick = { post -> onPostClick(post.id) },
-                    onDeletePost = { post -> pendingDeleteId = post.id },
                     modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
                 )
             }
@@ -331,22 +324,14 @@ fun UserMomentsScreen(
                     lastDate = postDate
 
                     item(key = post.id) {
-                        Column(Modifier.padding(horizontal = 24.dp, vertical = 8.dp)) {
-                            UserMomentsTimelineItem(
-                                month = monthStr,
-                                day = dayStr,
-                                post = post,
-                                onPhotoClick = { onPostClick(post.id) },
-                                onClick = { onPostClick(post.id) },
-                            )
-                            TextButton(
-                                onClick = { pendingDeleteId = post.id },
-                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
-                                modifier = Modifier.padding(start = 68.dp).height(28.dp).testTag("user_moment_delete_${post.id}"),
-                            ) {
-                                Text("删除", color = momentsLinkColor(), fontSize = 12.sp)
-                            }
-                        }
+                        UserMomentsTimelineItem(
+                            month = monthStr,
+                            day = dayStr,
+                            post = post,
+                            onPhotoClick = { onPostClick(post.id) },
+                            onClick = { onPostClick(post.id) },
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                        )
                     }
                 }
             }
@@ -378,13 +363,6 @@ fun UserMomentsScreen(
                 onNotifications = onNotifications,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
-        }
-
-        pendingDeleteId?.let { postId ->
-            MomentsDeleteDialog(onDismiss = { pendingDeleteId = null }, onConfirm = {
-                pendingDeleteId = null
-                onDeletePost(postId)
-            })
         }
     }
 }
@@ -518,7 +496,6 @@ private fun UserMomentsTodaySection(
     onPublish: () -> Unit,
     onPrivatePublish: () -> Unit,
     onPostClick: (post: MomentPost) -> Unit = {},
-    onDeletePost: (post: MomentPost) -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -637,21 +614,12 @@ private fun UserMomentsTodaySection(
                     verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
                     todayPosts.forEach { post ->
-                        Column {
-                            UserMomentsThumbnailCard(
-                                post = post,
-                                onPhotoClick = { onPostClick(post) },
-                                onClick = { onPostClick(post) },
-                                modifier = Modifier.testTag("user_moment_${post.id}"),
-                            )
-                            TextButton(
-                                onClick = { onDeletePost(post) },
-                                contentPadding = PaddingValues(horizontal = 0.dp, vertical = 0.dp),
-                                modifier = Modifier.height(28.dp).testTag("user_moment_delete_${post.id}"),
-                            ) {
-                                Text("删除", color = momentsLinkColor(), fontSize = 12.sp)
-                            }
-                        }
+                        UserMomentsThumbnailCard(
+                            post = post,
+                            onPhotoClick = { onPostClick(post) },
+                            onClick = { onPostClick(post) },
+                            modifier = Modifier.testTag("user_moment_${post.id}"),
+                        )
                     }
                 }
             }

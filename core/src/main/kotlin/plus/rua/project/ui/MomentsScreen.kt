@@ -192,7 +192,6 @@ fun MomentsScreen(
                 PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
             )
         },
-        onDeletePost = viewModel::deletePost,
         onPostClick = onPostClick,
         onCommentClick = onCommentClick,
         onLikePost = viewModel::toggleLike,
@@ -211,7 +210,6 @@ fun MomentsScreen(
  * @param onChangeCoverClick 点击“换封面”按钮时触发
  * @param onAvatarClick 点击用户头像时触发
  * @param onAvatarLongClick 长按用户头像时触发
- * @param onDeletePost 确认删除某条本人动态时触发
  * @param onPostClick 点击动态正文或互动区时触发
  * @param onCommentClick 点击“评论”操作时触发
  * @param onLikePost 点击“赞/取消”操作时触发
@@ -227,7 +225,6 @@ fun MomentsScreen(
     onChangeCoverClick: () -> Unit = {},
     onAvatarClick: () -> Unit = {},
     onAvatarLongClick: (() -> Unit)? = null,
-    onDeletePost: (String) -> Unit = {},
     onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = onPostClick,
     onLikePost: (String) -> Unit = {},
@@ -236,7 +233,6 @@ fun MomentsScreen(
     val listState = rememberLazyListState()
     var previewPhotos by remember { mutableStateOf<List<String>?>(null) }
     var previewIndex by remember { mutableStateOf(0) }
-    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
     val scrollAlpha by remember {
         derivedStateOf {
             if (listState.firstVisibleItemIndex > 0) {
@@ -293,7 +289,6 @@ fun MomentsScreen(
                             post = post,
                             authorName = uiState.username,
                             avatarPath = uiState.avatarPath,
-                            onDelete = { pendingDeleteId = post.id },
                             onLike = { onLikePost(post.id) },
                             onComment = { onCommentClick(post.id) },
                             onPhotoClick = { photos, index ->
@@ -356,12 +351,6 @@ fun MomentsScreen(
                 initialIndex = previewIndex,
                 onDismiss = { previewPhotos = null },
             )
-        }
-        pendingDeleteId?.let { postId ->
-            MomentsDeleteDialog(onDismiss = { pendingDeleteId = null }, onConfirm = {
-                pendingDeleteId = null
-                onDeletePost(postId)
-            })
         }
     }
 }
@@ -562,12 +551,12 @@ fun calculateTopBarAlpha(
 
 /**
  * 朋友圈动态列表单项组件，复刻微信朋友圈动态排版：
- * 左侧用户头像，右侧依次展示蓝字昵称、文本、配图（1图大图、4图2x2、其他3列网格）、所在位置、时间、删除与操作按钮。
+ * 左侧用户头像，右侧依次展示蓝字昵称、文本、配图（1图大图、4图2x2、其他3列网格）、所在位置、时间与操作按钮；详情模式可显示删除图标。
  *
  * @param post 朋友圈动态
  * @param authorName 发布者昵称
  * @param avatarPath 头像本地路径
- * @param onDelete 点击“删除”按钮时触发；为 null 时隐藏删除入口，由调用方确认后删除
+ * @param onDelete 详情模式点击删除图标时触发；为 null 时隐藏删除入口，由调用方确认后删除
  * @param onLike 点击“赞/取消”操作时触发
  * @param onComment 点击“评论”操作时触发
  * @param showFullTimestamp 是否按详情页展示完整日期、删除图标与原比例单图
@@ -653,19 +642,9 @@ fun MomentFeedItem(
                     fontSize = 12.sp,
                 )
 
-                if (onDelete != null) {
-                    if (showFullTimestamp) {
-                        IconButton(onClick = onDelete, modifier = Modifier.size(28.dp).testTag("moment_delete_${post.id}")) {
-                            Icon(Icons.Outlined.DeleteOutline, "删除", tint = linkColor, modifier = Modifier.size(16.dp))
-                        }
-                    } else {
-                        TextButton(
-                            onClick = onDelete,
-                            contentPadding = PaddingValues(horizontal = 6.dp, vertical = 0.dp),
-                            modifier = Modifier.height(28.dp).testTag("moment_delete_${post.id}"),
-                        ) {
-                            Text("删除", color = linkColor, fontSize = 12.sp)
-                        }
+                if (showFullTimestamp && onDelete != null) {
+                    IconButton(onClick = onDelete, modifier = Modifier.size(28.dp).testTag("moment_delete_${post.id}")) {
+                        Icon(Icons.Outlined.DeleteOutline, "删除", tint = linkColor, modifier = Modifier.size(16.dp))
                     }
                 }
 
