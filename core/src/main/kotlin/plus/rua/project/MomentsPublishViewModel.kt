@@ -97,7 +97,12 @@ class MomentsPublishViewModel(
         if (_uiState.value.isPublishing) return
         val old = _uiState.value
         val updated = change(old)
-        if (old != updated) requestId = UUID.randomUUID().toString()
+        // 只有实际请求内容改变才开始新请求；关闭选择器等界面状态不影响重试防重。
+        if (old.text.trim() != updated.text.trim() || old.photos != updated.photos || old.visibility != updated.visibility ||
+            old.selectedLocation?.name != updated.selectedLocation?.name || old.selectedLocation?.address != updated.selectedLocation?.address
+        ) {
+            requestId = UUID.randomUUID().toString()
+        }
         _uiState.value = updated.copy(error = null)
         saveDraft()
     }

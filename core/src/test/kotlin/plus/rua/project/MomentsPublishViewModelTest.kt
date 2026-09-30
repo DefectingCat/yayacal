@@ -35,6 +35,21 @@ class MomentsPublishViewModelTest {
     }
     private fun vm() = MomentsPublishViewModel(storage, dir, repository, ioDispatcher = dispatcher)
 
+    @Test fun unchangedPickers_afterFailure_reusesRequestId() = runTest(dispatcher) {
+        val vm = vm()
+        vm.onTextChanged("重试同一条动态")
+        repository.failPublish = true
+        vm.publish {}
+        advanceUntilIdle()
+        vm.openVisibilityPicker()
+        vm.selectVisibility("公开")
+        vm.openLocationPicker()
+        vm.selectLocation(null)
+        vm.publish {}
+        advanceUntilIdle()
+        assertEquals(repository.attempts.first().second, repository.attempts.last().second)
+    }
+
     @Test fun failedPublish_restoreAndRetry_reusesRequestAndMedia() = runTest(dispatcher) {
         val photo = File(dir, "photo").apply { writeText("fixture") }
         val first = vm()
