@@ -6,7 +6,7 @@ mod posts;
 
 use axum::{
     Router,
-    extract::DefaultBodyLimit,
+    extract::{DefaultBodyLimit, State},
     routing::{delete, get, patch, post, put},
 };
 use sqlx::postgres::PgPoolOptions;
@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         }
     });
     let router = Router::new()
-        .route("/health", get(|| async { "ok" }))
+        .route("/health", get(health))
         .route("/api/v1/accounts", get(accounts::list))
         .route("/api/v1/me", patch(accounts::update))
         .route(
@@ -88,9 +88,26 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let listener = tokio::net::TcpListener::bind(&address).await?;
     tracing::info!(%address, "moments server listening");
     axum::serve(listener, router)
-        .with_graceful_shutdown(async {
-            let _ = tokio::signal::ctrl_c().await;
-        })
+        .with_graceful_shutdown(shutdown())
         .await?;
     Ok(())
+}
+
+async fn health(State(app): State<App>) -> error::Result<&'static str> {
+    sqlx::query("SELECT 1").execute(&app.db).await?;
+    Ok("ok")
+}
+
+async fn shutdown() {
+    #[cfg(unix)]
+    {
+        let mut terminate =
+            tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+                .expect("install SIGTERM handler");
+        tokio::select! { _ = tokio::signal::ctrl_c() => {}, _ = terminate.recv() => {} }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
 }

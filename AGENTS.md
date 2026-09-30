@@ -20,6 +20,10 @@ YaYa is a single-app Android calendar focused on: Chinese lunar calendar, solar 
 
 Dependency chain: `:app` → `:core`; `:macrobenchmark` → `:app`.
 
+**朋友圈后端独立于 Gradle：** `server/` 是单个 Rust crate（Axum + SQLx + PostgreSQL）。固定账号为 `xiaobai` / `xiaojimao`，显示名为小白 / 小鸡毛；无密码选择身份，公开动态互通，主页与通知按账号区分。接口、运行、备份和依赖核验见 `server/README.md`。Android 网络层为 `MomentsRepository.kt`，所有操作显式捕获账号，禁止从全局当前账号推断已发布内容的作者。旧本地数据不能自动猜测作者后导入。
+
+后端验证：`cargo fmt --manifest-path server/Cargo.toml --check`、`cargo clippy --manifest-path server/Cargo.toml --locked -- -D warnings`、`bash server/tests/run.sh`（启动并清理一次性 PostgreSQL 18.6 容器）。迁移只追加，不修改已经应用的迁移。单独的 GitHub workflow 为 `.github/workflows/server.yml`。
+
 **Navigation is Activity + Intent, NOT Compose Navigation.** Each screen has a 1:1 Activity in `:app` that just does `setContent { YaYaTheme { SomeScreen() } }`. `core/.../ui/DateRecorderNav.kt` centralizes the Intent-extra contract (`EXTRA_TEMP_PHOTO_PATH`, `EXTRA_FINAL_PHOTO_PATH`, `EXTRA_RECORD_ID`). Slide/fade transitions come from `app/.../BaseActivity.kt`.
 
 **State pattern (all ViewModels):** private `MutableStateFlow` backing fields exposed as read-only `StateFlow` via `asStateFlow()`; many aggregate into a single `uiState: StateFlow<UiState>` through `combine(...).stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), initial)`. The aggregation is an explicit design goal to minimize Compose recomposition. Tests read `stateFlow.value` directly (no Turbine).
@@ -117,7 +121,7 @@ Other docs: `DEVELOPMENT.md` (perf/profile workflow + trace marker catalog), `RE
 
  - **JDK 21** (`VERSION_21` in all modules). Gradle wrapper **9.5.1**.
 - **AGP 9.2.1 · Kotlin 2.3.21 · KSP 2.3.10 · Compose BOM 2026.06.01.** compileSdk/targetSdk **37**, minSdk **24**.
-- Key libs: **kotlinx-datetime 0.8.0 · tyme4kt 1.5.0 · sketch 4.4.0 · zoomimage 1.6.0 · Room 2.8.4 · lifecycle 2.11.0 · activity-compose 1.13.0 · CameraX 1.5.3 · Media3 1.6.1.**
+- Key libs: **kotlinx-datetime 0.8.0 · tyme4kt 1.5.0 · sketch 4.7.0 · zoomimage 1.7.0 · Room 2.8.4 · lifecycle 2.11.0 · activity-compose 1.13.0 · CameraX 1.5.3 · Media3 1.6.1.**
 - **Gradle caches on:** configuration cache + build cache + parallel (`gradle.properties`). R8 full mode enabled.
 - **Build types:** `debug` (default, trace on) · `release` (R8 + resource shrink, trace off, debug-signed) · `trace` (release + trace markers) · `benchmark` (release base, **no** minify — so generated profile names aren't obfuscated).
 - **Profiling needs a device/emulator** with GPU acceleration (software renderer can't produce `gfxinfo` framestats). Real benchmarks need a physical device on a release target.
@@ -137,7 +141,7 @@ Other docs: `DEVELOPMENT.md` (perf/profile workflow + trace marker catalog), `RE
 
 ## Testing & QA
 
- - **All automated tests are pure-JVM unit tests** in `core/src/test/kotlin/plus/rua/project[/ui]/` — **no `androidTest` source set, no Compose UI tests, no Robolectric/Turbine/Mockk.** Run on JVM 21, no emulator.
+ - **Android automated tests are pure-JVM unit tests** in `core/src/test/kotlin/plus/rua/project[/ui]/` — **no `androidTest` source set, no Compose UI tests, no Robolectric/Turbine/Mockk.** Run on JVM 21, no emulator.
 - **Frameworks:** `kotlin-test-junit` (+ JUnit 4 in a few classes) and `kotlinx-coroutines-test` (`runTest`). `androidx.room:room-testing` is declared but unused.
 - **Covered well:** date math (`CalendarUtilsTest`), the shift engine (`ShiftPatternTest` — cycle/override/`RephaseFlip`), `CalendarViewModel` observable state + grid generation, storage round-trips, record sorting, lunar birthday/rose-day flags, `PhotoProcessor.calculateInSampleSize`, `HandStroke` segmentation.
 - **Coverage gaps to be aware of:** no Compose UI/instrumented tests (UI exercised only via the macrobenchmark journey); Room DAO/Database/migration logic untested; `Flow` emission sequences untested (only synchronous `.value` snapshots); `DateRecordDetailViewModel`/`PhotoEditorViewModel` and the edit-record path of `RecordEditViewModel` have no dedicated tests.

@@ -3,13 +3,13 @@ WORKDIR /build
 COPY Cargo.toml Cargo.lock ./
 COPY src ./src
 COPY migrations ./migrations
-RUN cargo build --release --locked
+RUN cargo build --release --locked --jobs 2
 
 FROM debian:trixie-slim
-RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && rm -rf /var/lib/apt/lists/* \
-    && useradd --system --uid 10001 moments && mkdir -p /data/media && chown moments /data/media
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+RUN mkdir -p /data/media && chown 10001:10001 /data/media
 COPY --from=builder /build/target/release/yayacal-server /usr/local/bin/
-USER moments
+USER 10001:10001
 ENV BIND_ADDR=0.0.0.0:8088 MEDIA_DIR=/data/media
 EXPOSE 8088
 ENTRYPOINT ["yayacal-server"]

@@ -9,12 +9,13 @@ services:
     volumes:
       - postgres:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U moments -d moments"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U moments -d moments"]
       interval: 5s
       timeout: 3s
       retries: 15
     restart: unless-stopped
   api:
+    image: yayacal-moments-api:local
     build: .
     environment:
       DATABASE_URL: postgres://moments:${POSTGRES_PASSWORD}@db/moments

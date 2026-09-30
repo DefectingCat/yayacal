@@ -14,7 +14,7 @@ docker run -d --name "$test_container" -e POSTGRES_DB=moments -e POSTGRES_USER=m
   -e POSTGRES_PASSWORD=integration-test -p 127.0.0.1::5432 postgres:18.6-alpine >/dev/null
 db_port=$(docker port "$test_container" 5432 | head -1 | cut -d: -f2)
 for _ in {1..40}; do
-  if docker exec "$test_container" pg_isready -U moments -d moments >/dev/null 2>&1; then break; fi
+  if docker exec "$test_container" pg_isready -h 127.0.0.1 -U moments -d moments >/dev/null 2>&1; then break; fi
   sleep 0.5
 done
 cargo build --locked
