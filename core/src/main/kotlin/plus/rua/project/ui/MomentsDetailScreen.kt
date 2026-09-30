@@ -564,8 +564,8 @@ internal fun MomentsDeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
 @Composable
 internal fun MomentAvatar(avatarPath: String?, name: String, modifier: Modifier = Modifier) {
     Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = modifier) {
-        if (avatarPath != null) {
-            val uri = if (avatarPath.startsWith("content://") || avatarPath.startsWith("file://")) avatarPath else "file://$avatarPath"
+        val uri = remember(avatarPath) { resolvePhotoUri(avatarPath) }
+        if (uri != null) {
             AsyncImage(uri = uri, contentDescription = "$name 的头像", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         } else {
             Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.Person, "$name 的头像", modifier = Modifier.padding(4.dp)) }
