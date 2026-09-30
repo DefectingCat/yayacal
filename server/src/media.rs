@@ -10,7 +10,7 @@ use axum::{
     http::{StatusCode, header},
     response::Response,
 };
-use image::{ImageFormat, ImageReader};
+use image::{DynamicImage, ImageDecoder, ImageFormat, ImageReader};
 use serde::Deserialize;
 use serde_json::{Value, json};
 use std::{io::Cursor, time::Duration};
@@ -74,9 +74,15 @@ pub async fn upload(
         limits.max_image_height = Some(12000);
         limits.max_alloc = Some(128 * 1024 * 1024);
         reader.limits(limits);
-        let image = reader
-            .decode()
+        let mut decoder = reader
+            .into_decoder()
             .map_err(|_| Error::bad("图片损坏或尺寸过大"))?;
+        let orientation = decoder
+            .orientation()
+            .map_err(|_| Error::bad("图片方向信息损坏"))?;
+        let mut image =
+            DynamicImage::from_decoder(decoder).map_err(|_| Error::bad("图片损坏或尺寸过大"))?;
+        image.apply_orientation(orientation);
         let mut full = Cursor::new(Vec::new());
         let mut thumb = Cursor::new(Vec::new());
         // 统一编码并去掉 EXIF 等元信息；源文件名从不进入路径。

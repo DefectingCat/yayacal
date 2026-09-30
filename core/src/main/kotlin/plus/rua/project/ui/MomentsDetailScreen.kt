@@ -106,18 +106,20 @@ import plus.rua.project.MomentsViewModel
 import kotlin.time.Instant
 
 /**
- * 朋友圈详情页，加载本地动态并持久化点赞、文字/图片评论。
+ * 朋友圈详情页，加载远端动态并提交点赞、文字/图片评论。
  *
  * @param postId 要展示的动态 ID
- * @param onBack 点击返回、删除完成或动态不存在时触发
+ * @param onAuthorClick 点击作者头像时触发，传递作者 ID
+ * @param onBack 点击返回时触发
  * @param focusComment 从评论入口进入时是否自动聚焦输入框
- * @param viewModel 本地朋友圈状态与存储
+ * @param viewModel 远端朋友圈加载与互动状态
  * @param modifier 布局修饰符
  */
 @Composable
 fun MomentsDetailScreen(
     postId: String,
     onBack: () -> Unit,
+    onAuthorClick: (String) -> Unit = {},
     focusComment: Boolean = false,
     viewModel: MomentsViewModel = run {
         val context = LocalContext.current.applicationContext
@@ -146,10 +148,9 @@ fun MomentsDetailScreen(
     Column(modifier.fillMaxSize()) {
         MomentsDetailScreen(
             post = post,
-            username = uiState.username,
-            avatarPath = uiState.avatarPath,
             currentAccountId = uiState.currentAccountId,
             onBack = onBack,
+            onAuthorClick = onAuthorClick,
             onLike = { viewModel.toggleLike(post.id) },
             onDelete = if (post.authorId == uiState.currentAccountId) ({ viewModel.deletePost(post.id) }) else null,
             onChangeVisibility = if (post.authorId == uiState.currentAccountId) ({ viewModel.setVisibility(post.id, if (post.visibility == "私密") "公开" else "私密") }) else null,
@@ -168,8 +169,7 @@ fun MomentsDetailScreen(
  * 微信风格详情布局：动态正文、点赞头像行、带时间的评论列表与固定底部输入栏。
  *
  * @param post 当前动态
- * @param username 本地个人昵称
- * @param avatarPath 本地个人头像路径
+ * @param onAuthorClick 点击作者头像时触发，传递作者 ID
  * @param onBack 点击返回时触发
  * @param onLike 点击“赞/取消”时触发
  * @param onDelete 确认删除本人动态时触发；为 null 时隐藏所有删除入口
@@ -186,9 +186,8 @@ fun MomentsDetailScreen(
 @Composable
 fun MomentsDetailScreen(
     post: MomentPost,
-    username: String,
-    avatarPath: String?,
     onBack: () -> Unit,
+    onAuthorClick: (String) -> Unit = {},
     onLike: () -> Unit,
     onDelete: (() -> Unit)? = null,
     onSendComment: suspend (String, String?, Uri?) -> Boolean,
@@ -310,6 +309,7 @@ fun MomentsDetailScreen(
                 item(key = "post") {
                     MomentFeedItem(
                         post = post, authorName = post.authorName, avatarPath = post.authorAvatarPath,
+                        onAuthorClick = { onAuthorClick(post.authorId) },
                         onDelete = onDelete?.let { { showDelete = true } },
                         onLike = onLike,
                         onComment = {

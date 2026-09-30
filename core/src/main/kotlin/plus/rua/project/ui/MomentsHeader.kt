@@ -162,7 +162,7 @@ fun MomentsHeader(
                         }
                     }
                     Text(
-                        text = "轻触更换相册封面",
+                        text = if (canEdit) "轻触更换相册封面" else "暂无相册封面",
                         style =
                         MaterialTheme.typography.bodySmall.copy(
                             fontSize = 12.sp,

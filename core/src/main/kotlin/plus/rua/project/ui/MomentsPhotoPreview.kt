@@ -382,6 +382,11 @@ fun resolvePhotoUri(path: String?): String? {
     }
 }
 
+/** 列表加载服务端缩略图；大图预览与保存仍保留原始地址。 */
+internal fun momentsThumbnailUri(path: String?): String? = resolvePhotoUri(path)?.let {
+    if (it.startsWith("http") && it.contains("/api/v1/media/") && !it.contains("thumbnail=")) "$it&thumbnail=true" else it
+}
+
 /**
  * 将指定路径的图片保存至系统相册。
  *

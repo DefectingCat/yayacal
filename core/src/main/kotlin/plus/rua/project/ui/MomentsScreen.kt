@@ -125,7 +125,7 @@ import kotlin.time.Instant
  * @param onPostClick 点击动态正文或互动区时触发，传递动态 ID
  * @param onCommentClick 点击动态“评论”操作时触发，传递动态 ID
  * @param initialShowAccountSelect 进入页面时是否初始展示账号选择界面，默认为 true
- * @param viewModel 朋友圈 ViewModel，默认从本地偏好存储加载
+ * @param viewModel 朋友圈 ViewModel，加载当前账号的远端数据
  * @param modifier 布局修饰符
  */
 @Composable
@@ -950,7 +950,7 @@ private fun MomentFeedPhotos(
 ) {
     if (photos.size == 1) {
         val path = photos[0]
-        val uri = resolvePhotoUri(path)
+        val uri = momentsThumbnailUri(path)
         if (preserveSinglePhoto) {
             AsyncImage(
                 uri = uri,
@@ -989,7 +989,7 @@ private fun MomentFeedPhotos(
                 ) {
                     rowPhotos.forEachIndexed { colIndex, photoPath ->
                         val photoIndex = rowIndex * columns + colIndex
-                        val uri = resolvePhotoUri(photoPath)
+                        val uri = momentsThumbnailUri(photoPath)
                         Box(
                             modifier =
                             Modifier

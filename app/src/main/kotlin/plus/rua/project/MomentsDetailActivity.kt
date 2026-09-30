@@ -1,5 +1,6 @@
 package plus.rua.project
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import plus.rua.project.ui.MomentsDetailScreen
@@ -20,6 +21,7 @@ class MomentsDetailActivity : BaseActivity() {
                     postId = postId,
                     focusComment = intent.getBooleanExtra(MomentsNav.EXTRA_FOCUS_COMMENT, false),
                     onBack = { finishWithSlideBack() },
+                    onAuthorClick = { authorId -> startActivityWithSlide(Intent(this, UserMomentsActivity::class.java).apply { putExtra(MomentsNav.EXTRA_AUTHOR_ID, authorId) }) },
                 )
             }
         }

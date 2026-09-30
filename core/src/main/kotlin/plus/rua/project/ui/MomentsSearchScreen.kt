@@ -112,8 +112,8 @@ fun MomentsSearchScreen(
         kotlinx.coroutines.delay(250)
         viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId, keyword = keyword)
     }
-    val results = remember(uiState.posts, keyword) {
-        uiState.posts.map { post ->
+    val results = remember(uiState.posts, uiState.searchQuery, keyword) {
+        (if (uiState.searchQuery == keyword) uiState.posts else emptyList()).map { post ->
             searchMoments(listOf(post), keyword).firstOrNull() ?: plus.rua.project.MomentSearchResult(post, listOf("评论"), "动态中的评论包含搜索内容")
         }
     }
@@ -158,7 +158,7 @@ fun MomentsSearchScreen(
                 modifier = Modifier
                     .weight(1f)
                     .focusRequester(focusRequester)
-                    .semantics { contentDescription = "搜索我的朋友圈内容" }
+                    .semantics { contentDescription = "搜索朋友圈内容" }
                     .testTag("moments_search_input"),
                 decorationBox = { innerTextField ->
                     Row(
@@ -172,7 +172,7 @@ fun MomentsSearchScreen(
                         Icon(Icons.Outlined.Search, contentDescription = null, tint = mutedColor, modifier = Modifier.size(22.dp))
                         Box(modifier = Modifier.weight(1f).padding(start = 6.dp, top = 12.dp, bottom = 12.dp)) {
                             if (query.isEmpty()) {
-                                Text("搜索我的朋友圈内容", color = mutedColor, fontSize = 17.sp, maxLines = 1)
+                                Text("搜索朋友圈内容", color = mutedColor, fontSize = 17.sp, maxLines = 1)
                             }
                             innerTextField()
                         }
@@ -234,23 +234,25 @@ fun MomentsSearchScreen(
                                 },
                             )
                         }
-                        item(key = "footer") {
-                            if (results.isEmpty()) {
-                                Text(
-                                    "没有找到相关的朋友圈",
-                                    color = mutedColor,
-                                    fontSize = 15.sp,
-                                    modifier = Modifier.padding(top = 48.dp).testTag("moments_search_empty"),
-                                )
-                            } else {
-                                Row(
-                                    horizontalArrangement = Arrangement.Center,
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
-                                ) {
-                                    Spacer(Modifier.width(24.dp).height(1.dp).background(mutedColor.copy(alpha = 0.3f)))
-                                    Text("以上为全部搜索结果", color = mutedColor, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 8.dp))
-                                    Spacer(Modifier.width(24.dp).height(1.dp).background(mutedColor.copy(alpha = 0.3f)))
+                        if (!uiState.isLoading && uiState.error == null && uiState.searchQuery == keyword) {
+                            item(key = "footer") {
+                                if (results.isEmpty()) {
+                                    Text(
+                                        "没有找到相关的朋友圈",
+                                        color = mutedColor,
+                                        fontSize = 15.sp,
+                                        modifier = Modifier.padding(top = 48.dp).testTag("moments_search_empty"),
+                                    )
+                                } else if (uiState.nextCursor == null) {
+                                    Row(
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
+                                    ) {
+                                        Spacer(Modifier.width(24.dp).height(1.dp).background(mutedColor.copy(alpha = 0.3f)))
+                                        Text("以上为全部搜索结果", color = mutedColor, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 8.dp))
+                                        Spacer(Modifier.width(24.dp).height(1.dp).background(mutedColor.copy(alpha = 0.3f)))
+                                    }
                                 }
                             }
                         }

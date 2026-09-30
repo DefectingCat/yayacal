@@ -103,6 +103,7 @@ pub async fn list(
         AND ($2::text IS NULL OR p.author_id=$2)
         AND ($3::timestamptz IS NULL OR (p.created_at,p.id)<($3,$4))
         AND ($5='' OR strpos(lower(p.text),lower($5))>0 OR strpos(lower(COALESCE(p.location,'')),lower($5))>0
+        OR strpos(lower(COALESCE(p.location_address,'')),lower($5))>0
         OR EXISTS (SELECT 1 FROM comments c WHERE c.post_id=p.id AND NOT c.deleted AND strpos(lower(c.text),lower($5))>0))
         ORDER BY p.created_at DESC,p.id DESC LIMIT $6"#)
         .bind(&actor).bind(&query.author_id).bind(time).bind(id).bind(q).bind(query.limit()+1).fetch_all(&app.db).await?;

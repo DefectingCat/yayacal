@@ -184,6 +184,10 @@ class MomentsPublishViewModel(
                 onSuccess()
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
+                if (e is MomentsApiException && e.status == 400 && e.message == "图片不存在或不属于当前账号") {
+                    uploaded.clear()
+                    saveDraft()
+                }
                 _uiState.update { it.copy(isPublishing = false, error = e.message ?: "发布失败，请重试") }
             }
         }

@@ -20,7 +20,7 @@ internal fun searchMoments(
             "正文" to post.text,
             post.location?.let { "位置" to it },
             post.locationAddress?.let { "位置" to it },
-        ) + post.comments.map { "评论" to it.text }
+        ) + post.comments.filterNot { it.deleted }.map { "评论" to it.text }
         val matches = sources.filter { (_, text) -> text.contains(keyword, ignoreCase = true) }
         if (matches.isEmpty()) {
             null

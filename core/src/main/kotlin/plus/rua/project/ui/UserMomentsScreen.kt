@@ -278,7 +278,7 @@ fun UserMomentsScreen(
                     avatarPath = uiState.avatarPath,
                     coverPath = uiState.coverPath,
                     isCoverExpanded = isCoverExpanded,
-                    onCoverClick = onCoverClick,
+                    onCoverClick = { if (isOwnProfile) onCoverClick() },
                     canEdit = isOwnProfile,
                     onChangeCoverClick = { if (isOwnProfile) onChangeCoverClick() },
                     onAvatarClick = { if (isOwnProfile) onAvatarClick() },
@@ -984,7 +984,7 @@ fun MomentsThumbnailPhotos(
  * 记忆并解析配图 URI，兼容 content:// 与本地文件路径。
  */
 @Composable
-private fun rememberPhotoUri(path: String?): String? = remember(path) { resolvePhotoUri(path) }
+private fun rememberPhotoUri(path: String?): String? = remember(path) { momentsThumbnailUri(path) }
 
 /**
  * 判断指定时间戳（毫秒）是否落在给定的本地日期当天。

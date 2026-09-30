@@ -9,6 +9,7 @@ internal class FakeMomentsRepository : MomentsRepository {
     var posts = listOf<MomentPost>()
     var load: (suspend (String, String?, String?, String?) -> MomentsPage<MomentPost>)? = null
     var failPublish = false
+    var publishFailure: Exception? = null
     val attempts = mutableListOf<Triple<String, String, List<String>>>()
     val uploads = mutableListOf<String>()
     val notes = mutableMapOf<String, List<MomentNotification>>()
@@ -18,6 +19,7 @@ internal class FakeMomentsRepository : MomentsRepository {
     override suspend fun post(actor: String, id: String) = posts.firstOrNull { it.id == id } ?: throw MomentsApiException(404, "不存在")
     override suspend fun publish(actor: String, requestId: String, text: String, media: List<String>, visibility: String, location: String?, address: String?): MomentPost {
         attempts += Triple(actor, requestId, media)
+        publishFailure?.let { throw it }
         if (failPublish) throw IOException("网络超时")
         return MomentPost(id = requestId, text = text, authorId = actor).also { posts = posts + it }
     }

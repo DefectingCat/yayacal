@@ -10,6 +10,14 @@ import org.junit.Test
  */
 class MomentsPhotoPreviewTest {
     @Test
+    fun remotePhoto_thumbnailKeepsAccountWhilePreviewKeepsOriginal() {
+        val url = "https://example.com/api/v1/media/image?account_id=xiaojimao"
+        assertEquals(url, resolvePhotoUri(url))
+        assertEquals("$url&thumbnail=true", momentsThumbnailUri(url))
+        assertEquals("$url&thumbnail=true", momentsThumbnailUri("$url&thumbnail=true"))
+    }
+
+    @Test
     fun resolvePhotoUri_nullOrBlank_returnsNull() {
         assertNull(resolvePhotoUri(null))
         assertNull(resolvePhotoUri(""))

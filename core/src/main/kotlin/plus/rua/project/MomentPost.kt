@@ -9,13 +9,13 @@ import java.util.UUID
  *
  * @param id 动态唯一标识符
  * @param text 正文文本内容
- * @param photoPaths 配图本地持久化路径列表（最多 9 张）
+ * @param photoPaths 配图地址列表（远端 URL 或旧记录的本地路径，最多 9 张）
  * @param location 所在地理位置名称（为 null 表示不显示位置）
  * @param locationAddress 所在地理位置详细地址或距离（可选）
  * @param timestamp 发布时的时间戳（毫秒）
  * @param visibility 可见性范围（如 "公开"、"私密"）
- * @param isLikedByMe 当前本地用户是否已点赞
- * @param comments 本机保存的评论，按发送顺序排列
+ * @param isLikedByMe 当前选择账号是否在服务端点赞人列表中
+ * @param comments 服务端评论预览或详情页已加载的评论
  */
 data class MomentPost(
     val id: String = UUID.randomUUID().toString(),
@@ -86,14 +86,14 @@ data class MomentPost(
 }
 
 /**
- * 朋友圈本地评论。当前应用没有远端账号，发送者昵称来自本地个人资料。
+ * 朋友圈评论。作者与回复由服务端账号和评论 ID 关联，旧编码仅用于读取历史本地数据。
  *
  * @param id 评论唯一标识
  * @param authorName 发送时的用户昵称
  * @param text 评论正文
  * @param timestamp 发送时间（毫秒）
  * @param replyToName 回复对象的昵称，为 null 时评论整条动态
- * @param photoPath 评论图片的应用私有路径，为 null 时没有图片
+ * @param photoPath 评论图片的远端 URL 或旧记录路径，为 null 时没有图片
  */
 data class MomentComment(
     val id: String = UUID.randomUUID().toString(),

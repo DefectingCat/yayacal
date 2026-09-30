@@ -35,6 +35,20 @@ class MomentsViewModelTest {
         Dispatchers.resetMain()
     }
 
+    @Test fun externalAccountChange_refreshImmediatelyDropsPreviousPrivateData() = runTest(dispatcher) {
+        repository.posts = listOf(MomentPost(id = "private-a", authorId = "xiaobai", visibility = "私密"))
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        storage.saveCurrentAccountId("xiaojimao")
+        repository.posts = emptyList()
+        vm.refreshPosts()
+        assertTrue(vm.uiState.value.posts.isEmpty())
+        assertEquals("xiaojimao", vm.uiState.value.currentAccountId)
+        advanceUntilIdle()
+        assertEquals("小鸡毛", vm.uiState.value.username)
+    }
+
     @Test fun switchAccount_lateOldResponse_doesNotLeakPreviousAccount() = runTest(dispatcher) {
         val oldResponse = CompletableDeferred<Unit>()
         repository.load = { actor, _, _, _ ->

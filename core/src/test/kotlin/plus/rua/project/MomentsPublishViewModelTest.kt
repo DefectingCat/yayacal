@@ -59,6 +59,22 @@ class MomentsPublishViewModelTest {
         assertTrue(storage.getPosts().isEmpty())
     }
 
+    @Test
+    fun expiredTemporaryMedia_retryUploadsAgainWithoutLosingDraft() = runTest(dispatcher) {
+        val photo = File(dir, "photo").apply { writeText("fixture") }
+        val vm = vm()
+        vm.addPhotoPaths(listOf(photo.absolutePath))
+        repository.publishFailure = MomentsApiException(400, "图片不存在或不属于当前账号")
+        vm.publish {}
+        advanceUntilIdle()
+        assertEquals(listOf(photo.absolutePath), vm.uiState.value.photos)
+        repository.publishFailure = null
+        vm.publish {}
+        advanceUntilIdle()
+        assertEquals(2, repository.uploads.size)
+        assertEquals(repository.attempts.first().second, repository.attempts.last().second)
+    }
+
     @Test fun switchGlobalAccount_existingDraftKeepsOriginalAuthor() = runTest(dispatcher) {
         val first = vm()
         first.onTextChanged("小白的草稿")

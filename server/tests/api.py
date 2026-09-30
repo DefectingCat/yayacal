@@ -44,6 +44,16 @@ def upload(actor="xiaobai", data=None, expected=200):
 
 
 class ApiTest(unittest.TestCase):
+    def test_image_orientation_is_applied_before_metadata_is_removed(self):
+        def chunk(kind, data):
+            return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+        # 2x3 PNG，EXIF orientation=6（顺时针 90 度），返回的正常方向应为 3x2。
+        exif = b"II" + struct.pack("<HIH", 42, 8, 1) + struct.pack("<HHIHHI", 274, 3, 1, 6, 0, 0)
+        png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">2I5B", 2, 3, 8, 2, 0, 0, 0))
+        png += chunk(b"eXIf", exif) + chunk(b"IDAT", zlib.compress(b"\x00\xff\x00\x00\x00\xff\x00" * 3)) + chunk(b"IEND", b"")
+        media = upload(data=png)
+        self.assertEqual((media["width"], media["height"]), (3, 2))
+
     def test_accounts_and_media(self):
         accounts = call("GET", "/api/v1/accounts", actor=None)
         self.assertEqual([(a["id"], a["name"]) for a in accounts], [("xiaobai", "小白"), ("xiaojimao", "小鸡毛")])
@@ -139,7 +149,8 @@ class ApiTest(unittest.TestCase):
             call("POST", "/api/v1/posts", {"request_id": str(uuid.uuid4()), **payload}, expected=400)
         ids = []
         for i in range(3):
-            ids.append(call("POST", "/api/v1/posts", {"request_id": str(uuid.uuid4()), "text": marker + str(i), "visibility": "public"})["id"])
+            ids.append(call("POST", "/api/v1/posts", {"request_id": str(uuid.uuid4()), "text": marker + str(i), "location_address": marker + "addr", "visibility": "public"})["id"])
+        self.assertEqual(len(call("GET", "/api/v1/posts?q=" + marker + "addr")["items"]), 3)
         page = call("GET", "/api/v1/posts?q=" + marker + "&limit=2")
         self.assertEqual([p["id"] for p in page["items"]], list(reversed(ids[1:])))
         page2 = call("GET", "/api/v1/posts?q=" + marker + "&limit=2&cursor=" + page["next_cursor"])

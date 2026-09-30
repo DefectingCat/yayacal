@@ -26,6 +26,7 @@ data class MomentsUiState(
     val commentsCursor: String? = null,
     val unreadCount: Int = 0,
     val unavailable: Boolean = false,
+    val searchQuery: String = "",
 )
 
 /** 朋友圈网络状态。请求捕获账号和加载版本，迟到结果不能覆盖切号后的页面。 */
@@ -67,6 +68,7 @@ class MomentsViewModel(
     fun switchAccount(context: Context, account: MomentAccount) = switchAccount(account, "android.resource://${context.packageName}/${account.avatarResId}")
 
     fun refreshPosts(authorId: String? = author, keyword: String? = query) {
+        if (author != authorId || query != keyword) _uiState.update { it.copy(posts = emptyList(), nextCursor = null) }
         author = authorId
         query = keyword
         load(false)
@@ -85,6 +87,9 @@ class MomentsViewModel(
         refreshJob?.cancel()
         val version = ++generation
         val actor = accountId
+        if (_uiState.value.currentAccountId != actor) {
+            _uiState.value = MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(actor).name)
+        }
         val api = repository
         val id = detailId
         val selectedAuthor = author
@@ -109,7 +114,7 @@ class MomentsViewModel(
                         it.copy(
                             currentAccountId = actor, username = profile.name, avatarPath = profile.avatarPath, coverPath = profile.coverPath,
                             posts = if (more) (it.posts + page.items).distinctBy { post -> post.id } else page.items,
-                            nextCursor = page.nextCursor, commentsCursor = commentsCursor, unreadCount = unread, isLoading = false,
+                            nextCursor = page.nextCursor, commentsCursor = commentsCursor, unreadCount = unread, isLoading = false, searchQuery = keyword.orEmpty(),
                         )
                     }
                 }
@@ -196,7 +201,12 @@ class MomentsViewModel(
                 file.delete()
             }
         }
-        api.comment(actor, id, commentRequestId, text.trim(), commentMediaId, replyTo)
+        try {
+            api.comment(actor, id, commentRequestId, text.trim(), commentMediaId, replyTo)
+        } catch (e: MomentsApiException) {
+            if (e.status == 400 && e.message == "图片不存在或不属于当前账号") commentMediaId = null
+            throw e
+        }
         commentSignature = null
         if (actor == accountId) refreshPost(id)
         return true

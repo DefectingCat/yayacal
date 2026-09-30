@@ -556,4 +556,4 @@ private fun getAvatarBackgroundColor(name: String): Color {
  * 记忆并解析配图 URI。
  */
 @Composable
-private fun rememberPhotoUri(path: String?): String? = remember(path) { resolvePhotoUri(path) }
+private fun rememberPhotoUri(path: String?): String? = remember(path) { momentsThumbnailUri(path) }
