@@ -560,21 +560,20 @@ private fun MomentsTopBar(
             .height(topBarHeight)
             .background(backgroundColor),
     ) {
-        Row(
+        Box(
             modifier =
             Modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(56.dp)
                 .padding(horizontal = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             // 返回按钮
             IconButton(
                 onClick = onBack,
                 modifier =
                 Modifier
+                    .align(Alignment.CenterStart)
                     .testTag("moments_back_button")
                     .background(Color.Black.copy(alpha = scrimAlpha), CircleShape),
             ) {
@@ -586,7 +585,7 @@ private fun MomentsTopBar(
                 )
             }
 
-            // 标题
+            // 标题相对整条顶栏居中，不随左右按钮宽度偏移
             Text(
                 text = title,
                 style =
@@ -597,10 +596,19 @@ private fun MomentsTopBar(
                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = alpha),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier =
+                Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth()
+                    .padding(horizontal = 104.dp),
             )
 
             // 右上角操作区：切换账号 + 发布动态
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 if (onSwitchAccount != null) {
                     IconButton(
                         onClick = onSwitchAccount,
