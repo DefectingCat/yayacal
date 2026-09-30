@@ -5,7 +5,11 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -22,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -41,6 +46,7 @@ import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.outlined.SwitchAccount
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -57,23 +63,31 @@ import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -83,19 +97,23 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
+import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import plus.rua.project.MomentAccount
 import plus.rua.project.MomentPost
 import plus.rua.project.MomentsStorage
 import plus.rua.project.MomentsUiState
 import plus.rua.project.MomentsViewModel
 import java.io.File
+import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.time.Instant
 
 /**
  * 朋友圈页面，复刻经典微信朋友圈布局结构。
- * 包含沉浸式顶部渐变导航栏、可自定义相册封面（点击平滑展开放大动画与换封面）、用户名与悬浮跨界头像、以及底部朋友圈动态区域的空状态占位。
+ * 包含沉浸式顶部渐变导航栏、可自定义相册封面（点击平滑展开放大动画与换封面）、用户名与悬浮跨界头像、以及底部朋友圈动态区域。
+ * 点击入口后首先进入极简居中的账号选择界面（支持小白与小鸡毛双账号），轻触头像后以平滑动画将头像飞入朋友圈顶部右上角完成进入。
  *
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击右上角发布动态/相机按钮时触发
@@ -103,6 +121,7 @@ import kotlin.time.Instant
  * @param onAvatarClick 点击用户头像时触发（为 null 时默认拉起系统相册选择头像）
  * @param onPostClick 点击动态正文或互动区时触发，传递动态 ID
  * @param onCommentClick 点击动态“评论”操作时触发，传递动态 ID
+ * @param initialShowAccountSelect 进入页面时是否初始展示账号选择界面，默认为 true
  * @param viewModel 朋友圈 ViewModel，默认从本地偏好存储加载
  * @param modifier 布局修饰符
  */
@@ -114,6 +133,7 @@ fun MomentsScreen(
     onAvatarClick: (() -> Unit)? = null,
     onPostClick: (String) -> Unit = {},
     onCommentClick: (String) -> Unit = onPostClick,
+    initialShowAccountSelect: Boolean = true,
     viewModel: MomentsViewModel = run {
         val context = LocalContext.current.applicationContext
         viewModel(
@@ -132,7 +152,16 @@ fun MomentsScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val coroutineScope = rememberCoroutineScope()
     var isCoverExpanded by remember { mutableStateOf(false) }
+
+    var isAccountSelected by remember { mutableStateOf(!initialShowAccountSelect) }
+    var isTransitioning by remember { mutableStateOf(false) }
+    var animatingAccount by remember { mutableStateOf<MomentAccount?>(null) }
+    val animProgress = remember { Animatable(0f) }
+
+    val accountBoundsMap = remember { mutableStateMapOf<String, Rect>() }
+    var headerAvatarRect by remember { mutableStateOf<Rect?>(null) }
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshPosts()
@@ -140,6 +169,14 @@ fun MomentsScreen(
 
     BackHandler(enabled = isCoverExpanded) {
         isCoverExpanded = false
+    }
+
+    BackHandler(enabled = isAccountSelected && initialShowAccountSelect && !isTransitioning) {
+        isAccountSelected = false
+        animatingAccount = null
+        coroutineScope.launch {
+            animProgress.snapTo(0f)
+        }
     }
 
     val photoPickerLauncher =
@@ -161,42 +198,168 @@ fun MomentsScreen(
             }
         }
 
-    MomentsScreen(
-        uiState = uiState,
-        isCoverExpanded = isCoverExpanded,
-        onBack = {
-            if (isCoverExpanded) {
-                isCoverExpanded = false
-            } else {
-                onBack()
+    val onSelectAccount: (MomentAccount) -> Unit = { account ->
+        if (!isTransitioning) {
+            animatingAccount = account
+            isTransitioning = true
+            viewModel.switchAccount(context, account)
+            coroutineScope.launch {
+                animProgress.animateTo(
+                    targetValue = 1f,
+                    animationSpec = tween(
+                        durationMillis = 520,
+                        easing = FastOutSlowInEasing,
+                    ),
+                )
+                isTransitioning = false
+                isAccountSelected = true
             }
-        },
-        onPublish = onPublish,
-        onCoverClick = {
-            isCoverExpanded = !isCoverExpanded
-            onCoverClick?.invoke()
-        },
-        onChangeCoverClick = {
-            coverPickerLauncher.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+        }
+    }
+
+    Box(
+        modifier =
+        modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface),
+    ) {
+        // Layer 1：朋友圈主页面（始终渲染并参与测量，使头像能够准确捕获根坐标 Rect）
+        val momentsFeedAlpha = if (isAccountSelected) 1f else animProgress.value
+        MomentsScreen(
+            uiState = uiState,
+            isCoverExpanded = isCoverExpanded,
+            isAvatarVisible = isAccountSelected && !isTransitioning,
+            onAvatarPositioned = { rect ->
+                headerAvatarRect = rect
+            },
+            onSwitchAccount = {
+                isAccountSelected = false
+                animatingAccount = null
+                coroutineScope.launch { animProgress.snapTo(0f) }
+            },
+            onBack = {
+                if (isCoverExpanded) {
+                    isCoverExpanded = false
+                } else if (initialShowAccountSelect) {
+                    isAccountSelected = false
+                    animatingAccount = null
+                    coroutineScope.launch { animProgress.snapTo(0f) }
+                } else {
+                    onBack()
+                }
+            },
+            onPublish = onPublish,
+            onCoverClick = {
+                isCoverExpanded = !isCoverExpanded
+                onCoverClick?.invoke()
+            },
+            onChangeCoverClick = {
+                coverPickerLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                )
+            },
+            onAvatarClick =
+            onAvatarClick ?: {
+                photoPickerLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                )
+            },
+            onAvatarLongClick = {
+                // 长按头像快速调出切换账号
+                isAccountSelected = false
+                animatingAccount = null
+                coroutineScope.launch { animProgress.snapTo(0f) }
+            },
+            onPostClick = onPostClick,
+            onCommentClick = onCommentClick,
+            onLikePost = viewModel::toggleLike,
+            modifier =
+            Modifier
+                .fillMaxSize()
+                .alpha(momentsFeedAlpha),
+        )
+
+        // Layer 2：账号选择页面（未完成选择时展示，点击后淡出）
+        if (!isAccountSelected) {
+            val selectAlpha =
+                if (isTransitioning) {
+                    (1f - animProgress.value * 2.2f).coerceAtLeast(0f)
+                } else {
+                    1f
+                }
+            MomentsAccountSelectScreen(
+                currentAccountId = uiState.currentAccountId,
+                animatingAccountId = if (isTransitioning) animatingAccount?.id else null,
+                onAccountClick = onSelectAccount,
+                onAccountPositioned = { account, rect ->
+                    accountBoundsMap[account.id] = rect
+                },
+                onBack = onBack,
+                modifier =
+                Modifier
+                    .fillMaxSize()
+                    .alpha(selectAlpha),
             )
-        },
-        onAvatarClick =
-        onAvatarClick ?: {
-            photoPickerLauncher.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-            )
-        },
-        onAvatarLongClick = {
-            photoPickerLauncher.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-            )
-        },
-        onPostClick = onPostClick,
-        onCommentClick = onCommentClick,
-        onLikePost = viewModel::toggleLike,
-        modifier = modifier,
-    )
+        }
+
+        // Layer 3：飞行动画浮层（点击账号后，所选头像平滑飞跃缩放至朋友圈头部头像目标位置）
+        if (isTransitioning && animatingAccount != null) {
+            val account = animatingAccount!!
+            val startRect = accountBoundsMap[account.id] ?: Rect.Zero
+            val density = LocalDensity.current
+
+            val screenWidthPx = with(density) { LocalConfiguration.current.screenWidthDp.dp.toPx() }
+            val avatarSizePx = with(density) { 74.dp.toPx() }
+            val paddingEndPx = with(density) { 16.dp.toPx() }
+            val fallbackTopPx = with(density) { 260.dp.toPx() }
+            val fallbackTargetRect =
+                Rect(
+                    left = screenWidthPx - paddingEndPx - avatarSizePx,
+                    top = fallbackTopPx,
+                    right = screenWidthPx - paddingEndPx,
+                    bottom = fallbackTopPx + avatarSizePx,
+                )
+
+            val targetRect = headerAvatarRect?.takeIf { it.width > 0f } ?: fallbackTargetRect
+
+            val p = animProgress.value
+            val currentLeft = startRect.left + (targetRect.left - startRect.left) * p
+            val currentTop = startRect.top + (targetRect.top - startRect.top) * p
+            val currentWidth = startRect.width + (targetRect.width - startRect.width) * p
+            val currentHeight = startRect.height + (targetRect.height - startRect.height) * p
+
+            val cornerRadius = (12f - (12f - 10f) * p).dp
+            val borderWidth = (1f + (2f - 1f) * p).dp
+            val borderColor =
+                androidx.compose.ui.graphics.lerp(
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    Color.White,
+                    p,
+                )
+
+            Surface(
+                shape = RoundedCornerShape(cornerRadius),
+                border = BorderStroke(borderWidth, borderColor),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shadowElevation = (3f - p).dp,
+                modifier =
+                Modifier
+                    .offset { IntOffset(currentLeft.roundToInt(), currentTop.roundToInt()) }
+                    .size(
+                        with(density) { currentWidth.toDp() },
+                        with(density) { currentHeight.toDp() },
+                    )
+                    .clip(RoundedCornerShape(cornerRadius)),
+            ) {
+                Image(
+                    painter = painterResource(account.avatarResId),
+                    contentDescription = "${account.name} 头像",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+    }
 }
 
 /**
@@ -204,6 +367,9 @@ fun MomentsScreen(
  *
  * @param uiState 朋友圈当前 UI 状态
  * @param isCoverExpanded 封面是否展开
+ * @param isAvatarVisible 头像是否可见（用于头像位移动画期间临时隐藏）
+ * @param onAvatarPositioned 头像在根坐标系中完成布局时的回调，传递其 Rect 坐标
+ * @param onSwitchAccount 点击切换账号操作时触发（可选）
  * @param onBack 点击返回按钮时触发
  * @param onPublish 点击右上角发布动态/相机按钮时触发
  * @param onCoverClick 点击相册封面占位区域时触发
@@ -220,6 +386,9 @@ fun MomentsScreen(
     uiState: MomentsUiState,
     onBack: () -> Unit,
     isCoverExpanded: Boolean = false,
+    isAvatarVisible: Boolean = true,
+    onAvatarPositioned: ((Rect) -> Unit)? = null,
+    onSwitchAccount: (() -> Unit)? = null,
     onPublish: () -> Unit = {},
     onCoverClick: () -> Unit = {},
     onChangeCoverClick: () -> Unit = {},
@@ -267,6 +436,8 @@ fun MomentsScreen(
                     onChangeCoverClick = onChangeCoverClick,
                     onAvatarClick = onAvatarClick,
                     onAvatarLongClick = onAvatarLongClick,
+                    isAvatarVisible = isAvatarVisible,
+                    onAvatarPositioned = onAvatarPositioned,
                 )
             }
 
@@ -340,6 +511,7 @@ fun MomentsScreen(
                 alpha = scrollAlpha,
                 onBack = onBack,
                 onPublish = onPublish,
+                onSwitchAccount = onSwitchAccount,
                 modifier = Modifier.align(Alignment.TopCenter),
             )
         }
@@ -362,6 +534,7 @@ fun MomentsScreen(
  * @param alpha 渐变透明度（0f 为完全透明，1f 为完全不透明）
  * @param onBack 点击返回按钮回调
  * @param onPublish 点击发布按钮回调
+ * @param onSwitchAccount 点击切换账号回调（可选）
  * @param modifier 布局修饰符
  */
 @Composable
@@ -370,6 +543,7 @@ private fun MomentsTopBar(
     alpha: Float,
     onBack: () -> Unit,
     onPublish: () -> Unit,
+    onSwitchAccount: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val statusBarHeight = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
@@ -425,20 +599,40 @@ private fun MomentsTopBar(
                 overflow = TextOverflow.Ellipsis,
             )
 
-            // 右上角发布相机按钮
-            IconButton(
-                onClick = onPublish,
-                modifier =
-                Modifier
-                    .testTag("moments_publish_button")
-                    .background(Color.Black.copy(alpha = scrimAlpha), CircleShape),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CameraAlt,
-                    contentDescription = "发布动态",
-                    tint = iconColor,
-                    modifier = Modifier.size(24.dp),
-                )
+            // 右上角操作区：切换账号 + 发布动态
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (onSwitchAccount != null) {
+                    IconButton(
+                        onClick = onSwitchAccount,
+                        modifier =
+                        Modifier
+                            .testTag("moments_switch_account_button")
+                            .background(Color.Black.copy(alpha = scrimAlpha), CircleShape),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.SwitchAccount,
+                            contentDescription = "切换账号",
+                            tint = iconColor,
+                            modifier = Modifier.size(24.dp),
+                        )
+                    }
+                    Spacer(modifier = Modifier.width(4.dp))
+                }
+
+                IconButton(
+                    onClick = onPublish,
+                    modifier =
+                    Modifier
+                        .testTag("moments_publish_button")
+                        .background(Color.Black.copy(alpha = scrimAlpha), CircleShape),
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.CameraAlt,
+                        contentDescription = "发布动态",
+                        tint = iconColor,
+                        modifier = Modifier.size(24.dp),
+                    )
+                }
             }
         }
     }

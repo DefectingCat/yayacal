@@ -13,16 +13,29 @@ class MomentsStorage(
 ) {
     companion object {
         private const val PREFS_NAME = "moments_prefs"
+        private const val KEY_CURRENT_ACCOUNT_ID = "current_account_id"
         private const val KEY_AVATAR_PATH = "avatar_path"
         private const val KEY_COVER_PATH = "cover_path"
         private const val KEY_USERNAME = "username"
         private const val KEY_POSTS = "moments_posts"
         private const val POSTS_SEPARATOR = "\n"
-        const val DEFAULT_USERNAME = "Defectink"
+        const val DEFAULT_USERNAME = "小白"
 
         fun fromContext(context: Context): MomentsStorage {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             return MomentsStorage(prefs)
+        }
+    }
+
+    /** 获取保存的当前账号 ID（未设置时返回 null） */
+    fun getCurrentAccountId(): String? = prefs.getString(KEY_CURRENT_ACCOUNT_ID, null)
+
+    /** 保存当前选中的账号 ID */
+    fun saveCurrentAccountId(id: String?) {
+        if (id == null) {
+            prefs.edit().remove(KEY_CURRENT_ACCOUNT_ID).apply()
+        } else {
+            prefs.edit().putString(KEY_CURRENT_ACCOUNT_ID, id).apply()
         }
     }
 

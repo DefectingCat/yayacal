@@ -21,12 +21,14 @@ import kotlin.time.Clock
 /**
  * 朋友圈页面 UI 状态。
  *
+ * @param currentAccountId 当前选中的账号 ID
  * @param username 用户名
  * @param avatarPath 当前设置的头像文件路径（为 null 时使用默认占位符）
  * @param coverPath 当前设置的封面文件路径（为 null 时使用默认占位符）
  * @param posts 已发布的朋友圈动态列表
  */
 data class MomentsUiState(
+    val currentAccountId: String? = null,
     val username: String = MomentsStorage.DEFAULT_USERNAME,
     val avatarPath: String? = null,
     val coverPath: String? = null,
@@ -51,6 +53,7 @@ class MomentsViewModel(
     private val _uiState =
         MutableStateFlow(
             MomentsUiState(
+                currentAccountId = storage.getCurrentAccountId(),
                 username = storage.getUsername(),
                 avatarPath = storage.getAvatarPath(),
                 coverPath = storage.getCoverPath(),
@@ -67,11 +70,44 @@ class MomentsViewModel(
         _uiState.update {
             it.copy(
                 posts = posts,
+                currentAccountId = storage.getCurrentAccountId(),
                 username = storage.getUsername(),
                 avatarPath = storage.getAvatarPath(),
                 coverPath = storage.getCoverPath(),
             )
         }
+    }
+
+    /**
+     * 切换选中的账号，持久化账号信息，并更新 UI 状态。
+     *
+     * @param account 选中的朋友圈账号
+     * @param avatarPath 指定的头像文件路径（为 null 时保留现有头像路径）
+     */
+    fun switchAccount(account: MomentAccount, avatarPath: String? = null) {
+        storage.saveCurrentAccountId(account.id)
+        storage.saveUsername(account.name)
+        if (avatarPath != null) {
+            storage.saveAvatarPath(avatarPath)
+        }
+        _uiState.update {
+            it.copy(
+                currentAccountId = account.id,
+                username = account.name,
+                avatarPath = avatarPath ?: it.avatarPath,
+            )
+        }
+    }
+
+    /**
+     * 切换选中的账号，确保内置头像文件已写入应用私有目录，持久化账号信息，并更新 UI 状态。
+     *
+     * @param context Android 上下文，用于确保内置头像资源已写入本地应用私有文件
+     * @param account 选中的朋友圈账号
+     */
+    fun switchAccount(context: Context, account: MomentAccount) {
+        val avatarPath = MomentAccount.ensureAvatarFile(context, account)
+        switchAccount(account, avatarPath)
     }
 
     /** 切换当前本地用户的点赞状态；已删除的动态不会被重新写入。 */

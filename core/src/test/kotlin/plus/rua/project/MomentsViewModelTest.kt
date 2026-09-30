@@ -91,6 +91,33 @@ class MomentsViewModelTest {
     }
 
     @Test
+    fun switchAccount_updatesUsernameAvatarAndStorage() = runTest(testDispatcher) {
+        storage.clear()
+        val viewModel =
+            MomentsViewModel(
+                storage = storage,
+                filesDir = tempDir,
+                ioDispatcher = testDispatcher,
+            )
+
+        viewModel.switchAccount(MomentAccount.ACCOUNT_XIAOBAI, "/path/to/avatar_xiaobai.jpg")
+        assertEquals(MomentAccount.ID_XIAOBAI, viewModel.uiState.value.currentAccountId)
+        assertEquals("小白", viewModel.uiState.value.username)
+        assertEquals("/path/to/avatar_xiaobai.jpg", viewModel.uiState.value.avatarPath)
+        assertEquals(MomentAccount.ID_XIAOBAI, storage.getCurrentAccountId())
+        assertEquals("小白", storage.getUsername())
+        assertEquals("/path/to/avatar_xiaobai.jpg", storage.getAvatarPath())
+
+        viewModel.switchAccount(MomentAccount.ACCOUNT_XIAOJIMAO, "/path/to/avatar_xiaojimao.jpg")
+        assertEquals(MomentAccount.ID_XIAOJIMAO, viewModel.uiState.value.currentAccountId)
+        assertEquals("小鸡毛", viewModel.uiState.value.username)
+        assertEquals("/path/to/avatar_xiaojimao.jpg", viewModel.uiState.value.avatarPath)
+        assertEquals(MomentAccount.ID_XIAOJIMAO, storage.getCurrentAccountId())
+        assertEquals("小鸡毛", storage.getUsername())
+        assertEquals("/path/to/avatar_xiaojimao.jpg", storage.getAvatarPath())
+    }
+
+    @Test
     fun interactions_persistAndRejectEmptyOrDeletedPosts() = runTest(testDispatcher) {
         storage.savePost(MomentPost(id = "post", timestamp = 100L))
         storage.saveUsername("鸭鸭")

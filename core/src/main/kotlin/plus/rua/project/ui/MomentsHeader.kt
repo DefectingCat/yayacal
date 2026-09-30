@@ -40,6 +40,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -57,6 +59,8 @@ import java.io.File
  * @param isCoverExpanded 封面是否处于点击放大展开状态
  * @param onCoverClick 点击封面触发（展开或折叠）
  * @param onChangeCoverClick 点击“换封面”按钮时触发
+ * @param isAvatarVisible 头像是否可见（用于头像入场位移动画期间临时隐藏）
+ * @param onAvatarPositioned 头像在根坐标系中完成布局时的回调，传递其 Rect 坐标
  * @param onAvatarClick 点击头像时触发
  * @param onAvatarLongClick 长按头像时触发（可选）
  * @param modifier 布局修饰符
@@ -72,6 +76,8 @@ fun MomentsHeader(
     onChangeCoverClick: () -> Unit,
     onAvatarClick: () -> Unit,
     onAvatarLongClick: (() -> Unit)? = null,
+    isAvatarVisible: Boolean = true,
+    onAvatarPositioned: ((androidx.compose.ui.geometry.Rect) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val normalCoverHeight = 300.dp
@@ -250,7 +256,10 @@ fun MomentsHeader(
                     .padding(end = 16.dp)
                     .size(avatarSize)
                     .clip(RoundedCornerShape(10.dp))
-                    .alpha(contentAlpha)
+                    .alpha(if (isAvatarVisible) contentAlpha else 0f)
+                    .onGloballyPositioned { coordinates ->
+                        onAvatarPositioned?.invoke(coordinates.boundsInRoot())
+                    }
                     .combinedClickable(
                         onClick = onAvatarClick,
                         onLongClick = onAvatarLongClick,
@@ -260,7 +269,7 @@ fun MomentsHeader(
                 val avatarUri =
                     remember(avatarPath) {
                         avatarPath?.let { path ->
-                            if (path.startsWith("content://")) {
+                            if (path.startsWith("content://") || path.startsWith("android.resource://") || path.startsWith("file://")) {
                                 path
                             } else {
                                 val file = File(path.removePrefix("file://"))

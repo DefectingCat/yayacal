@@ -23,6 +23,23 @@ class MomentsStorageTest {
     }
 
     @Test
+    fun getCurrentAccountId_initially_returnsNull() {
+        storage.clear()
+        assertNull(storage.getCurrentAccountId())
+    }
+
+    @Test
+    fun saveAndGetCurrentAccountId_roundTrips() {
+        storage.clear()
+        storage.saveCurrentAccountId(MomentAccount.ID_XIAOBAI)
+        assertEquals(MomentAccount.ID_XIAOBAI, storage.getCurrentAccountId())
+        storage.saveCurrentAccountId(MomentAccount.ID_XIAOJIMAO)
+        assertEquals(MomentAccount.ID_XIAOJIMAO, storage.getCurrentAccountId())
+        storage.saveCurrentAccountId(null)
+        assertNull(storage.getCurrentAccountId())
+    }
+
+    @Test
     fun getAvatarPath_initially_returnsNull() {
         storage.clear()
         assertNull(storage.getAvatarPath())
