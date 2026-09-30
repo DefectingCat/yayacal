@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- 个人朋友圈搜索：从相册页搜索按钮进入，支持检索本机动态的正文、位置和评论（含本人私密动态），显示关键词高亮、配图预览、日期与匹配来源；点击结果查看详情，清空恢复初始页，返回时刷新结果。
+
 ## [1.8.1] - 2026-08-31
 
 ### Changed

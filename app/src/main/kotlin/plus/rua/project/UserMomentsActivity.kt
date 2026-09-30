@@ -39,7 +39,7 @@ class UserMomentsActivity : BaseActivity() {
                         )
                     },
                     onSearch = {
-                        Toast.makeText(this, "搜索朋友圈功能正在开发中", Toast.LENGTH_SHORT).show()
+                        startActivityWithSlide(Intent(this, MomentsSearchActivity::class.java))
                     },
                     onViewModeChange = {
                         Toast.makeText(this, "相册视图切换功能正在开发中", Toast.LENGTH_SHORT).show()

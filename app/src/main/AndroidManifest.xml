@@ -98,6 +98,10 @@
             android:name=".UserMomentsActivity"
             android:exported="false" />
         <activity
+            android:name=".MomentsSearchActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
             android:name=".MomentsDetailActivity"
             android:exported="false"
             android:windowSoftInputMode="adjustResize" />
