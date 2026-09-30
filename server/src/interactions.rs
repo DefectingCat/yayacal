@@ -37,21 +37,25 @@ pub async fn like(
 ) -> Result<StatusCode> {
     let mut tx = app.db.begin().await?;
     let author = posts::lock_visible(&mut tx, &actor, id, false).await?;
-    sqlx::query("INSERT INTO likes (post_id,account_id) VALUES ($1,$2) ON CONFLICT DO NOTHING")
-        .bind(id)
-        .bind(&actor)
-        .execute(&mut *tx)
+    let inserted =
+        sqlx::query("INSERT INTO likes (post_id,account_id) VALUES ($1,$2) ON CONFLICT DO NOTHING")
+            .bind(id)
+            .bind(&actor)
+            .execute(&mut *tx)
+            .await?;
+    // 重试已有的赞不产生消息；取消后重新插入则是一次新的互动。
+    if inserted.rows_affected() != 0 {
+        notify(
+            &mut tx,
+            &author,
+            &actor,
+            id,
+            None,
+            "like",
+            &format!("like:{}", Uuid::new_v4()),
+        )
         .await?;
-    notify(
-        &mut tx,
-        &author,
-        &actor,
-        id,
-        None,
-        "like",
-        &format!("like:{id}:{actor}"),
-    )
-    .await?;
+    }
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }
@@ -67,6 +71,13 @@ pub async fn unlike(
         .bind(&actor)
         .execute(&mut *tx)
         .await?;
+    sqlx::query(
+        "UPDATE notifications SET dismissed=true WHERE post_id=$1 AND actor_id=$2 AND kind='like'",
+    )
+    .bind(id)
+    .bind(&actor)
+    .execute(&mut *tx)
+    .await?;
     tx.commit().await?;
     Ok(StatusCode::NO_CONTENT)
 }

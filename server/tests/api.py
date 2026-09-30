@@ -44,6 +44,24 @@ def upload(actor="xiaobai", data=None, expected=200):
 
 
 class ApiTest(unittest.TestCase):
+    def test_unlike_then_relike_creates_one_new_unread_notification(self):
+        post = call("POST", "/api/v1/posts", {"request_id": str(uuid.uuid4()), "text": "重新点赞", "visibility": "public"})
+        path = "/api/v1/posts/" + post["id"]
+        def notices():
+            return [n for n in call("GET", "/api/v1/notifications")["items"] if n["post_id"] == post["id"]]
+        call("PUT", path + "/like", actor="xiaojimao", expected=204)
+        first = notices()[0]
+        call("POST", "/api/v1/notifications/read", {"ids": [first["id"]]}, expected=204)
+        call("DELETE", path + "/like", actor="xiaojimao", expected=204)
+        self.assertEqual(notices(), [])
+        call("PUT", path + "/like", actor="xiaojimao", expected=204)
+        call("PUT", path + "/like", actor="xiaojimao", expected=204)
+        second = notices()
+        self.assertEqual(len(second), 1)
+        self.assertNotEqual(first["id"], second[0]["id"])
+        self.assertFalse(second[0]["read"])
+        call("DELETE", path, expected=204)
+
     def test_image_orientation_is_applied_before_metadata_is_removed(self):
         def chunk(kind, data):
             return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
