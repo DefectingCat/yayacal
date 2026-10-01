@@ -49,6 +49,7 @@ private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NE
 /**
  * 朋友圈各 Activity 共用的本地网络授权入口，在授权完成前不创建联网页面及其 ViewModel。
  * 首次访问本地服务时申请权限；从系统设置返回后重新检查，公网和回环服务直接放行。
+ * 拒绝权限后仍可修改服务地址，保存时重建 Activity，避免沿用旧连接的 ViewModel。
  *
  * @param onBack 在授权说明页点击返回时触发
  * @param content 地址不需要本地授权或权限已授予时展示的页面
@@ -61,12 +62,14 @@ fun MomentsNetworkPermission(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val activity = context.findActivity()
     var url by remember(context) { mutableStateOf(MomentsConnection.url(context)) }
     var granted by remember(context) { mutableStateOf(context.hasLocalNetworkPermission()) }
     var required by remember(url) { mutableStateOf<Boolean?>(null) }
     var requested by rememberSaveable { mutableStateOf(false) }
     var denied by rememberSaveable { mutableStateOf(false) }
     var pending by remember { mutableStateOf(false) }
+    var showConnection by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         granted = it
         denied = !it
@@ -94,12 +97,21 @@ fun MomentsNetworkPermission(
         }
     }
 
+    if (showConnection) {
+        MomentsConnectionDialog(
+            onSaved = {
+                showConnection = false
+                activity?.recreate()
+            },
+            onDismiss = { showConnection = false },
+        )
+    }
+
     if (granted || required == false) {
         content()
         return
     }
 
-    val activity = context.findActivity()
     val openSettings = denied && activity?.shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION) == false
     Surface(modifier.fillMaxSize()) {
         if (required == null) {
@@ -124,6 +136,7 @@ fun MomentsNetworkPermission(
                         }
                     },
                 ) { Text(if (openSettings) "打开应用设置" else "允许访问") }
+                TextButton(onClick = { showConnection = true }) { Text("连接设置") }
                 TextButton(onClick = onBack) { Text("返回") }
             }
         }
