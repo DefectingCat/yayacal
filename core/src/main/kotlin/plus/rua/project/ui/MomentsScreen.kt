@@ -46,7 +46,6 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.DynamicFeed
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.outlined.SwitchAccount
 import androidx.compose.material3.ButtonDefaults
@@ -62,6 +61,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -414,7 +414,7 @@ fun MomentsScreen(
  * @param onAuthorClick 点击动态作者头像时触发，进入该作者主页
  * @param onPostClick 点击动态正文或互动区时触发
  * @param onCommentClick 点击“评论”操作时触发
- * @param onRefresh 下拉或点击刷新时触发
+ * @param onRefresh 未加载时下拉刷新触发
  * @param onLoadMore 点击加载更多时触发
  * @param onLikePost 点击“赞/取消”操作时触发
  * @param modifier 布局修饰符
@@ -462,7 +462,11 @@ fun MomentsScreen(
             .testTag("moments_screen"),
     ) {
         // 主滚动列表：从屏幕最顶端开始绘制，使相册封面能够沉浸延伸至状态栏之下
-        androidx.compose.material3.pulltorefresh.PullToRefreshBox(isRefreshing = uiState.isLoading, onRefresh = onRefresh) {
+        PullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = { if (!uiState.isLoading) onRefresh() },
+            modifier = Modifier.fillMaxSize(),
+        ) {
             LazyColumn(
                 state = listState,
                 modifier = Modifier.fillMaxSize(),
@@ -483,15 +487,27 @@ fun MomentsScreen(
                     )
                 }
 
-                item(key = "network") { MomentsLoadStatus(uiState.isLoading, uiState.error, false, onRefresh, onLoadMore) }
-                if (uiState.posts.isEmpty() && !uiState.isLoading && uiState.error == null) {
-                    // 底部朋友圈动态部分：空状态占位
+                if (uiState.posts.isEmpty()) {
                     item(key = "empty_content") {
                         MomentsEmptyContent(
+                            isLoading = uiState.isLoading,
+                            error = uiState.error,
+                            accountId = uiState.currentAccountId,
                             onPublish = onPublish,
+                            modifier = Modifier.fillParentMaxHeight(0.6f),
                         )
                     }
                 } else {
+                    uiState.error?.let { error ->
+                        item(key = "network_error") {
+                            Text(
+                                text = "$error\n下拉页面重试",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                            )
+                        }
+                    }
                     items(uiState.posts, key = { it.id }) { post ->
                         Card(
                             onClick = { onPostClick(post.id) },
@@ -537,7 +553,15 @@ fun MomentsScreen(
                     }
                 }
 
-                if (uiState.nextCursor != null) item(key = "more") { MomentsLoadStatus(uiState.isLoading, null, true, onRefresh, onLoadMore) }
+                if (uiState.posts.isNotEmpty() && uiState.nextCursor != null) {
+                    item(key = "more") {
+                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                            TextButton(onClick = onLoadMore, enabled = !uiState.isLoading) {
+                                Text("加载更多")
+                            }
+                        }
+                    }
+                }
                 // 底部系统手势栏安全留白
                 item(key = "bottom_spacer") {
                     Spacer(
@@ -692,13 +716,19 @@ private fun MomentsTopBar(
 }
 
 /**
- * 底部朋友圈动态空状态占位组件。
+ * 空列表的加载、错误与无动态状态。每次状态或账号变化时重新随机选择动画，重组时保持同一张。
  *
- * @param onPublish 点击快捷发布按钮回调
+ * @param isLoading 是否正在加载；加载进度统一由页面顶部下拉刷新指示器展示
+ * @param error 加载失败的用户提示，为 null 时表示无错误
+ * @param accountId 当前账号，用于切换账号时重新选择动画
+ * @param onPublish 无动态时点击快捷发布按钮触发
  * @param modifier 布局修饰符
  */
 @Composable
 private fun MomentsEmptyContent(
+    isLoading: Boolean,
+    error: String?,
+    accountId: String?,
     onPublish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -706,34 +736,25 @@ private fun MomentsEmptyContent(
         modifier =
         modifier
             .fillMaxWidth()
-            .padding(horizontal = 24.dp)
-            .padding(top = 44.dp, bottom = 64.dp)
+            .heightIn(min = 320.dp)
+            .padding(horizontal = 32.dp, vertical = 40.dp)
             .testTag("moments_empty_placeholder"),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainerHigh,
-            modifier = Modifier.size(80.dp),
-        ) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.DynamicFeed,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(40.dp),
-                )
-            }
-        }
+        AnimatedWebp(
+            seed = listOf(accountId, isLoading, error),
+            modifier = Modifier.size(140.dp),
+        )
 
         Spacer(modifier = Modifier.height(18.dp))
 
         Text(
-            text = "暂无朋友圈动态",
+            text = when {
+                isLoading -> "正在加载动态"
+                error != null -> "动态加载失败"
+                else -> "暂无朋友圈动态"
+            },
             style =
             MaterialTheme.typography.titleMedium.copy(
                 fontWeight = FontWeight.SemiBold,
@@ -745,7 +766,11 @@ private fun MomentsEmptyContent(
         Spacer(modifier = Modifier.height(8.dp))
 
         Text(
-            text = "轻触右上角相机，分享你的生活点滴与精彩瞬间",
+            text = when {
+                isLoading -> "稍等一下，生活点滴马上就来"
+                error != null -> "$error\n下拉页面重试"
+                else -> "轻触右上角相机，分享你的生活点滴与精彩瞬间"
+            },
             style =
             MaterialTheme.typography.bodyMedium.copy(
                 fontSize = 14.sp,
@@ -755,28 +780,29 @@ private fun MomentsEmptyContent(
             lineHeight = 20.sp,
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
-
-        OutlinedButton(
-            onClick = onPublish,
-            shape = RoundedCornerShape(20.dp),
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-            colors =
-            ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.primary,
-            ),
-            modifier = Modifier.testTag("moments_empty_publish_button"),
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.CameraAlt,
-                contentDescription = null,
-                modifier = Modifier.size(18.dp),
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "发布第一条动态",
-                fontWeight = FontWeight.Medium,
-            )
+        if (!isLoading && error == null) {
+            Spacer(modifier = Modifier.height(24.dp))
+            OutlinedButton(
+                onClick = onPublish,
+                shape = RoundedCornerShape(20.dp),
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
+                colors =
+                ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.primary,
+                ),
+                modifier = Modifier.testTag("moments_empty_publish_button"),
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CameraAlt,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp),
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "发布第一条动态",
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
     }
 }
