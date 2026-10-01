@@ -39,6 +39,7 @@ class MomentsViewModel(
     private val _uiState = MutableStateFlow(MomentsUiState(currentAccountId = storage.getCurrentAccountId(), username = MomentAccount.findById(storage.getCurrentAccountId()).name))
     val uiState = _uiState.asStateFlow()
     private var generation = 0
+    private var accountGeneration = 0
     private var refreshJob: Job? = null
     private var author: String? = null
     private var query: String? = null
@@ -49,12 +50,14 @@ class MomentsViewModel(
     private val liking = mutableSetOf<String>()
 
     fun reconnect(context: Context) {
+        accountGeneration++
         repository = MomentsConnection.repository(context.applicationContext)
         _uiState.update { it.copy(posts = emptyList(), avatarPath = null, coverPath = null, accounts = emptyList()) }
         refreshPosts()
     }
 
     fun switchAccount(account: MomentAccount, avatarPath: String? = null) {
+        accountGeneration++
         generation++
         refreshJob?.cancel()
         storage.saveCurrentAccountId(account.id)
@@ -97,6 +100,7 @@ class MomentsViewModel(
         val version = ++generation
         val actor = accountId
         if (_uiState.value.currentAccountId != actor) {
+            accountGeneration++
             val accounts = _uiState.value.accounts
             val profile = accounts.firstOrNull { it.id == actor }
             _uiState.value = MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(actor).name, avatarPath = profile?.avatarPath, coverPath = profile?.coverPath, accounts = accounts)
@@ -230,6 +234,26 @@ class MomentsViewModel(
 
     fun setAvatarFromUri(context: Context, uri: Uri) = setProfile(context, uri, false)
     fun setCoverFromUri(context: Context, uri: Uri) = setProfile(context, uri, true)
+
+    /** 恢复请求始终使用开始时的账号；切号或换服务后的迟到结果不能覆盖新页面。失败抛给菜单供重试。 */
+    suspend fun resetAvatar(): Boolean {
+        val actor = accountId
+        val api = repository
+        val version = accountGeneration
+        val profile = api.resetAvatar(actor)
+        if (actor != accountId || version != accountGeneration) return false
+        _uiState.update {
+            val accounts = if (it.accounts.any { account -> account.id == actor }) {
+                it.accounts.map { account -> if (account.id == actor) profile else account }
+            } else {
+                it.accounts + profile
+            }
+            it.copy(avatarPath = profile.avatarPath, coverPath = profile.coverPath, accounts = accounts, error = null)
+        }
+        refreshPosts()
+        return true
+    }
+
     private fun setProfile(context: Context, uri: Uri, cover: Boolean) = mutate { api, actor ->
         val file = copyMomentPhoto(context, uri)
         try {

@@ -44,6 +44,34 @@ def upload(actor="xiaobai", data=None, expected=200):
 
 
 class ApiTest(unittest.TestCase):
+    def test_reset_avatar_is_account_scoped_idempotent_and_preserves_cover(self):
+        call("DELETE", "/api/v1/me/avatar", actor=None, expected=401)
+        call("DELETE", "/api/v1/me/avatar", actor="unknown", expected=401)
+        avatar = upload()
+        cover = upload()
+        other_avatar = upload("xiaojimao")
+        call("PATCH", "/api/v1/me", {"avatar_id": avatar["id"], "cover_id": cover["id"]})
+        call("PATCH", "/api/v1/me", {"avatar_id": other_avatar["id"]}, actor="xiaojimao")
+        call("GET", f'/api/v1/media/{avatar["id"]}?account_id=xiaojimao')
+        call("PATCH", "/api/v1/me", {"avatar_id": avatar["id"]}, actor="xiaojimao", expected=400)
+        post = call("POST", "/api/v1/posts", {"request_id": str(uuid.uuid4()), "text": "头像同步", "visibility": "public"})
+        path = "/api/v1/posts/" + post["id"]
+        self.assertEqual(call("GET", path, actor="xiaojimao")["avatar_id"], avatar["id"])
+
+        for _ in range(2):
+            profile = call("DELETE", "/api/v1/me/avatar")
+            self.assertEqual(profile["id"], "xiaobai")
+            self.assertIsNone(profile["avatar_id"])
+            self.assertEqual(profile["cover_id"], cover["id"])
+        accounts = {a["id"]: a for a in call("GET", "/api/v1/accounts", actor=None)}
+        self.assertIsNone(accounts["xiaobai"]["avatar_id"])
+        self.assertEqual(accounts["xiaojimao"]["avatar_id"], other_avatar["id"])
+        self.assertIsNone(call("GET", path, actor="xiaojimao")["avatar_id"])
+        call("GET", f'/api/v1/media/{avatar["id"]}?account_id=xiaojimao', expected=404)
+        call("GET", f'/api/v1/media/{cover["id"]}?account_id=xiaojimao')
+        call("DELETE", path, expected=204)
+        call("DELETE", "/api/v1/me/avatar", actor="xiaojimao")
+
     def test_unlike_then_relike_creates_one_new_unread_notification(self):
         post = call("POST", "/api/v1/posts", {"request_id": str(uuid.uuid4()), "text": "重新点赞", "visibility": "public"})
         path = "/api/v1/posts/" + post["id"]

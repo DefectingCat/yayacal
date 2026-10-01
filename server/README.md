@@ -73,6 +73,7 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 | --- | --- | --- |
 | `/accounts` | GET | 两个固定账号及各自头像、封面 ID |
 | `/me` | PATCH | 更新 avatar_id 或 cover_id，图片必须属于当前账号 |
+| `/me/avatar` | DELETE | 清除当前账号的自定义头像，返回账号资料；重复调用安全，封面保持原样 |
 | `/media` | POST | multipart，单张 JPEG/PNG/WebP，最多 10 MiB、边长 12000 像素，解码内存受限 |
 | `/posts` | GET / POST | 分页查询 / 发布 |
 | `/posts/{id}` | GET / PATCH / DELETE | 详情 / 修改 visibility / 删除本人动态 |

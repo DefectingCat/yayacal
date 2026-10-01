@@ -54,6 +54,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/health", get(health))
         .route("/api/v1/accounts", get(accounts::list))
         .route("/api/v1/me", patch(accounts::update))
+        .route("/api/v1/me/avatar", delete(accounts::reset_avatar))
         .route(
             "/api/v1/media",
             post(media::upload).layer(DefaultBodyLimit::max(11 * 1024 * 1024)),

@@ -62,3 +62,13 @@ pub async fn update(
     tx.commit().await?;
     Ok(Json(account))
 }
+
+/// 清除当前账号的自定义头像；封面和其他账号的资料保持原样，重复调用仍返回默认状态。
+pub async fn reset_avatar(State(app): State<App>, Actor(actor): Actor) -> Result<Json<Account>> {
+    Ok(Json(
+        sqlx::query_as("UPDATE accounts SET avatar_id = NULL WHERE id = $1 RETURNING *")
+            .bind(actor)
+            .fetch_one(&app.db)
+            .await?,
+    ))
+}

@@ -1,6 +1,9 @@
+@file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package plus.rua.project.ui
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
@@ -42,11 +45,13 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +74,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.launch
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -94,7 +101,7 @@ import kotlin.time.Instant
  * @param onViewModeChange 点击右上角视图切换按钮时触发
  * @param onNotifications 点击右上角消息通知按钮时触发
  * @param onCoverClick 点击相册封面时触发（为 null 时默认切换封面展开状态）
- * @param onAvatarClick 点击头像时触发（默认从系统相册选取并设置头像）
+ * @param onAvatarClick 点击头像时触发（默认打开更换或恢复默认头像的操作菜单）
  * @param onPostClick 点击本人动态的缩略图或正文时触发，传递动态 ID
  * @param viewModel 朋友圈 ViewModel
  * @param modifier 布局修饰符
@@ -128,6 +135,11 @@ fun UserMomentsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var isCoverExpanded by remember { mutableStateOf(false) }
     val isOwnProfile = authorId == null || authorId == viewModel.accountId
+    var showAvatarActions by remember { mutableStateOf(false) }
+    var isRestoringAvatar by remember { mutableStateOf(false) }
+    var avatarError by remember { mutableStateOf<String?>(null) }
+    val avatarSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val coroutineScope = rememberCoroutineScope()
 
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
         viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId)
@@ -155,6 +167,40 @@ fun UserMomentsScreen(
                 isCoverExpanded = false
             }
         }
+
+    if (showAvatarActions && isOwnProfile) {
+        MomentsAvatarSheet(
+            sheetState = avatarSheetState,
+            isRestoring = isRestoringAvatar,
+            error = avatarError,
+            onChoosePhoto = {
+                photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+            },
+            onRestoreDefault = {
+                if (!isRestoringAvatar) {
+                    isRestoringAvatar = true
+                    avatarError = null
+                    coroutineScope.launch {
+                        try {
+                            if (viewModel.resetAvatar()) {
+                                avatarSheetState.hide()
+                                showAvatarActions = false
+                                Toast.makeText(context, "已恢复默认头像", Toast.LENGTH_SHORT).show()
+                            } else {
+                                avatarError = "账号已切换，请重新操作"
+                            }
+                        } catch (e: Exception) {
+                            if (e is CancellationException) throw e
+                            avatarError = e.message ?: "恢复失败，请重试"
+                        } finally {
+                            isRestoringAvatar = false
+                        }
+                    }
+                }
+            },
+            onDismiss = { showAvatarActions = false },
+        )
+    }
 
     UserMomentsScreen(
         uiState = uiState,
@@ -185,14 +231,12 @@ fun UserMomentsScreen(
         },
         onAvatarClick =
         onAvatarClick ?: {
-            photoPickerLauncher.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-            )
+            avatarError = null
+            showAvatarActions = true
         },
         onAvatarLongClick = {
-            photoPickerLauncher.launch(
-                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-            )
+            avatarError = null
+            showAvatarActions = true
         },
         onPostClick = onPostClick,
         modifier = modifier,

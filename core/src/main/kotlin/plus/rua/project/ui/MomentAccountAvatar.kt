@@ -1,14 +1,16 @@
 package plus.rua.project.ui
 
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import com.github.panpf.sketch.AsyncImage
+import com.github.panpf.sketch.rememberAsyncImageState
+import com.github.panpf.sketch.request.ImageOptions
+import com.github.panpf.sketch.request.error
+import com.github.panpf.sketch.request.placeholder
 import plus.rua.project.MomentAccount
 
 /**
@@ -21,20 +23,27 @@ import plus.rua.project.MomentAccount
 @Composable
 internal fun MomentAccountAvatar(account: MomentAccount, avatarPath: String?, modifier: Modifier = Modifier) {
     val uri = remember(avatarPath) { resolvePhotoUri(avatarPath) }
-    Box(modifier) {
+    if (uri == null) {
         Image(
             painter = painterResource(account.avatarResId),
-            contentDescription = if (uri == null) "${account.name} 头像" else null,
+            contentDescription = "${account.name} 头像",
             contentScale = ContentScale.Crop,
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier,
         )
-        if (uri != null) {
-            AsyncImage(
-                uri = uri,
-                contentDescription = "${account.name} 头像",
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.fillMaxSize(),
-            )
+    } else {
+        val options = remember(account.avatarResId) {
+            ImageOptions {
+                placeholder(account.avatarResId)
+                error(account.avatarResId)
+            }
         }
+        // 默认图只作为加载/失败占位，不能叠在透明 PNG/WebP 头像下方。
+        AsyncImage(
+            uri = uri,
+            state = rememberAsyncImageState(options = options),
+            contentDescription = "${account.name} 头像",
+            contentScale = ContentScale.Crop,
+            modifier = modifier,
+        )
     }
 }

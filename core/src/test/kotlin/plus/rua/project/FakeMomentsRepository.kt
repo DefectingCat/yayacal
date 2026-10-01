@@ -15,6 +15,8 @@ internal class FakeMomentsRepository : MomentsRepository {
     val notes = mutableMapOf<String, List<MomentNotification>>()
     val read = mutableListOf<Pair<String, List<String>>>()
     var profiles = listOf(MomentPerson("xiaobai", "小白"), MomentPerson("xiaojimao", "小鸡毛"))
+    val avatarResets = mutableListOf<String>()
+    var resetAvatarRequest: (suspend (String) -> MomentPerson)? = null
     override suspend fun accounts(actor: String) = profiles
     override suspend fun posts(actor: String, author: String?, query: String?, cursor: String?) = load?.invoke(actor, author, query, cursor) ?: MomentsPage(posts.filter { author == null || it.authorId == author })
     override suspend fun post(actor: String, id: String) = posts.firstOrNull { it.id == id } ?: throw MomentsApiException(404, "不存在")
@@ -29,6 +31,13 @@ internal class FakeMomentsRepository : MomentsRepository {
         return UUID.randomUUID().toString()
     }
     override suspend fun profile(actor: String, media: String, cover: Boolean) = Unit
+    override suspend fun resetAvatar(actor: String): MomentPerson {
+        avatarResets += actor
+        resetAvatarRequest?.let { return it(actor) }
+        val profile = profiles.first { it.id == actor }.copy(avatarPath = null)
+        profiles = profiles.map { if (it.id == actor) profile else it }
+        return profile
+    }
     override suspend fun like(actor: String, id: String, liked: Boolean) {
         posts = posts.map { if (it.id == id) it.copy(isLikedByMe = liked) else it }
     }

@@ -5,6 +5,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -33,6 +34,62 @@ class MomentsViewModelTest {
 
     @After fun after() {
         Dispatchers.resetMain()
+    }
+
+    @Test fun resetAvatar_updatesCurrentProfile_andKeepsCoverAndOtherAccount() = runTest(dispatcher) {
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "white-avatar", "white-cover"), MomentPerson("xiaojimao", "小鸡毛", "chicken-avatar"))
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+
+        assertTrue(vm.resetAvatar())
+
+        assertEquals(null, vm.uiState.value.avatarPath)
+        assertEquals("white-cover", vm.uiState.value.coverPath)
+        assertEquals("chicken-avatar", vm.uiState.value.accounts.first { it.id == "xiaojimao" }.avatarPath)
+        assertEquals(listOf("xiaobai"), repository.avatarResets)
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.accounts.first { it.id == "xiaobai" }.avatarPath)
+    }
+
+    @Test fun resetAvatar_switchAwayAndBack_rejectsLateResult() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentPerson>()
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "white-avatar"), MomentPerson("xiaojimao", "小鸡毛", "chicken-avatar"))
+        repository.resetAvatarRequest = { response.await() }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        val result = async { vm.resetAvatar() }
+        runCurrent()
+
+        vm.switchAccount(MomentAccount.ACCOUNT_XIAOJIMAO)
+        advanceUntilIdle()
+        assertEquals("chicken-avatar", vm.uiState.value.avatarPath)
+        repository.profiles = repository.profiles.map { if (it.id == "xiaobai") it.copy(avatarPath = "new-white-avatar") else it }
+        vm.switchAccount(MomentAccount.ACCOUNT_XIAOBAI)
+        advanceUntilIdle()
+        response.complete(MomentPerson("xiaobai", "小白"))
+        assertFalse(result.await())
+        assertEquals("new-white-avatar", vm.uiState.value.avatarPath)
+        assertEquals(listOf("xiaobai"), repository.avatarResets)
+    }
+
+    @Test fun resetAvatar_failure_preservesProfile_andCanRetry() = runTest(dispatcher) {
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "white-avatar", "white-cover"), MomentPerson("xiaojimao", "小鸡毛"))
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        repository.resetAvatarRequest = { throw IOException("网络超时") }
+
+        val error = runCatching { vm.resetAvatar() }.exceptionOrNull()
+
+        assertEquals("网络超时", error?.message)
+        assertEquals("white-avatar", vm.uiState.value.avatarPath)
+        assertEquals("white-cover", vm.uiState.value.coverPath)
+        repository.resetAvatarRequest = null
+        assertTrue(vm.resetAvatar())
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.avatarPath)
     }
 
     @Test fun switchAccount_usesFetchedAvatarBeforeReload_andRetainsAccountProfiles() = runTest(dispatcher) {

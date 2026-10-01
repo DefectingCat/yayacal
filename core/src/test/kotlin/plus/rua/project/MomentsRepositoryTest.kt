@@ -11,6 +11,32 @@ import kotlin.test.assertTrue
 /** 在真实 HTTP 上验证 DTO 映射、请求身份和错误响应，避免只测试假仓库。 */
 class MomentsRepositoryTest {
     @Test
+    fun resetAvatar_usesDeleteAndCapturedActor_andMapsDefaultWithoutChangingCover() = runTest {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        var actor: String? = null
+        var method = ""
+        server.createContext("/api/v1/me/avatar") { exchange ->
+            actor = exchange.requestHeaders.getFirst("X-Account-ID")
+            method = exchange.requestMethod
+            val json = """{"id":"xiaobai","name":"小白","avatar_id":null,"cover_id":"cover"}""".toByteArray()
+            exchange.sendResponseHeaders(200, json.size.toLong())
+            exchange.responseBody.use { it.write(json) }
+            exchange.close()
+        }
+        server.start()
+        try {
+            val baseUrl = "http://127.0.0.1:${server.address.port}"
+            val profile = HttpMomentsRepository(baseUrl) { "default:$it" }.resetAvatar("xiaobai")
+            assertEquals("DELETE", method)
+            assertEquals("xiaobai", actor)
+            assertEquals("default:xiaobai", profile.avatarPath)
+            assertEquals("$baseUrl/api/v1/media/cover?account_id=xiaobai", profile.coverPath)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun accounts_usesRemoteAvatar_andFallsBackToAccountDefault() = runTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         server.createContext("/api/v1/accounts") { exchange ->

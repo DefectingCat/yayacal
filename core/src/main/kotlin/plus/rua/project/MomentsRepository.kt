@@ -34,6 +34,9 @@ interface MomentsRepository {
     suspend fun publish(actor: String, requestId: String, text: String, media: List<String>, visibility: String, location: String?, address: String?): MomentPost
     suspend fun upload(actor: String, file: File): String
     suspend fun profile(actor: String, media: String, cover: Boolean)
+
+    /** 清除当前账号的自定义头像，返回带内置默认头像路径的最新资料。 */
+    suspend fun resetAvatar(actor: String): MomentPerson
     suspend fun like(actor: String, id: String, liked: Boolean)
     suspend fun deletePost(actor: String, id: String)
     suspend fun visibility(actor: String, id: String, visibility: String)
@@ -143,6 +146,7 @@ class HttpMomentsRepository(
     override suspend fun profile(actor: String, media: String, cover: Boolean) {
         request(actor, "PATCH", "/me", body((if (cover) "cover_id" else "avatar_id") to media))
     }
+    override suspend fun resetAvatar(actor: String): MomentPerson = person(JSONObject(request(actor, "DELETE", "/me/avatar")), actor)
     override suspend fun like(actor: String, id: String, liked: Boolean) {
         request(actor, if (liked) "PUT" else "DELETE", "/posts/$id/like", if (liked) "".toRequestBody() else null)
     }
