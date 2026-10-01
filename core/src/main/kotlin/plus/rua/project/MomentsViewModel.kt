@@ -27,6 +27,7 @@ data class MomentsUiState(
     val unreadCount: Int = 0,
     val unavailable: Boolean = false,
     val searchQuery: String = "",
+    val accounts: List<MomentPerson> = emptyList(),
 )
 
 /** 朋友圈网络状态。请求捕获账号和加载版本，迟到结果不能覆盖切号后的页面。 */
@@ -49,7 +50,7 @@ class MomentsViewModel(
 
     fun reconnect(context: Context) {
         repository = MomentsConnection.repository(context.applicationContext)
-        _uiState.update { it.copy(posts = emptyList(), avatarPath = null, coverPath = null) }
+        _uiState.update { it.copy(posts = emptyList(), avatarPath = null, coverPath = null, accounts = emptyList()) }
         refreshPosts()
     }
 
@@ -57,7 +58,15 @@ class MomentsViewModel(
         generation++
         refreshJob?.cancel()
         storage.saveCurrentAccountId(account.id)
-        _uiState.value = MomentsUiState(currentAccountId = account.id, username = account.name, avatarPath = avatarPath)
+        val accounts = _uiState.value.accounts
+        val profile = accounts.firstOrNull { it.id == account.id }
+        _uiState.value = MomentsUiState(
+            currentAccountId = account.id,
+            username = account.name,
+            avatarPath = profile?.avatarPath ?: avatarPath,
+            coverPath = profile?.coverPath,
+            accounts = accounts,
+        )
         author = null
         query = null
         detailId = null
@@ -88,7 +97,9 @@ class MomentsViewModel(
         val version = ++generation
         val actor = accountId
         if (_uiState.value.currentAccountId != actor) {
-            _uiState.value = MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(actor).name)
+            val accounts = _uiState.value.accounts
+            val profile = accounts.firstOrNull { it.id == actor }
+            _uiState.value = MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(actor).name, avatarPath = profile?.avatarPath, coverPath = profile?.coverPath, accounts = accounts)
         }
         val api = repository
         val id = detailId
@@ -98,7 +109,12 @@ class MomentsViewModel(
         _uiState.update { it.copy(isLoading = true, error = null, unavailable = false) }
         refreshJob = viewModelScope.launch {
             try {
-                val profile = api.accounts(actor).first { it.id == (selectedAuthor ?: actor) }
+                val accounts = api.accounts(actor)
+                val profile = accounts.first { it.id == (selectedAuthor ?: actor) }
+                // 账号资料不依赖动态列表成功，断网重试时选择页仍可使用已获取的头像。
+                if (version == generation && actor == accountId) {
+                    _uiState.update { it.copy(accounts = accounts, username = profile.name, avatarPath = profile.avatarPath, coverPath = profile.coverPath) }
+                }
                 var commentsCursor: String? = null
                 val page = if (id == null) {
                     api.posts(actor, selectedAuthor, keyword, cursor)

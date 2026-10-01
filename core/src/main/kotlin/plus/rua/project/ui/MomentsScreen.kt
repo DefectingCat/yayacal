@@ -11,7 +11,6 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -84,7 +83,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
@@ -169,6 +167,8 @@ fun MomentsScreen(
     var isAccountSelected by remember { mutableStateOf(storage.getCurrentAccountId() != null) }
     var isTransitioning by remember { mutableStateOf(false) }
     var animatingAccount by remember { mutableStateOf<MomentAccount?>(null) }
+    var animatingAvatarPath by remember { mutableStateOf<String?>(null) }
+    val avatarPaths = remember(uiState.accounts) { uiState.accounts.associate { it.id to it.avatarPath } }
     val animProgress = remember { Animatable(if (isAccountSelected) 1f else 0f) }
 
     val accountBoundsMap = remember { mutableStateMapOf<String, Rect>() }
@@ -204,6 +204,8 @@ fun MomentsScreen(
     fun animateAccountTransition(account: MomentAccount, toFeed: Boolean) {
         if (!isTransitioning) {
             animatingAccount = account
+            // 动画开始时固定图片，避免后台资料刷新使飞行中的头像突然变化。
+            animatingAvatarPath = avatarPaths[account.id]
             isTransitioning = true
             isAccountSelected = false
             coroutineScope.launch {
@@ -219,6 +221,7 @@ fun MomentsScreen(
                 isAccountSelected = toFeed
                 isTransitioning = false
                 animatingAccount = null
+                animatingAvatarPath = null
             }
         }
     }
@@ -306,6 +309,7 @@ fun MomentsScreen(
                 }
             MomentsAccountSelectScreen(
                 currentAccountId = storage.getCurrentAccountId(),
+                avatarPaths = avatarPaths,
                 animatingAccountId = if (isTransitioning) animatingAccount?.id else null,
                 onAccountClick = onSelectAccount,
                 onAccountPositioned = { account, rect ->
@@ -373,10 +377,9 @@ fun MomentsScreen(
                     )
                     .clip(RoundedCornerShape(cornerRadius)),
             ) {
-                Image(
-                    painter = painterResource(account.avatarResId),
-                    contentDescription = "${account.name} 头像",
-                    contentScale = ContentScale.Crop,
+                MomentAccountAvatar(
+                    account = account,
+                    avatarPath = animatingAvatarPath,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

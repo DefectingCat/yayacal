@@ -35,6 +35,35 @@ class MomentsViewModelTest {
         Dispatchers.resetMain()
     }
 
+    @Test fun switchAccount_usesFetchedAvatarBeforeReload_andRetainsAccountProfiles() = runTest(dispatcher) {
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "white-avatar"), MomentPerson("xiaojimao", "小鸡毛", "chicken-avatar"))
+        repository.posts = listOf(MomentPost(id = "private-a", authorId = "xiaobai", visibility = "私密"))
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+
+        vm.switchAccount(MomentAccount.ACCOUNT_XIAOJIMAO, "built-in-avatar")
+
+        assertEquals("chicken-avatar", vm.uiState.value.avatarPath)
+        assertEquals(repository.profiles, vm.uiState.value.accounts)
+        assertTrue(vm.uiState.value.posts.isEmpty())
+        advanceUntilIdle()
+        assertEquals("chicken-avatar", vm.uiState.value.avatarPath)
+    }
+
+    @Test fun refresh_timelineFails_keepsFetchedAccountAvatars() = runTest(dispatcher) {
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "white-avatar"), MomentPerson("xiaojimao", "小鸡毛", "chicken-avatar"))
+        repository.load = { _, _, _, _ -> throw IOException("动态加载失败") }
+        val vm = MomentsViewModel(storage, repository)
+
+        vm.refreshPosts()
+        advanceUntilIdle()
+
+        assertEquals(repository.profiles, vm.uiState.value.accounts)
+        assertEquals("white-avatar", vm.uiState.value.avatarPath)
+        assertEquals("动态加载失败", vm.uiState.value.error)
+    }
+
     @Test fun externalAccountChange_refreshImmediatelyDropsPreviousPrivateData() = runTest(dispatcher) {
         repository.posts = listOf(MomentPost(id = "private-a", authorId = "xiaobai", visibility = "私密"))
         val vm = MomentsViewModel(storage, repository)

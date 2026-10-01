@@ -3,7 +3,6 @@ package plus.rua.project.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -43,11 +42,9 @@ import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -62,6 +59,7 @@ import plus.rua.project.MomentAccount
  * @param animatingAccountId 正在播放位移动画的账号 ID，动画期间隐藏该项静态头像
  * @param onAccountClick 点击某个账号时触发，传入选中的 [MomentAccount]
  * @param onAccountPositioned 账号头像完成布局定位后触发，传递其在根视图中的坐标矩形
+ * @param avatarPaths 按账号 ID 提供的头像路径；未获取资料时使用该账号内置头像
  * @param onBack 点击顶部返回按钮时触发
  * @param modifier 外部布局修饰符
  */
@@ -73,6 +71,7 @@ fun MomentsAccountSelectScreen(
     accounts: List<MomentAccount> = MomentAccount.ALL_ACCOUNTS,
     animatingAccountId: String? = null,
     onAccountPositioned: (account: MomentAccount, bounds: Rect) -> Unit = { _, _ -> },
+    avatarPaths: Map<String, String?> = emptyMap(),
     modifier: Modifier = Modifier,
 ) {
     Box(
@@ -146,6 +145,7 @@ fun MomentsAccountSelectScreen(
 
                 AccountItem(
                     account = account,
+                    avatarPath = avatarPaths[account.id],
                     isCurrent = account.id == currentAccountId,
                     isAnimating = account.id == animatingAccountId,
                     onClick = { onAccountClick(account) },
@@ -162,6 +162,7 @@ fun MomentsAccountSelectScreen(
 @Composable
 private fun AccountItem(
     account: MomentAccount,
+    avatarPath: String?,
     isCurrent: Boolean,
     isAnimating: Boolean,
     onClick: () -> Unit,
@@ -211,10 +212,9 @@ private fun AccountItem(
                     .clip(RoundedCornerShape(12.dp))
                     .alpha(if (isAnimating) 0f else 1f),
             ) {
-                Image(
-                    painter = painterResource(account.avatarResId),
-                    contentDescription = "${account.name} 头像",
-                    contentScale = ContentScale.Crop,
+                MomentAccountAvatar(
+                    account = account,
+                    avatarPath = avatarPath,
                     modifier = Modifier.fillMaxSize(),
                 )
             }

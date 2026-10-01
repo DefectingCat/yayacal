@@ -14,7 +14,8 @@ internal class FakeMomentsRepository : MomentsRepository {
     val uploads = mutableListOf<String>()
     val notes = mutableMapOf<String, List<MomentNotification>>()
     val read = mutableListOf<Pair<String, List<String>>>()
-    override suspend fun accounts(actor: String) = listOf(MomentPerson("xiaobai", "小白"), MomentPerson("xiaojimao", "小鸡毛"))
+    var profiles = listOf(MomentPerson("xiaobai", "小白"), MomentPerson("xiaojimao", "小鸡毛"))
+    override suspend fun accounts(actor: String) = profiles
     override suspend fun posts(actor: String, author: String?, query: String?, cursor: String?) = load?.invoke(actor, author, query, cursor) ?: MomentsPage(posts.filter { author == null || it.authorId == author })
     override suspend fun post(actor: String, id: String) = posts.firstOrNull { it.id == id } ?: throw MomentsApiException(404, "不存在")
     override suspend fun publish(actor: String, requestId: String, text: String, media: List<String>, visibility: String, location: String?, address: String?): MomentPost {

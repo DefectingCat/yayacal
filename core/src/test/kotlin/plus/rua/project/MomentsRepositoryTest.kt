@@ -11,6 +11,28 @@ import kotlin.test.assertTrue
 /** 在真实 HTTP 上验证 DTO 映射、请求身份和错误响应，避免只测试假仓库。 */
 class MomentsRepositoryTest {
     @Test
+    fun accounts_usesRemoteAvatar_andFallsBackToAccountDefault() = runTest {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/v1/accounts") { exchange ->
+            val json = """[{"id":"xiaobai","name":"小白","avatar_id":"custom","cover_id":null},
+                {"id":"xiaojimao","name":"小鸡毛","avatar_id":null,"cover_id":null}]""".toByteArray()
+            exchange.sendResponseHeaders(200, json.size.toLong())
+            exchange.responseBody.use { it.write(json) }
+            exchange.close()
+        }
+        server.start()
+        try {
+            val baseUrl = "http://127.0.0.1:${server.address.port}"
+            val api = HttpMomentsRepository(baseUrl) { "default:$it" }
+            val accounts = api.accounts("xiaojimao")
+            assertEquals("$baseUrl/api/v1/media/custom?account_id=xiaojimao", accounts[0].avatarPath)
+            assertEquals("default:xiaojimao", accounts[1].avatarPath)
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun remotePost_preservesAuthorLikesReplyAndMediaIdentity() = runTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         var actor: String? = null
