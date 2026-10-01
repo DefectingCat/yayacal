@@ -1,8 +1,6 @@
 package plus.rua.project
 
 import android.content.SharedPreferences
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.number
 import plus.rua.project.ShiftKind
@@ -10,6 +8,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 private class FixedClock(
     private val instant: Instant,

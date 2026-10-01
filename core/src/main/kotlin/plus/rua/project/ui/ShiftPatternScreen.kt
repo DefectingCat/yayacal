@@ -46,7 +46,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.atStartOfDayIn
@@ -55,6 +54,7 @@ import plus.rua.project.CalendarViewModel
 import plus.rua.project.ShiftKind
 import plus.rua.project.ShiftPattern
 import plus.rua.project.ShiftPatternStorage
+import kotlin.time.Instant
 
 /**
  * 班次设置页。照抄 DateCheckerScreen 的 storage 创建 + 自动存盘模式。

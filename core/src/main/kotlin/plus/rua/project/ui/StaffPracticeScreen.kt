@@ -40,9 +40,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material3.Button
@@ -1122,7 +1122,7 @@ private fun OctaveExplorer(
                 onClick = { currentOnSelect(StaffNote((selected.step - 1).coerceAtLeast(-14))) },
             ) {
                 Icon(
-                    imageVector = Icons.Filled.KeyboardArrowLeft,
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                     contentDescription = "更低的音",
                 )
             }
@@ -1153,7 +1153,7 @@ private fun OctaveExplorer(
                 onClick = { currentOnSelect(StaffNote((selected.step + 1).coerceAtMost(14))) },
             ) {
                 Icon(
-                    imageVector = Icons.Filled.KeyboardArrowRight,
+                    imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = "更高的音",
                 )
             }

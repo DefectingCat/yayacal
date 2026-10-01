@@ -29,13 +29,13 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Code
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -470,7 +470,7 @@ private fun LicenseItemCard(
                             shape = RoundedCornerShape(8.dp),
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.OpenInNew,
+                                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
                             )

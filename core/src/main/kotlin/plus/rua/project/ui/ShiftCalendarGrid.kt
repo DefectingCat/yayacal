@@ -49,7 +49,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import kotlinx.datetime.DatePeriod
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
@@ -65,6 +64,7 @@ import plus.rua.project.ShiftKind
 import plus.rua.project.ShiftPattern
 import kotlin.math.abs
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * 班次设置页用的迷你月历。点某天翻转班/休(仅当天),长按翻转并从次日起重排周期。

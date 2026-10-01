@@ -1,11 +1,11 @@
 package plus.rua.project
 
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import org.junit.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * [ConfessionChecker] 的纯 JVM 单测。

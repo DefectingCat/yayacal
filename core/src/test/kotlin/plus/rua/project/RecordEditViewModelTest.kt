@@ -8,7 +8,6 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import java.io.File
 import kotlin.test.AfterTest
@@ -17,6 +16,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * 新建记录标题预填与拍摄日期联动的单元测试。

@@ -2,8 +2,8 @@ package plus.rua.project
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 
 /**
  * 日期记录器的一条记录。

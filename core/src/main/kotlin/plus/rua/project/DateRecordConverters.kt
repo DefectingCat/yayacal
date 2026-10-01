@@ -1,11 +1,11 @@
 package plus.rua.project
 
 import androidx.room.TypeConverter
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
+import kotlin.time.Instant
 
 /**
- * Room 的 kotlinx-datetime 类型转换器。
+ * Room 的日期与时间类型转换器。
  *
  * Room 默认不识别 [LocalDate] 与 [Instant]，这里统一以 ISO 字符串持久化：
  * - [LocalDate] → "2026-07-17"

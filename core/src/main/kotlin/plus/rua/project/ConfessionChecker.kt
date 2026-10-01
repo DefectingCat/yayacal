@@ -21,6 +21,6 @@ class ConfessionChecker(
 
     companion object {
         /** 判断指定公历日期是否为表白日（11 月 4 日）。 */
-        fun isConfession(date: LocalDate): Boolean = date.month.number == 11 && date.dayOfMonth == 4
+        fun isConfession(date: LocalDate): Boolean = date.month.number == 11 && date.day == 4
     }
 }

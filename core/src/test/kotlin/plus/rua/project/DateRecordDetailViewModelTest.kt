@@ -10,7 +10,6 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import java.io.File
 import kotlin.test.AfterTest
@@ -21,6 +20,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * [DateRecordDetailViewModel] 的状态加载与删除功能单元测试。

@@ -21,6 +21,6 @@ class BirthdayChecker(
 
     companion object {
         /** 判断指定公历日期是否为生日（9 月 4 日）。 */
-        fun isBirthday(date: LocalDate): Boolean = date.month.number == 9 && date.dayOfMonth == 4
+        fun isBirthday(date: LocalDate): Boolean = date.month.number == 9 && date.day == 4
     }
 }

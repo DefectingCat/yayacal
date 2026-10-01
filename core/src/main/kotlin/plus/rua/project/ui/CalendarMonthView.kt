@@ -101,7 +101,6 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.Month
 import kotlinx.datetime.TimeZone
@@ -117,6 +116,7 @@ import plus.rua.project.composeTraceBeginSection
 import plus.rua.project.composeTraceEndSection
 import kotlin.math.abs
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * 日历主界面，包含月/周视图切换、折叠动画和年视图转场。

@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import java.io.File
 import kotlin.test.AfterTest
@@ -15,6 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /**
  * [DateRecorderRepository] 照片文件管理与孤立清理功能的单元测试。

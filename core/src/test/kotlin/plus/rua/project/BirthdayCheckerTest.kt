@@ -1,11 +1,11 @@
 package plus.rua.project
 
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * [BirthdayChecker] 的纯 JVM 单测。

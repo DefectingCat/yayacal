@@ -1,9 +1,9 @@
 package plus.rua.project
 
-import kotlinx.datetime.Instant
 import kotlinx.datetime.LocalDate
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Instant
 
 /**
  * 日期记录器排序逻辑单元测试。
