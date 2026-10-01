@@ -41,14 +41,32 @@ else
         exit 1
     fi
     serial="emulator-5554"
+    command -v python3 >/dev/null || { echo "找不到 python3，无法在独立会话中启动模拟器。" >&2; exit 1; }
     mkdir -p "$project_root/logs"
     echo "启动 ${avd}：硬件加速、4 核、2 GiB 内存、冷启动。日志：${log_file}"
-    # 防止终端遗留的 HTTP 代理接管模拟器所有 TCP 流量。
-    nohup env -u http_proxy -u https_proxy -u all_proxy -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY \
-        "$emulator" -avd "$avd" -port 5554 -no-snapshot -no-boot-anim \
-        -gpu host -accel on -cores 4 -memory 2048 -partition-size 2048 \
-        </dev/null >"$log_file" 2>&1 &
-    launch_pid=$!
+    # 独立会话避免终端退出时连带回收模拟器；同时清除会接管所有 TCP 流量的代理。
+    launch_pid="$(python3 - "$emulator" "$avd" "$log_file" <<'PY'
+import os
+import subprocess
+import sys
+
+emulator, avd, log_file = sys.argv[1:]
+environment = os.environ.copy()
+for key in ("http_proxy", "https_proxy", "all_proxy", "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY"):
+    environment.pop(key, None)
+with open(log_file, "wb") as output:
+    process = subprocess.Popen(
+        [emulator, "-avd", avd, "-port", "5554", "-no-snapshot", "-no-boot-anim",
+         "-gpu", "host", "-accel", "on", "-cores", "4", "-memory", "2048", "-partition-size", "2048"],
+        stdin=subprocess.DEVNULL,
+        stdout=output,
+        stderr=subprocess.STDOUT,
+        env=environment,
+        start_new_session=True,
+    )
+    print(process.pid)
+PY
+)"
 fi
 
 deadline=$((SECONDS + 120))
