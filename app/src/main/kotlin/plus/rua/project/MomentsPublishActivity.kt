@@ -2,6 +2,7 @@ package plus.rua.project
 
 import android.os.Bundle
 import androidx.activity.compose.setContent
+import plus.rua.project.ui.MomentsNetworkPermission
 import plus.rua.project.ui.MomentsPublishScreen
 import plus.rua.project.ui.theme.YaYaTheme
 
@@ -20,11 +21,13 @@ class MomentsPublishActivity : BaseActivity() {
 
         setContent {
             YaYaTheme {
-                MomentsPublishScreen(
-                    initialVisibility = visibility,
-                    onCancel = { finishWithSlideBack() },
-                    onPublishedSuccess = { finishWithSlideBack() },
-                )
+                MomentsNetworkPermission(onBack = { finishWithSlideBack() }, content = {
+                    MomentsPublishScreen(
+                        initialVisibility = visibility,
+                        onCancel = { finishWithSlideBack() },
+                        onPublishedSuccess = { finishWithSlideBack() },
+                    )
+                })
             }
         }
     }

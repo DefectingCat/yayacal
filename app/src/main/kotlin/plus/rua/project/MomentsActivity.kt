@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import plus.rua.project.ui.MomentsNav
+import plus.rua.project.ui.MomentsNetworkPermission
 import plus.rua.project.ui.MomentsScreen
 import plus.rua.project.ui.theme.YaYaTheme
 
@@ -16,33 +17,35 @@ class MomentsActivity : BaseActivity() {
 
         setContent {
             YaYaTheme {
-                MomentsScreen(
-                    onBack = { finishWithSlideBack() },
-                    onAvatarClick = {
-                        startActivityWithSlide(Intent(this, UserMomentsActivity::class.java))
-                    },
-                    onPublish = {
-                        startActivityWithSlide(Intent(this, MomentsPublishActivity::class.java))
-                    },
-                    onAuthorClick = { authorId ->
-                        startActivityWithSlide(Intent(this, UserMomentsActivity::class.java).apply { putExtra(MomentsNav.EXTRA_AUTHOR_ID, authorId) })
-                    },
-                    onPostClick = { postId ->
-                        startActivityWithSlide(
-                            Intent(this, MomentsDetailActivity::class.java).apply {
-                                putExtra(MomentsNav.EXTRA_POST_ID, postId)
-                            },
-                        )
-                    },
-                    onCommentClick = { postId ->
-                        startActivityWithSlide(
-                            Intent(this, MomentsDetailActivity::class.java).apply {
-                                putExtra(MomentsNav.EXTRA_POST_ID, postId)
-                                putExtra(MomentsNav.EXTRA_FOCUS_COMMENT, true)
-                            },
-                        )
-                    },
-                )
+                MomentsNetworkPermission(onBack = { finishWithSlideBack() }, content = {
+                    MomentsScreen(
+                        onBack = { finishWithSlideBack() },
+                        onAvatarClick = {
+                            startActivityWithSlide(Intent(this, UserMomentsActivity::class.java))
+                        },
+                        onPublish = {
+                            startActivityWithSlide(Intent(this, MomentsPublishActivity::class.java))
+                        },
+                        onAuthorClick = { authorId ->
+                            startActivityWithSlide(Intent(this, UserMomentsActivity::class.java).apply { putExtra(MomentsNav.EXTRA_AUTHOR_ID, authorId) })
+                        },
+                        onPostClick = { postId ->
+                            startActivityWithSlide(
+                                Intent(this, MomentsDetailActivity::class.java).apply {
+                                    putExtra(MomentsNav.EXTRA_POST_ID, postId)
+                                },
+                            )
+                        },
+                        onCommentClick = { postId ->
+                            startActivityWithSlide(
+                                Intent(this, MomentsDetailActivity::class.java).apply {
+                                    putExtra(MomentsNav.EXTRA_POST_ID, postId)
+                                    putExtra(MomentsNav.EXTRA_FOCUS_COMMENT, true)
+                                },
+                            )
+                        },
+                    )
+                })
             }
         }
     }

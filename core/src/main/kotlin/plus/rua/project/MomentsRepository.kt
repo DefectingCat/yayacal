@@ -53,7 +53,7 @@ class MomentsApiException(val status: Int, message: String) : IOException(messag
 
 /** 连接地址与选中身份属于本机偏好，历史本地动态保持原样，避免猜测作者后误导入。 */
 object MomentsConnection {
-    private const val PREFS = "moments_connection"
+    internal const val PREFS = "moments_connection"
     fun url(context: Context): String = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         .getString("url", if (BuildConfig.DEBUG) "http://10.0.2.2:8088" else "")!!.trimEnd('/')
 

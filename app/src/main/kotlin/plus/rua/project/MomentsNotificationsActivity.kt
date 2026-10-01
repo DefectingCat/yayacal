@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import plus.rua.project.ui.MomentsNav
+import plus.rua.project.ui.MomentsNetworkPermission
 import plus.rua.project.ui.MomentsNotificationsScreen
 import plus.rua.project.ui.theme.YaYaTheme
 
@@ -17,12 +18,14 @@ class MomentsNotificationsActivity : BaseActivity() {
 
         setContent {
             YaYaTheme {
-                MomentsNotificationsScreen(
-                    onBack = { finishWithSlideBack() },
-                    onPostClick = { postId ->
-                        startActivityWithSlide(Intent(this, MomentsDetailActivity::class.java).apply { putExtra(MomentsNav.EXTRA_POST_ID, postId) })
-                    },
-                )
+                MomentsNetworkPermission(onBack = { finishWithSlideBack() }, content = {
+                    MomentsNotificationsScreen(
+                        onBack = { finishWithSlideBack() },
+                        onPostClick = { postId ->
+                            startActivityWithSlide(Intent(this, MomentsDetailActivity::class.java).apply { putExtra(MomentsNav.EXTRA_POST_ID, postId) })
+                        },
+                    )
+                })
             }
         }
     }

@@ -5,6 +5,7 @@ import android.os.Bundle
 import androidx.activity.compose.setContent
 import plus.rua.project.ui.MomentsAlbumScreen
 import plus.rua.project.ui.MomentsNav
+import plus.rua.project.ui.MomentsNetworkPermission
 import plus.rua.project.ui.theme.YaYaTheme
 
 /**
@@ -16,17 +17,19 @@ class MomentsAlbumActivity : BaseActivity() {
 
         setContent {
             YaYaTheme {
-                MomentsAlbumScreen(
-                    authorId = intent.getStringExtra(MomentsNav.EXTRA_AUTHOR_ID),
-                    onBack = { finishWithSlideBack() },
-                    onPostClick = { postId ->
-                        startActivityWithSlide(
-                            Intent(this, MomentsDetailActivity::class.java).apply {
-                                putExtra(MomentsNav.EXTRA_POST_ID, postId)
-                            },
-                        )
-                    },
-                )
+                MomentsNetworkPermission(onBack = { finishWithSlideBack() }, content = {
+                    MomentsAlbumScreen(
+                        authorId = intent.getStringExtra(MomentsNav.EXTRA_AUTHOR_ID),
+                        onBack = { finishWithSlideBack() },
+                        onPostClick = { postId ->
+                            startActivityWithSlide(
+                                Intent(this, MomentsDetailActivity::class.java).apply {
+                                    putExtra(MomentsNav.EXTRA_POST_ID, postId)
+                                },
+                            )
+                        },
+                    )
+                })
             }
         }
     }
