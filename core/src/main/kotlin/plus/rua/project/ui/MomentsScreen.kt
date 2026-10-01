@@ -725,14 +725,16 @@ private fun MomentsTopBar(
  * @param error 加载失败的用户提示，为 null 时表示无错误
  * @param accountId 当前账号，用于切换账号时重新选择动画
  * @param onPublish 无动态时点击快捷发布按钮触发
+ * @param canPublish 是否展示快捷发布入口，查看他人主页时关闭
  * @param modifier 布局修饰符
  */
 @Composable
-private fun MomentsEmptyContent(
+internal fun MomentsEmptyContent(
     isLoading: Boolean,
     error: String?,
     accountId: String?,
     onPublish: () -> Unit,
+    canPublish: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
     Column(
@@ -772,7 +774,7 @@ private fun MomentsEmptyContent(
             text = when {
                 isLoading -> "稍等一下，生活点滴马上就来"
                 error != null -> "$error\n下拉页面重试"
-                else -> "轻触右上角相机，分享你的生活点滴与精彩瞬间"
+                else -> "生活点滴与精彩瞬间，值得记录与分享"
             },
             style =
             MaterialTheme.typography.bodyMedium.copy(
@@ -783,7 +785,7 @@ private fun MomentsEmptyContent(
             lineHeight = 20.sp,
         )
 
-        if (!isLoading && error == null) {
+        if (canPublish && !isLoading && error == null) {
             Spacer(modifier = Modifier.height(24.dp))
             OutlinedButton(
                 onClick = onPublish,

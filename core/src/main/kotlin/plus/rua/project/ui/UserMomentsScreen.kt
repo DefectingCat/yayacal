@@ -45,6 +45,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -244,10 +246,10 @@ fun UserMomentsScreen(
 }
 
 /**
- * 个人朋友圈相册视图无状态内容组件。
+ * 个人朋友圈相册视图无状态内容组件，空列表的加载、错误与无动态状态复用朋友圈首页。
  *
  * @param isOwnProfile 是否正在展示本人主页，控制资料编辑及发布入口
- * @param onRefresh 点击刷新时触发
+ * @param onRefresh 未加载时下拉刷新触发
  * @param onLoadMore 点击加载更多时触发
  * @param uiState 当前 UI 状态
  * @param isCoverExpanded 封面是否展开
@@ -311,101 +313,137 @@ fun UserMomentsScreen(
             .semantics { testTagsAsResourceId = true }
             .testTag("user_moments_screen"),
     ) {
-        LazyColumn(
-            state = listState,
+        PullToRefreshBox(
+            isRefreshing = uiState.isLoading,
+            onRefresh = { if (!uiState.isLoading) onRefresh() },
             modifier = Modifier.fillMaxSize(),
         ) {
-            // 头部：封面（支持展开与换封面） + 用户名 + 跨界悬浮头像
-            item(key = "header") {
-                MomentsHeader(
-                    username = uiState.username,
-                    avatarPath = uiState.avatarPath,
-                    coverPath = uiState.coverPath,
-                    isCoverExpanded = isCoverExpanded,
-                    onCoverClick = { if (isOwnProfile) onCoverClick() },
-                    canEdit = isOwnProfile,
-                    onChangeCoverClick = { if (isOwnProfile) onChangeCoverClick() },
-                    onAvatarClick = { if (isOwnProfile) onAvatarClick() },
-                    onAvatarLongClick = if (isOwnProfile) onAvatarLongClick else null,
-                )
-            }
+            LazyColumn(
+                state = listState,
+                modifier = Modifier.fillMaxSize(),
+            ) {
+                // 头部：封面（支持展开与换封面） + 用户名 + 跨界悬浮头像
+                item(key = "header") {
+                    MomentsHeader(
+                        username = uiState.username,
+                        avatarPath = uiState.avatarPath,
+                        coverPath = uiState.coverPath,
+                        isCoverExpanded = isCoverExpanded,
+                        onCoverClick = { if (isOwnProfile) onCoverClick() },
+                        canEdit = isOwnProfile,
+                        onChangeCoverClick = { if (isOwnProfile) onChangeCoverClick() },
+                        onAvatarClick = { if (isOwnProfile) onAvatarClick() },
+                        onAvatarLongClick = if (isOwnProfile) onAvatarLongClick else null,
+                    )
+                }
 
-            item(key = "network") { MomentsLoadStatus(uiState.isLoading, uiState.error, false, onRefresh, onLoadMore) }
-            // “今天” 分组：发表与私密发表入口及今天发表的动态
-            item(key = "today_section") {
-                UserMomentsTodaySection(
-                    todayPosts = todayPosts,
-                    canPublish = isOwnProfile,
-                    onPublish = onPublish,
-                    onPrivatePublish = onPrivatePublish,
-                    onPostClick = { post -> onPostClick(post.id) },
-                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
-                )
-            }
-
-            if (historyPosts.isNotEmpty()) {
-                val currentYear = today.year
-                var lastYear = currentYear
-                var lastDate: LocalDate? = null
-
-                historyPosts.forEach { post ->
-                    val dt = Instant.fromEpochMilliseconds(post.timestamp).toLocalDateTime(TimeZone.currentSystemDefault())
-                    val postYear = dt.year
-                    val postDate = dt.date
-
-                    if (postYear != currentYear && postYear != lastYear) {
-                        item(key = "year_$postYear") {
-                            Text(
-                                text = "$postYear 年",
-                                style =
-                                MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 24.sp,
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 24.dp, vertical = 16.dp),
-                            )
-                        }
-                        lastYear = postYear
-                    }
-
-                    @Suppress("DEPRECATION") // kotlinx-datetime monthNumber
-                    val monthStr = if (postDate != lastDate) formatTimelineMonth(dt.monthNumber) else ""
-
-                    @Suppress("DEPRECATION") // kotlinx-datetime dayOfMonth
-                    val dayStr = if (postDate != lastDate) dt.dayOfMonth.toString() else ""
-                    lastDate = postDate
-
-                    item(key = post.id) {
-                        UserMomentsTimelineItem(
-                            month = monthStr,
-                            day = dayStr,
-                            post = post,
-                            onPhotoClick = { onPostClick(post.id) },
-                            onClick = { onPostClick(post.id) },
-                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                if (uiState.posts.isEmpty()) {
+                    item(key = "empty_content") {
+                        MomentsEmptyContent(
+                            isLoading = uiState.isLoading,
+                            error = uiState.error,
+                            accountId = uiState.currentAccountId,
+                            onPublish = onPublish,
+                            canPublish = isOwnProfile,
+                            modifier = Modifier.fillParentMaxHeight(0.6f),
                         )
                     }
+                } else {
+                    uiState.error?.let { error ->
+                        item(key = "network_error") {
+                            Text(
+                                text = "$error\n下拉页面重试",
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodyMedium,
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
+                            )
+                        }
+                    }
+                    // “今天” 分组：发表与私密发表入口及今天发表的动态
+                    item(key = "today_section") {
+                        UserMomentsTodaySection(
+                            todayPosts = todayPosts,
+                            canPublish = isOwnProfile,
+                            onPublish = onPublish,
+                            onPrivatePublish = onPrivatePublish,
+                            onPostClick = { post -> onPostClick(post.id) },
+                            modifier = Modifier.padding(horizontal = 24.dp, vertical = 20.dp),
+                        )
+                    }
+
+                    if (historyPosts.isNotEmpty()) {
+                        val currentYear = today.year
+                        var lastYear = currentYear
+                        var lastDate: LocalDate? = null
+
+                        historyPosts.forEach { post ->
+                            val dt = Instant.fromEpochMilliseconds(post.timestamp).toLocalDateTime(TimeZone.currentSystemDefault())
+                            val postYear = dt.year
+                            val postDate = dt.date
+
+                            if (postYear != currentYear && postYear != lastYear) {
+                                item(key = "year_$postYear") {
+                                    Text(
+                                        text = "$postYear 年",
+                                        style =
+                                        MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 24.sp,
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 24.dp, vertical = 16.dp),
+                                    )
+                                }
+                                lastYear = postYear
+                            }
+
+                            @Suppress("DEPRECATION") // kotlinx-datetime monthNumber
+                            val monthStr = if (postDate != lastDate) formatTimelineMonth(dt.monthNumber) else ""
+
+                            @Suppress("DEPRECATION") // kotlinx-datetime dayOfMonth
+                            val dayStr = if (postDate != lastDate) dt.dayOfMonth.toString() else ""
+                            lastDate = postDate
+
+                            item(key = post.id) {
+                                UserMomentsTimelineItem(
+                                    month = monthStr,
+                                    day = dayStr,
+                                    post = post,
+                                    onPhotoClick = { onPostClick(post.id) },
+                                    onClick = { onPostClick(post.id) },
+                                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 8.dp),
+                                )
+                            }
+                        }
+                    }
+
+                    if (uiState.nextCursor != null) {
+                        item(key = "more") {
+                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                                TextButton(onClick = onLoadMore, enabled = !uiState.isLoading) {
+                                    Text("加载更多")
+                                }
+                            }
+                        }
+                    }
+                    // 底部时间轴结束标志：— · —
+                    item(key = "timeline_footer") {
+                        UserMomentsFooter()
+                    }
                 }
-            }
 
-            if (uiState.nextCursor != null) item(key = "more") { MomentsLoadStatus(uiState.isLoading, null, true, onRefresh, onLoadMore) }
-            // 底部时间轴结束标志：— · —
-            item(key = "timeline_footer") {
-                UserMomentsFooter()
-            }
-
-            // 底部手势栏安全留白
-            item(key = "bottom_spacer") {
-                Spacer(
-                    modifier =
-                    Modifier
-                        .navigationBarsPadding()
-                        .height(16.dp),
-                )
+                // 底部手势栏安全留白
+                item(key = "bottom_spacer") {
+                    Spacer(
+                        modifier =
+                        Modifier
+                            .navigationBarsPadding()
+                            .height(16.dp),
+                    )
+                }
             }
         }
 
