@@ -2,7 +2,7 @@ GRADLE := ./gradlew
 
 .DEFAULT_GOAL := release
 
-.PHONY: help release build install test fmt check clean profile
+.PHONY: help release build install test fmt check clean profile server
 
 help: ## 列出所有可用命令
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make \033[36m%-9s\033[0m %s\n", $$1, $$2}'
@@ -15,6 +15,13 @@ build: ## 编译 debug APK
 
 install: ## 编译并安装到设备/模拟器
 	$(GRADLE) :app:installDebug
+
+server: ## 启动本地朋友圈后端（自动加载 server/.env）
+	@cd server && \
+		set -a && \
+		if [ -f .env ]; then . ./.env; fi && \
+		: "$${DATABASE_URL:?请在 server/.env 或环境变量中设置 DATABASE_URL}" && \
+		exec cargo run --locked
 
 test: ## 跑 :core 单元测试（make test T=CalendarUtilsTest 只跑单个类）
 ifdef T

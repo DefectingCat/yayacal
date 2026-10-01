@@ -16,7 +16,13 @@ curl http://127.0.0.1:8088/health
 
 已有本地镜像时可使用 `docker compose up -d --no-build` 启动。若拉取基础镜像提示本机代理连接失败，需要修正 Docker Desktop 的代理配置，不必降级依赖。运行镜像使用非 root 用户，数据库和图片分别使用持久化卷；`/health` 同时检查数据库连通性，容器停止时处理 SIGTERM 并等待在途请求。
 
-本地运行：设置 `DATABASE_URL`、可选 `BIND_ADDR`（默认 `127.0.0.1:8088`）、`MEDIA_DIR`（默认 `data/media`），运行 `cargo run --locked`。
+本地运行需要先启动 PostgreSQL 并创建数据库。将 `DATABASE_URL`、可选的 `BIND_ADDR`（默认 `127.0.0.1:8088`）、`MEDIA_DIR`（默认 `data/media`）设置在 `server/.env` 或环境变量中，然后在仓库根目录执行：
+
+```sh
+make server
+```
+
+该目标进入 `server/`，自动加载已有的 `.env` 并运行 `cargo run --locked`。服务在前台运行，按 Ctrl+C 停止；`MEDIA_DIR` 的相对路径以 `server/` 为基准。Docker 使用的 `POSTGRES_PASSWORD` 不能代替本地运行需要的 `DATABASE_URL`。
 
 ## 依赖核验
 
