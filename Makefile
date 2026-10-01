@@ -1,8 +1,10 @@
 GRADLE := ./gradlew
+AVD ?= Pixel_10
+BACKEND_PORT ?= 8088
 
 .DEFAULT_GOAL := release
 
-.PHONY: help release build install test fmt check clean profile server
+.PHONY: help release build install test fmt check clean profile server emulator
 
 help: ## 列出所有可用命令
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make \033[36m%-9s\033[0m %s\n", $$1, $$2}'
@@ -15,6 +17,9 @@ build: ## 编译 debug APK
 
 install: ## 编译并安装到设备/模拟器
 	$(GRADLE) :app:installDebug
+
+emulator: ## 启动/复用硬件加速模拟器，并连接本机朋友圈后端
+	@AVD="$(AVD)" BACKEND_PORT="$(BACKEND_PORT)" ./scripts/emulator.sh
 
 server: ## 启动本地朋友圈后端（自动加载 server/.env）
 	@cd server && \

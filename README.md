@@ -32,6 +32,17 @@
 
 ## 构建
 
+本机开发可以先在一个终端运行 `make server`，然后在另一个终端执行：
+
+```bash
+make emulator   # 启动或复用 Pixel_10：GPU/CPU 硬件加速、4 核、2 GiB 内存
+make install    # 编译并安装 Debug APK
+```
+
+`make emulator` 等待系统启动完成，清除模拟器代理，并自动转发本机 8088 端口及检查后端健康状态。连接设置可使用 `http://127.0.0.1:8088`；默认的 `http://10.0.2.2:8088` 在 Android 17 上首次访问时会申请附近设备权限。可用 `AVD=名称`、`BACKEND_PORT=端口` 覆盖默认值，启动日志位于 `logs/emulator.log`。
+
+公网后端在「朋友圈 → 连接设置」填写 HTTPS 根地址，不带 `/api/v1`。公网地址不申请本地网络权限，Release 只接受 HTTPS；本机的 HTTP 与 ADB 转发用于 Debug 调试。
+
 ```bash
 # Debug
 ./gradlew :app:assembleDebug          # 构建 debug APK
