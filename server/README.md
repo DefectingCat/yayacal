@@ -24,6 +24,24 @@ make server
 
 该目标进入 `server/`，自动加载已有的 `.env` 并运行 `cargo run --locked`。服务在前台运行，按 Ctrl+C 停止；`MEDIA_DIR` 的相对路径以 `server/` 为基准。Docker 使用的 `POSTGRES_PASSWORD` 不能代替本地运行需要的 `DATABASE_URL`。
 
+## 日志
+
+日志写入标准输出（stdout），默认级别为 `yayacal_server=info,tower_http=info`。每个普通请求在生成响应时记录一条 INFO 访问摘要，包含 `method`、`path`、`status` 和 `latency`；路径省略查询参数，日志不记录请求头和请求正文。输出重定向到文件或交给 Docker 收集时自动关闭 ANSI 颜色。
+
+成功的 `/health` 请求摘要和请求开始日志使用 DEBUG；健康检查失败仍记录 INFO 摘要。5xx 响应及数据库、文件操作异常保留 ERROR 诊断。
+
+本地排查请求时启用 DEBUG：
+
+```sh
+RUST_LOG=yayacal_server=info,tower_http=debug make server
+```
+
+Docker Compose 将 `.env` 或环境变量中的 `RUST_LOG` 传入 api 容器；修改后执行 `docker compose up -d api` 使新级别生效。查看日志：
+
+```sh
+docker compose logs -f api
+```
+
 ## 依赖核验
 
 2026-09-30 联网核对最新稳定版，并用 Cargo.lock 锁定解析结果：

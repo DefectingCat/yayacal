@@ -1,6 +1,7 @@
 mod accounts;
 mod error;
 mod interactions;
+mod logging;
 mod media;
 mod posts;
 
@@ -21,12 +22,7 @@ pub struct App {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| "yayacal_server=info,tower_http=info".into()),
-        )
-        .init();
+    logging::init();
     let db = PgPoolOptions::new()
         .max_connections(10)
         .acquire_timeout(Duration::from_secs(10))
@@ -50,8 +46,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         }
     });
+    let request_trace = TraceLayer::new_for_http().make_span_with(logging::request_span);
     let router = Router::new()
-        .route("/health", get(health))
         .route("/api/v1/accounts", get(accounts::list))
         .route("/api/v1/me", patch(accounts::update))
         .route("/api/v1/me/avatar", delete(accounts::reset_avatar))
@@ -83,7 +79,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route("/api/v1/notifications/read", post(interactions::read))
         .route("/api/v1/notifications/{id}", delete(interactions::dismiss))
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            request_trace
+                .clone()
+                .on_response(logging::ResponseLogger::new(false)),
+        )
+        // Router::layer 仅影响已有路由，健康检查随后添加以避免重复记录。
+        .route(
+            "/health",
+            get(health).layer(request_trace.on_response(logging::ResponseLogger::new(true))),
+        )
         .with_state(app);
     let address = std::env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8088".into());
     let listener = tokio::net::TcpListener::bind(&address).await?;
