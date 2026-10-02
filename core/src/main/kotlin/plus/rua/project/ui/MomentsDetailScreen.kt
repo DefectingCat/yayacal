@@ -1,11 +1,13 @@
 package plus.rua.project.ui
 
+import android.content.ClipData
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,6 +75,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.ClipEntry
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -203,7 +207,7 @@ fun MomentsDetailScreen(
  * @param focusComment 是否在首次进入时聚焦评论框
  * @param currentAccountId 当前操作账号，决定本人评论的删除入口
  * @param onChangeVisibility 作者点击切换可见性时触发
- * @param onDeleteComment 点击本人评论的删除按钮时触发
+ * @param onDeleteComment 确认删除当前账号仍可删除的评论时触发
  * @param networkState 加载与分页状态
  * @param onRefresh 未加载时下拉页面触发
  * @param onDismissOperationError 点击操作失败提示的“知道了”时触发
@@ -233,6 +237,10 @@ fun MomentsDetailScreen(
     val focusRequester = remember { FocusRequester() }
     val focusManager = LocalFocusManager.current
     val keyboard = LocalSoftwareKeyboardController.current
+    val clipboard = LocalClipboard.current
+    val visibleComments = post.comments.filterNot { it.deleted }
+    var commentMenuId by remember(post.id, currentAccountId) { mutableStateOf<String?>(null) }
+    var deleteCommentId by remember(post.id, currentAccountId) { mutableStateOf<String?>(null) }
     var draft by rememberSaveable(post.id) { mutableStateOf("") }
     var replyToId by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
     var replyToName by rememberSaveable(post.id) { mutableStateOf<String?>(null) }
@@ -283,6 +291,13 @@ fun MomentsDetailScreen(
             focusRequester.requestFocus()
             keyboard?.show()
         }
+    }
+    LaunchedEffect(post.comments) {
+        if (visibleComments.none { it.id == commentMenuId }) commentMenuId = null
+        if (visibleComments.none { it.id == deleteCommentId && canDeleteMomentComment(it, currentAccountId) }) deleteCommentId = null
+    }
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (listState.isScrollInProgress) commentMenuId = null
     }
     BackHandler(enabled = showEmoji || replyToName != null) {
         showEmoji = false
@@ -365,11 +380,28 @@ fun MomentsDetailScreen(
                                 }
                             }
                         }
-                        itemsIndexed(post.comments, key = { _, comment -> comment.id }) { index, comment ->
+                        itemsIndexed(visibleComments, key = { _, comment -> comment.id }) { index, comment ->
                             MomentCommentRow(
                                 comment = comment,
                                 avatarPath = comment.authorAvatarPath,
                                 showCommentIcon = index == 0,
+                                canDelete = canDeleteMomentComment(comment, currentAccountId),
+                                menuExpanded = commentMenuId == comment.id,
+                                onShowMenu = {
+                                    showEmoji = false
+                                    focusManager.clearFocus()
+                                    keyboard?.hide()
+                                    commentMenuId = comment.id
+                                },
+                                onDismissMenu = { commentMenuId = null },
+                                onCopy = {
+                                    commentMenuId = null
+                                    scope.launch { clipboard.setClipEntry(ClipEntry(ClipData.newPlainText("评论", comment.text))) }
+                                },
+                                onDelete = {
+                                    commentMenuId = null
+                                    deleteCommentId = comment.id
+                                },
                                 onReply = {
                                     if (!comment.deleted) {
                                         replyToName = comment.authorName
@@ -385,11 +417,8 @@ fun MomentsDetailScreen(
                                 },
                                 modifier = Modifier.padding(horizontal = 12.dp),
                             )
-                            if (!comment.deleted && comment.authorId == currentAccountId) {
-                                TextButton(onClick = { onDeleteComment(comment.id) }, modifier = Modifier.padding(start = 48.dp)) { Text("删除评论") }
-                            }
                         }
-                        if (post.comments.isEmpty() && networkState.commentsCursor == null) {
+                        if (visibleComments.isEmpty() && networkState.commentsCursor == null) {
                             item(key = "no_comments") {
                                 Text("还没有评论，聊聊你的想法吧", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp))
                             }
@@ -500,6 +529,18 @@ fun MomentsDetailScreen(
             onDelete()
         })
     }
+    visibleComments.find { it.id == deleteCommentId && canDeleteMomentComment(it, currentAccountId) }?.let { comment ->
+        MomentsCommentDeleteDialog(
+            onDismiss = { deleteCommentId = null },
+            onConfirm = {
+                // 读取仍待确认的 ID，避免连续点击重复提交；账号变化会重置该状态。
+                if (deleteCommentId == comment.id) {
+                    deleteCommentId = null
+                    onDeleteComment(comment.id)
+                }
+            },
+        )
+    }
     previewPhotos?.let { photos ->
         MomentsPhotoPreviewDialog(photos, previewIndex, onDismiss = { previewPhotos = null })
     }
@@ -510,59 +551,86 @@ private fun MomentCommentRow(
     comment: MomentComment,
     avatarPath: String?,
     showCommentIcon: Boolean,
+    canDelete: Boolean,
+    menuExpanded: Boolean,
+    onShowMenu: () -> Unit,
+    onDismissMenu: () -> Unit,
+    onCopy: () -> Unit,
+    onDelete: () -> Unit,
     onReply: () -> Unit,
     onPhotoClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val linkColor = momentsLinkColor()
     val panelColor = momentsBarColor()
-    Row(modifier.fillMaxWidth().background(panelColor).padding(start = 12.dp, end = 8.dp)) {
-        Box(Modifier.width(32.dp).padding(top = 16.dp)) {
-            if (showCommentIcon) Icon(Icons.Outlined.ChatBubbleOutline, "评论", tint = linkColor, modifier = Modifier.size(18.dp))
-        }
-        Card(
-            onClick = onReply,
-            shape = RoundedCornerShape(0.dp),
-            colors = CardDefaults.cardColors(containerColor = panelColor),
-            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-            modifier = Modifier.weight(1f).testTag("moment_comment_${comment.id}"),
-        ) {
-            HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
-            Row(Modifier.padding(vertical = 10.dp)) {
-                MomentAvatar(avatarPath, comment.authorName, Modifier.size(30.dp))
-                Spacer(Modifier.width(8.dp))
-                Column(Modifier.weight(1f)) {
-                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            comment.authorName,
-                            color = linkColor,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(formatMomentDetailTime(comment.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontSize = 9.sp)
-                    }
-                    val body = buildAnnotatedString {
-                        comment.replyToName?.let { name ->
-                            append("回复 ")
-                            withStyle(SpanStyle(color = linkColor)) { append(name) }
-                            append(": ")
-                        }
-                        append(comment.text)
-                    }
-                    if (body.isNotEmpty()) Text(body, fontSize = 14.sp, lineHeight = 20.sp)
-                    comment.photoPath?.let { path ->
-                        Card(
-                            onClick = onPhotoClick,
-                            shape = RoundedCornerShape(3.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            modifier = Modifier.padding(top = 6.dp).size(88.dp),
-                        ) {
-                            AsyncImage(uri = momentsThumbnailUri(path), state = rememberMomentsImageState(), contentDescription = "评论图片", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+    val selectedColor = if (MaterialTheme.colorScheme.surface.luminance() < 0.5f) Color(0xFF3A3A3A) else Color(0xFFE1E1E1)
+    val canCopy = comment.text.isNotBlank() && !comment.deleted
+    val onLongClick = if (canCopy || canDelete) onShowMenu else null
+    Box(modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().background(panelColor).padding(start = 12.dp, end = 8.dp)) {
+            Box(Modifier.width(32.dp).padding(top = 16.dp)) {
+                if (showCommentIcon) Icon(Icons.Outlined.ChatBubbleOutline, "评论", tint = linkColor, modifier = Modifier.size(18.dp))
+            }
+            Card(
+                onClick = onReply,
+                shape = RoundedCornerShape(0.dp),
+                colors = CardDefaults.cardColors(containerColor = if (menuExpanded) selectedColor else panelColor),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                modifier = Modifier.weight(1f).testTag("moment_comment_${comment.id}"),
+            ) {
+                // 组合手势覆盖整张卡片；嵌套图片使用相同长按入口，长按不会落入单击回调。
+                Column(Modifier.fillMaxWidth().combinedClickable(onClick = onReply, onLongClick = onLongClick, onLongClickLabel = "评论操作")) {
+                    HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                    Row(Modifier.padding(vertical = 10.dp)) {
+                        MomentAvatar(avatarPath, comment.authorName, Modifier.size(30.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Column(Modifier.weight(1f)) {
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    comment.authorName,
+                                    color = linkColor,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.weight(1f),
+                                )
+                                Text(formatMomentDetailTime(comment.timestamp), color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), fontSize = 9.sp)
+                            }
+                            val body = buildAnnotatedString {
+                                comment.replyToName?.let { name ->
+                                    append("回复 ")
+                                    withStyle(SpanStyle(color = linkColor)) { append(name) }
+                                    append(": ")
+                                }
+                                append(comment.text)
+                            }
+                            if (body.isNotEmpty()) Text(body, fontSize = 14.sp, lineHeight = 20.sp)
+                            comment.photoPath?.let { path ->
+                                Card(
+                                    onClick = onPhotoClick,
+                                    shape = RoundedCornerShape(3.dp),
+                                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                                    modifier = Modifier.padding(top = 6.dp).size(88.dp).testTag("moment_comment_image_${comment.id}"),
+                                ) {
+                                    AsyncImage(
+                                        uri = momentsThumbnailUri(path),
+                                        state = rememberMomentsImageState(),
+                                        contentDescription = "评论图片",
+                                        contentScale = ContentScale.Crop,
+                                        modifier = Modifier.fillMaxSize().combinedClickable(onClick = onPhotoClick, onLongClick = onLongClick, onLongClickLabel = "评论操作"),
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
+        }
+        if (menuExpanded) {
+            MomentsCommentActionsMenu(
+                onCopy = if (canCopy) onCopy else null,
+                onDelete = if (canDelete) onDelete else null,
+                onDismiss = onDismissMenu,
+            )
         }
     }
 }

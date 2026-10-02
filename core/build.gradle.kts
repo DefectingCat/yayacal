@@ -23,6 +23,7 @@ android {
                 .get()
                 .toInt()
         consumerProguardFiles("proguard-rules.pro")
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         // 构建期扫描 assets/animations/ 生成 WebP 文件列表，避免运行期硬编码 (1..152)
         // 与 assets/ 目录耦合却不校验，导致增删文件后隐性 bug
@@ -127,4 +128,12 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.room.testing)
     testImplementation(libs.json.test)
+
+    // 库模块生成独立测试 APK，避免 UI 测试安装/卸载用户正在使用的应用。
+    androidTestImplementation(platform(libs.compose.bom))
+    androidTestImplementation(libs.compose.uiTestJunit4)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.espresso)
+    androidTestImplementation(libs.androidx.test.uiautomator)
 }
