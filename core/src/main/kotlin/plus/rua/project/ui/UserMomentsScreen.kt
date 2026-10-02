@@ -47,6 +47,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -82,6 +83,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import kotlinx.datetime.todayIn
+import plus.rua.project.MomentAccount
 import plus.rua.project.MomentPost
 import plus.rua.project.MomentsStorage
 import plus.rua.project.MomentsUiState
@@ -126,7 +128,12 @@ fun UserMomentsScreen(
             factory =
             viewModelFactory {
                 initializer {
-                    MomentsViewModel.fromContext(context)
+                    val currentAuthor = authorId ?: MomentAccount.findById(MomentsStorage.fromContext(context).getCurrentAccountId()).id
+                    MomentsViewModel.fromContext(
+                        context,
+                        cacheTimeline = true,
+                        authorId = currentAuthor,
+                    )
                 }
             },
         )
@@ -287,6 +294,7 @@ fun UserMomentsScreen(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    val refreshState = rememberPullToRefreshState()
     val scrollAlpha by remember {
         derivedStateOf {
             if (listState.firstVisibleItemIndex > 0) {
@@ -314,8 +322,18 @@ fun UserMomentsScreen(
             .testTag("user_moments_screen"),
     ) {
         PullToRefreshBox(
-            isRefreshing = uiState.isLoading,
+            isRefreshing = uiState.isRefreshing,
             onRefresh = { if (!uiState.isLoading) onRefresh() },
+            state = refreshState,
+            indicator = {
+                MomentsRefreshIndicator(
+                    isRefreshing = uiState.isRefreshing,
+                    state = refreshState,
+                    color = lerp(Color.White, MaterialTheme.colorScheme.onSurfaceVariant, scrollAlpha),
+                    containerColor = lerp(Color.Black.copy(alpha = 0.2f), MaterialTheme.colorScheme.surface, scrollAlpha),
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            },
             modifier = Modifier.fillMaxSize(),
         ) {
             LazyColumn(
@@ -339,14 +357,17 @@ fun UserMomentsScreen(
 
                 if (uiState.posts.isEmpty()) {
                     item(key = "empty_content") {
-                        MomentsEmptyContent(
-                            isLoading = uiState.isLoading,
-                            error = uiState.error,
-                            accountId = uiState.currentAccountId,
-                            onPublish = onPublish,
-                            canPublish = isOwnProfile,
-                            modifier = Modifier.fillParentMaxHeight(0.6f),
-                        )
+                        if (!uiState.hasLoadedPosts && uiState.error == null) {
+                            MomentsLoadingContent()
+                        } else {
+                            MomentsEmptyContent(
+                                error = uiState.error,
+                                accountId = uiState.currentAccountId,
+                                onPublish = onPublish,
+                                canPublish = isOwnProfile,
+                                modifier = Modifier.fillParentMaxHeight(0.6f),
+                            )
+                        }
                     }
                 } else {
                     uiState.error?.let { error ->
@@ -423,8 +444,12 @@ fun UserMomentsScreen(
                     if (uiState.nextCursor != null) {
                         item(key = "more") {
                             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                TextButton(onClick = onLoadMore, enabled = !uiState.isLoading) {
-                                    Text("加载更多")
+                                if (uiState.isLoadingMore) {
+                                    MomentsLoadingSpinner(modifier = Modifier.padding(16.dp))
+                                } else {
+                                    TextButton(onClick = onLoadMore, enabled = !uiState.isLoading) {
+                                        Text("加载更多")
+                                    }
                                 }
                             }
                         }
@@ -937,6 +962,7 @@ fun MomentsThumbnailPhotos(
             val uri = rememberPhotoUri(photoPaths[0])
             AsyncImage(
                 uri = uri,
+                state = rememberMomentsImageState(),
                 contentDescription = "动态照片",
                 contentScale = ContentScale.Crop,
                 modifier =
@@ -955,6 +981,7 @@ fun MomentsThumbnailPhotos(
                     val uri = rememberPhotoUri(photoPaths[i])
                     AsyncImage(
                         uri = uri,
+                        state = rememberMomentsImageState(),
                         contentDescription = "动态照片 ${i + 1}",
                         contentScale = ContentScale.Crop,
                         modifier =
@@ -975,6 +1002,7 @@ fun MomentsThumbnailPhotos(
                 val leftUri = rememberPhotoUri(photoPaths[0])
                 AsyncImage(
                     uri = leftUri,
+                    state = rememberMomentsImageState(),
                     contentDescription = "动态照片 1",
                     contentScale = ContentScale.Crop,
                     modifier =
@@ -994,6 +1022,7 @@ fun MomentsThumbnailPhotos(
                         val uri = rememberPhotoUri(photoPaths[i])
                         AsyncImage(
                             uri = uri,
+                            state = rememberMomentsImageState(),
                             contentDescription = "动态照片 ${i + 1}",
                             contentScale = ContentScale.Crop,
                             modifier =
@@ -1025,6 +1054,7 @@ fun MomentsThumbnailPhotos(
                         val uri = rememberPhotoUri(displayPhotos[i])
                         AsyncImage(
                             uri = uri,
+                            state = rememberMomentsImageState(),
                             contentDescription = "动态照片 ${i + 1}",
                             contentScale = ContentScale.Crop,
                             modifier =
@@ -1047,6 +1077,7 @@ fun MomentsThumbnailPhotos(
                         val uri = rememberPhotoUri(displayPhotos[i])
                         AsyncImage(
                             uri = uri,
+                            state = rememberMomentsImageState(),
                             contentDescription = "动态照片 ${i + 1}",
                             contentScale = ContentScale.Crop,
                             modifier =

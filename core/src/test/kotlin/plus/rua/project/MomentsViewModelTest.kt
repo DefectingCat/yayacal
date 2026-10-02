@@ -36,6 +36,208 @@ class MomentsViewModelTest {
         Dispatchers.resetMain()
     }
 
+    @Test fun initialState_beforeFirstRequest_isLoadingWithoutEmptyResult() {
+        val state = MomentsViewModel(storage, repository).uiState.value
+        assertTrue(state.isLoading)
+        assertTrue(state.isRefreshing)
+        assertFalse(state.hasLoadedPosts)
+    }
+
+    @Test fun firstLoad_emptyResponse_reportsEmptyOnlyAfterSuccess() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentsPage<MomentPost>>()
+        repository.load = { _, _, _, _ -> response.await() }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        runCurrent()
+        assertTrue(vm.uiState.value.isLoading)
+        assertFalse(vm.uiState.value.hasLoadedPosts)
+
+        response.complete(MomentsPage(emptyList()))
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.hasLoadedPosts)
+        assertFalse(vm.uiState.value.isLoading)
+        assertTrue(vm.uiState.value.posts.isEmpty())
+    }
+
+    @Test fun refresh_inFlight_keepsPostsAndProfileVisible() = runTest(dispatcher) {
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "avatar", "cover"))
+        repository.posts = listOf(MomentPost(id = "visible", authorId = "xiaobai"))
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        val response = CompletableDeferred<MomentsPage<MomentPost>>()
+        repository.load = { _, _, _, _ -> response.await() }
+
+        vm.refreshPosts()
+        runCurrent()
+
+        assertTrue(vm.uiState.value.isRefreshing)
+        assertEquals("visible", vm.uiState.value.posts.single().id)
+        assertEquals("avatar", vm.uiState.value.avatarPath)
+        assertEquals("cover", vm.uiState.value.coverPath)
+        response.complete(MomentsPage(repository.posts))
+        advanceUntilIdle()
+    }
+
+    @Test fun cachedFeed_openPersonalAlbum_previewsOnlyThatAuthorsPostsAndProfile() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache()
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "avatar", "cover"), MomentPerson("xiaojimao", "小鸡毛"))
+        repository.posts = listOf(MomentPost(id = "own", authorId = "xiaobai"), MomentPost(id = "other", authorId = "xiaojimao"))
+        val feed = MomentsViewModel(storage, repository, cache)
+        feed.refreshPosts()
+        advanceUntilIdle()
+
+        val album = MomentsViewModel(storage, repository, cache, initialAuthorId = "xiaobai")
+
+        assertEquals("小白", album.uiState.value.username)
+        assertEquals("avatar", album.uiState.value.avatarPath)
+        assertEquals("cover", album.uiState.value.coverPath)
+        assertEquals(listOf("own"), album.uiState.value.posts.map { it.id })
+        assertTrue(album.uiState.value.isLoading)
+        // 首页的一页动态是预览，不表示作者相册已经请求成功。
+        assertFalse(album.uiState.value.hasLoadedPosts)
+    }
+
+    @Test fun cachedFeed_authorNotInFirstPage_doesNotClaimEmptyAlbum() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache()
+        repository.posts = listOf(MomentPost(id = "other", authorId = "xiaojimao"))
+        val feed = MomentsViewModel(storage, repository, cache)
+        feed.refreshPosts()
+        advanceUntilIdle()
+
+        val album = MomentsViewModel(storage, repository, cache, initialAuthorId = "xiaobai")
+
+        assertTrue(album.uiState.value.posts.isEmpty())
+        assertTrue(album.uiState.value.isLoading)
+        assertFalse(album.uiState.value.hasLoadedPosts)
+    }
+
+    @Test fun cachedTimeline_reenterThenFail_keepsLastSuccessfulResult() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache()
+        repository.posts = listOf(MomentPost(id = "cached", authorId = "xiaobai"))
+        val first = MomentsViewModel(storage, repository, cache)
+        first.refreshPosts()
+        advanceUntilIdle()
+
+        val reentered = MomentsViewModel(storage, repository, cache)
+        assertEquals("cached", reentered.uiState.value.posts.single().id)
+        assertTrue(reentered.uiState.value.hasLoadedPosts)
+        repository.load = { _, _, _, _ -> throw IOException("离线") }
+        reentered.refreshPosts()
+        advanceUntilIdle()
+
+        assertEquals("cached", reentered.uiState.value.posts.single().id)
+        assertEquals("离线", reentered.uiState.value.error)
+        assertFalse(reentered.uiState.value.isLoading)
+    }
+
+    @Test fun cachedTimeline_emptyAlbum_doesNotReuseOutdatedFeedPreview() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache()
+        repository.posts = listOf(MomentPost(id = "old", authorId = "xiaobai"))
+        val feed = MomentsViewModel(storage, repository, cache)
+        feed.refreshPosts()
+        advanceUntilIdle()
+        repository.posts = emptyList()
+        val album = MomentsViewModel(storage, repository, cache, initialAuthorId = "xiaobai")
+        album.refreshPosts(authorId = "xiaobai")
+        advanceUntilIdle()
+
+        val reentered = MomentsViewModel(storage, repository, cache, initialAuthorId = "xiaobai")
+
+        assertTrue(reentered.uiState.value.posts.isEmpty())
+        assertTrue(reentered.uiState.value.hasLoadedPosts)
+    }
+
+    @Test fun cachedTimeline_differentAccountAndConnection_neverReusesPrivatePosts() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache.forConnection("test://private-source")
+        cache.clear()
+        repository.posts = listOf(MomentPost(id = "private", authorId = "xiaobai", visibility = "私密"))
+        val vm = MomentsViewModel(storage, repository, cache)
+        vm.refreshPosts()
+        advanceUntilIdle()
+
+        val otherConnection = MomentsViewModel(storage, repository, MomentsTimelineCache.forConnection("test://other-source"))
+        assertTrue(otherConnection.uiState.value.posts.isEmpty())
+        storage.saveCurrentAccountId("xiaojimao")
+        val otherAccount = MomentsViewModel(storage, repository, cache)
+        assertEquals("xiaojimao", otherAccount.uiState.value.currentAccountId)
+        assertTrue(otherAccount.uiState.value.posts.isEmpty())
+        assertFalse(otherAccount.uiState.value.hasLoadedPosts)
+    }
+
+    @Test fun paging_inFlight_usesFooterLoadingAndKeepsExistingPosts() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentsPage<MomentPost>>()
+        repository.load = { _, _, _, cursor ->
+            if (cursor == null) MomentsPage(listOf(MomentPost(id = "first")), "next") else response.await()
+        }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+
+        vm.loadMore()
+        runCurrent()
+
+        assertTrue(vm.uiState.value.isLoading)
+        assertTrue(vm.uiState.value.isLoadingMore)
+        assertFalse(vm.uiState.value.isRefreshing)
+        assertEquals("first", vm.uiState.value.posts.single().id)
+        response.complete(MomentsPage(listOf(MomentPost(id = "second"))))
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isLoadingMore)
+        assertEquals(listOf("first", "second"), vm.uiState.value.posts.map { it.id })
+    }
+
+    @Test fun cachedTimeline_detailScreen_doesNotShowUnrelatedFeedPost() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache()
+        repository.posts = listOf(MomentPost(id = "unrelated", authorId = "xiaobai"))
+        val vm = MomentsViewModel(storage, repository, cache)
+        vm.refreshPosts()
+        advanceUntilIdle()
+
+        val detail = MomentsViewModel(storage, repository, cache, restoreTimeline = false)
+
+        assertTrue(detail.uiState.value.posts.isEmpty())
+        assertFalse(detail.uiState.value.hasLoadedPosts)
+    }
+
+    @Test fun cachedTimeline_newSearchQuery_doesNotReuseFeedOrOtherQuery() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache()
+        repository.load = { _, _, query, _ -> MomentsPage(listOf(MomentPost(id = query ?: "feed"))) }
+        val vm = MomentsViewModel(storage, repository, cache)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        vm.refreshPosts(keyword = "照片")
+        advanceUntilIdle()
+        assertEquals("照片", vm.uiState.value.posts.single().id)
+
+        vm.refreshPosts(keyword = "旅行")
+
+        assertTrue(vm.uiState.value.posts.isEmpty())
+        assertFalse(vm.uiState.value.hasLoadedPosts)
+        advanceUntilIdle()
+        assertEquals("旅行", vm.uiState.value.posts.single().id)
+    }
+
+    @Test fun cachedTimeline_deleteFromDetail_invalidatesFeedSnapshot() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache()
+        repository.posts = listOf(MomentPost(id = "deleted", authorId = "xiaobai"))
+        val feed = MomentsViewModel(storage, repository, cache)
+        feed.refreshPosts()
+        advanceUntilIdle()
+        val detail = MomentsViewModel(storage, repository, cache, restoreTimeline = false)
+        detail.refreshPost("deleted")
+        advanceUntilIdle()
+
+        detail.deletePost("deleted")
+        advanceUntilIdle()
+        val reentered = MomentsViewModel(storage, repository, cache)
+
+        assertTrue(reentered.uiState.value.posts.isEmpty())
+        assertFalse(reentered.uiState.value.hasLoadedPosts)
+        assertEquals(repository.profiles, reentered.uiState.value.accounts)
+    }
+
     @Test fun resetAvatar_updatesCurrentProfile_andKeepsCoverAndOtherAccount() = runTest(dispatcher) {
         repository.profiles = listOf(MomentPerson("xiaobai", "小白", "white-avatar", "white-cover"), MomentPerson("xiaojimao", "小鸡毛", "chicken-avatar"))
         val vm = MomentsViewModel(storage, repository)

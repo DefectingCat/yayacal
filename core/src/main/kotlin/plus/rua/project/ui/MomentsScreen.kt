@@ -61,6 +61,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -143,7 +144,7 @@ fun MomentsScreen(
             factory =
             viewModelFactory {
                 initializer {
-                    MomentsViewModel.fromContext(context)
+                    MomentsViewModel.fromContext(context, cacheTimeline = true)
                 }
             },
         )
@@ -444,6 +445,7 @@ fun MomentsScreen(
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
+    val refreshState = rememberPullToRefreshState()
     var previewPhotos by remember { mutableStateOf<List<String>?>(null) }
     var previewIndex by remember { mutableStateOf(0) }
     val scrollAlpha by remember {
@@ -466,8 +468,18 @@ fun MomentsScreen(
     ) {
         // 主滚动列表：从屏幕最顶端开始绘制，使相册封面能够沉浸延伸至状态栏之下
         PullToRefreshBox(
-            isRefreshing = uiState.isLoading,
+            isRefreshing = uiState.isRefreshing,
             onRefresh = { if (!uiState.isLoading) onRefresh() },
+            state = refreshState,
+            indicator = {
+                MomentsRefreshIndicator(
+                    isRefreshing = uiState.isRefreshing,
+                    state = refreshState,
+                    color = lerp(Color.White, MaterialTheme.colorScheme.onSurfaceVariant, scrollAlpha),
+                    containerColor = lerp(Color.Black.copy(alpha = 0.2f), MaterialTheme.colorScheme.surface, scrollAlpha),
+                    modifier = Modifier.align(Alignment.TopCenter),
+                )
+            },
             modifier = Modifier.fillMaxSize(),
         ) {
             LazyColumn(
@@ -492,13 +504,16 @@ fun MomentsScreen(
 
                 if (uiState.posts.isEmpty()) {
                     item(key = "empty_content") {
-                        MomentsEmptyContent(
-                            isLoading = uiState.isLoading,
-                            error = uiState.error,
-                            accountId = uiState.currentAccountId,
-                            onPublish = onPublish,
-                            modifier = Modifier.fillParentMaxHeight(0.6f),
-                        )
+                        if (!uiState.hasLoadedPosts && uiState.error == null) {
+                            MomentsLoadingContent()
+                        } else {
+                            MomentsEmptyContent(
+                                error = uiState.error,
+                                accountId = uiState.currentAccountId,
+                                onPublish = onPublish,
+                                modifier = Modifier.fillParentMaxHeight(0.6f),
+                            )
+                        }
                     }
                 } else {
                     uiState.error?.let { error ->
@@ -559,8 +574,12 @@ fun MomentsScreen(
                 if (uiState.posts.isNotEmpty() && uiState.nextCursor != null) {
                     item(key = "more") {
                         Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            TextButton(onClick = onLoadMore, enabled = !uiState.isLoading) {
-                                Text("加载更多")
+                            if (uiState.isLoadingMore) {
+                                MomentsLoadingSpinner(modifier = Modifier.padding(16.dp))
+                            } else {
+                                TextButton(onClick = onLoadMore, enabled = !uiState.isLoading) {
+                                    Text("加载更多")
+                                }
                             }
                         }
                     }
@@ -719,9 +738,8 @@ private fun MomentsTopBar(
 }
 
 /**
- * 空列表的加载、错误与无动态状态。每次状态或账号变化时重新随机选择动画，重组时保持同一张。
+ * 请求结束后的错误与无动态状态。每次状态或账号变化时重新随机选择动画，重组时保持同一张。
  *
- * @param isLoading 是否正在加载；加载进度统一由页面顶部下拉刷新指示器展示
  * @param error 加载失败的用户提示，为 null 时表示无错误
  * @param accountId 当前账号，用于切换账号时重新选择动画
  * @param onPublish 无动态时点击快捷发布按钮触发
@@ -730,7 +748,6 @@ private fun MomentsTopBar(
  */
 @Composable
 internal fun MomentsEmptyContent(
-    isLoading: Boolean,
     error: String?,
     accountId: String?,
     onPublish: () -> Unit,
@@ -748,7 +765,7 @@ internal fun MomentsEmptyContent(
         verticalArrangement = Arrangement.Center,
     ) {
         AnimatedWebp(
-            seed = listOf(accountId, isLoading, error),
+            seed = listOf(accountId, error),
             modifier = Modifier.size(140.dp),
         )
 
@@ -756,7 +773,6 @@ internal fun MomentsEmptyContent(
 
         Text(
             text = when {
-                isLoading -> "正在加载动态"
                 error != null -> "动态加载失败"
                 else -> "暂无朋友圈动态"
             },
@@ -772,7 +788,6 @@ internal fun MomentsEmptyContent(
 
         Text(
             text = when {
-                isLoading -> "稍等一下，生活点滴马上就来"
                 error != null -> "$error\n下拉页面重试"
                 else -> "生活点滴与精彩瞬间，值得记录与分享"
             },
@@ -785,7 +800,7 @@ internal fun MomentsEmptyContent(
             lineHeight = 20.sp,
         )
 
-        if (canPublish && !isLoading && error == null) {
+        if (canPublish && error == null) {
             Spacer(modifier = Modifier.height(24.dp))
             OutlinedButton(
                 onClick = onPublish,
@@ -1007,6 +1022,7 @@ private fun MomentFeedPhotos(
         if (preserveSinglePhoto) {
             AsyncImage(
                 uri = uri,
+                state = rememberMomentsImageState(),
                 contentDescription = "配图",
                 contentScale = ContentScale.Fit,
                 modifier = modifier.widthIn(max = 200.dp).heightIn(max = 240.dp).clickable { onPhotoClick(0) },
@@ -1023,6 +1039,7 @@ private fun MomentFeedPhotos(
         ) {
             AsyncImage(
                 uri = uri,
+                state = rememberMomentsImageState(),
                 contentDescription = "配图",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -1054,6 +1071,7 @@ private fun MomentFeedPhotos(
                         ) {
                             AsyncImage(
                                 uri = uri,
+                                state = rememberMomentsImageState(),
                                 contentDescription = "配图",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier.fillMaxSize(),

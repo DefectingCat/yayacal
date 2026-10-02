@@ -21,6 +21,8 @@ data class MomentsUiState(
     val coverPath: String? = null,
     val posts: List<MomentPost> = emptyList(),
     val isLoading: Boolean = false,
+    val isLoadingMore: Boolean = false,
+    val hasLoadedPosts: Boolean = false,
     val error: String? = null,
     val nextCursor: String? = null,
     val commentsCursor: String? = null,
@@ -28,20 +30,25 @@ data class MomentsUiState(
     val unavailable: Boolean = false,
     val searchQuery: String = "",
     val accounts: List<MomentPerson> = emptyList(),
-)
+) {
+    val isRefreshing: Boolean get() = isLoading && !isLoadingMore
+}
 
 /** 朋友圈网络状态。请求捕获账号和加载版本，迟到结果不能覆盖切号后的页面。 */
 class MomentsViewModel(
     private val storage: MomentsStorage,
     private var repository: MomentsRepository,
+    private var timelineCache: MomentsTimelineCache = MomentsTimelineCache(),
+    initialAuthorId: String? = null,
+    private val restoreTimeline: Boolean = true,
 ) : ViewModel() {
     val accountId: String get() = MomentAccount.findById(storage.getCurrentAccountId()).id
-    private val _uiState = MutableStateFlow(MomentsUiState(currentAccountId = storage.getCurrentAccountId(), username = MomentAccount.findById(storage.getCurrentAccountId()).name))
+    private val _uiState = MutableStateFlow(restoreState(accountId, initialAuthorId, null))
     val uiState = _uiState.asStateFlow()
     private var generation = 0
     private var accountGeneration = 0
     private var refreshJob: Job? = null
-    private var author: String? = null
+    private var author: String? = initialAuthorId
     private var query: String? = null
     private var detailId: String? = null
     private var commentSignature: List<String?>? = null
@@ -49,10 +56,18 @@ class MomentsViewModel(
     private var commentMediaId: String? = null
     private val liking = mutableSetOf<String>()
 
+    private fun restoreState(actor: String, author: String?, keyword: String?): MomentsUiState = if (restoreTimeline) {
+        timelineCache.restore(actor, author, keyword)
+    } else {
+        MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(author ?: actor).name, isLoading = true)
+    }
+
     fun reconnect(context: Context) {
         accountGeneration++
         repository = MomentsConnection.repository(context.applicationContext)
-        _uiState.update { it.copy(posts = emptyList(), avatarPath = null, coverPath = null, accounts = emptyList()) }
+        timelineCache = MomentsTimelineCache.forConnection(MomentsConnection.url(context))
+        timelineCache.clear()
+        _uiState.value = restoreState(accountId, author, query)
         refreshPosts()
     }
 
@@ -63,12 +78,11 @@ class MomentsViewModel(
         storage.saveCurrentAccountId(account.id)
         val accounts = _uiState.value.accounts
         val profile = accounts.firstOrNull { it.id == account.id }
-        _uiState.value = MomentsUiState(
-            currentAccountId = account.id,
-            username = account.name,
-            avatarPath = profile?.avatarPath ?: avatarPath,
-            coverPath = profile?.coverPath,
-            accounts = accounts,
+        val cached = restoreState(account.id, null, null)
+        _uiState.value = cached.copy(
+            avatarPath = cached.avatarPath ?: profile?.avatarPath ?: avatarPath,
+            coverPath = cached.coverPath ?: profile?.coverPath,
+            accounts = cached.accounts.ifEmpty { accounts },
         )
         author = null
         query = null
@@ -80,7 +94,7 @@ class MomentsViewModel(
     fun switchAccount(context: Context, account: MomentAccount) = switchAccount(account, "android.resource://${context.packageName}/${account.avatarResId}")
 
     fun refreshPosts(authorId: String? = author, keyword: String? = query) {
-        if (author != authorId || query != keyword) _uiState.update { it.copy(posts = emptyList(), nextCursor = null) }
+        if (author != authorId || query != keyword) _uiState.value = restoreState(accountId, authorId, keyword)
         author = authorId
         query = keyword
         load(false)
@@ -101,22 +115,21 @@ class MomentsViewModel(
         val actor = accountId
         if (_uiState.value.currentAccountId != actor) {
             accountGeneration++
-            val accounts = _uiState.value.accounts
-            val profile = accounts.firstOrNull { it.id == actor }
-            _uiState.value = MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(actor).name, avatarPath = profile?.avatarPath, coverPath = profile?.coverPath, accounts = accounts)
+            _uiState.value = restoreState(actor, author, query)
         }
         val api = repository
         val id = detailId
         val selectedAuthor = author
         val keyword = query
         val cursor = if (more) _uiState.value.nextCursor else null
-        _uiState.update { it.copy(isLoading = true, error = null, unavailable = false) }
+        _uiState.update { it.copy(isLoading = true, isLoadingMore = more, error = null, unavailable = false) }
         refreshJob = viewModelScope.launch {
             try {
                 val accounts = api.accounts(actor)
                 val profile = accounts.first { it.id == (selectedAuthor ?: actor) }
                 // 账号资料不依赖动态列表成功，断网重试时选择页仍可使用已获取的头像。
                 if (version == generation && actor == accountId) {
+                    timelineCache.saveProfiles(actor, accounts)
                     _uiState.update { it.copy(accounts = accounts, username = profile.name, avatarPath = profile.avatarPath, coverPath = profile.coverPath) }
                 }
                 var commentsCursor: String? = null
@@ -134,16 +147,17 @@ class MomentsViewModel(
                         it.copy(
                             currentAccountId = actor, username = profile.name, avatarPath = profile.avatarPath, coverPath = profile.coverPath,
                             posts = if (more) (it.posts + page.items).distinctBy { post -> post.id } else page.items,
-                            nextCursor = page.nextCursor, commentsCursor = commentsCursor, unreadCount = unread, isLoading = false, searchQuery = keyword.orEmpty(),
+                            nextCursor = page.nextCursor, commentsCursor = commentsCursor, unreadCount = unread, isLoading = false, isLoadingMore = false, hasLoadedPosts = true, searchQuery = keyword.orEmpty(),
                         )
                     }
+                    if (id == null) timelineCache.save(actor, selectedAuthor, keyword, _uiState.value)
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 if (version == generation && actor == accountId) {
                     _uiState.update {
                         val missing = id != null && e is MomentsApiException && e.status == 404
-                        it.copy(isLoading = false, error = e.message ?: "加载失败，请重试", unavailable = missing, posts = if (missing) emptyList() else it.posts)
+                        it.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "加载失败，请重试", unavailable = missing, posts = if (missing) emptyList() else it.posts)
                     }
                 }
             }
@@ -175,11 +189,15 @@ class MomentsViewModel(
     private fun mutate(action: suspend (MomentsRepository, String) -> Unit) {
         val actor = accountId
         val api = repository
+        val cache = timelineCache
         val version = generation
         viewModelScope.launch {
             try {
                 action(api, actor)
-                if (actor == accountId && version == generation) load(false)
+                cache.invalidatePosts(actor)
+                if (actor == accountId && version == generation) {
+                    load(false)
+                }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 if (actor == accountId && version == generation) _uiState.update { it.copy(error = e.message ?: "操作失败，请重试") }
@@ -207,6 +225,7 @@ class MomentsViewModel(
     suspend fun sendComment(context: Context, id: String, text: String, replyTo: String?, photo: Uri?): Boolean {
         val actor = accountId
         val api = repository
+        val cache = timelineCache
         val signature = listOf(actor, id, text.trim(), replyTo, photo?.toString())
         if (signature != commentSignature) {
             commentSignature = signature
@@ -228,6 +247,7 @@ class MomentsViewModel(
             throw e
         }
         commentSignature = null
+        cache.invalidatePosts(actor)
         if (actor == accountId) refreshPost(id)
         return true
     }
@@ -250,6 +270,7 @@ class MomentsViewModel(
             }
             it.copy(avatarPath = profile.avatarPath, coverPath = profile.coverPath, accounts = accounts, error = null)
         }
+        timelineCache.saveProfiles(actor, _uiState.value.accounts)
         refreshPosts()
         return true
     }
@@ -265,7 +286,13 @@ class MomentsViewModel(
 
     companion object {
         const val MOMENTS_DIR_NAME = "moments"
-        fun fromContext(context: Context): MomentsViewModel = MomentsViewModel(MomentsStorage.fromContext(context), MomentsConnection.repository(context.applicationContext))
+        fun fromContext(context: Context, cacheTimeline: Boolean = false, authorId: String? = null): MomentsViewModel = MomentsViewModel(
+            MomentsStorage.fromContext(context),
+            MomentsConnection.repository(context.applicationContext),
+            MomentsTimelineCache.forConnection(MomentsConnection.url(context)),
+            initialAuthorId = authorId,
+            restoreTimeline = cacheTimeline,
+        )
     }
 }
 
