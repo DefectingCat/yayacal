@@ -4,16 +4,18 @@ on:
   push:
     branches: [ "main" ]
     tags:
-      - 'v*'
+      - 'v[0-9]*'
+    paths-ignore: ["server/**", ".github/workflows/server*.yml"]
   pull_request:
     branches: [ "main" ]
+    paths-ignore: ["server/**", ".github/workflows/server*.yml"]
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref_type != 'tag' }}
 
 jobs:
   test-and-build:
@@ -25,6 +27,15 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Release validation tests
+        run: python3 -m unittest discover -s scripts/tests -v
+
+      - name: Validate Android release tag and changelog
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/release.py android "$RELEASE_TAG"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -54,12 +65,20 @@ jobs:
     needs: test-and-build
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+
+      - name: Prepare Android release notes
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/release.py android "$RELEASE_TAG" --notes-file "$RUNNER_TEMP/android-release.md" --github-output "$GITHUB_OUTPUT"
 
       - name: Set up JDK 21
         uses: actions/setup-java@v5
@@ -83,6 +102,8 @@ jobs:
         uses: softprops/action-gh-release@v3
         with:
           files: release-apk/yayacal-*-release.apk
-          generate_release_notes: true
+          name: ${{ steps.metadata.outputs.title }}
+          body_path: ${{ runner.temp }}/android-release.md
+          make_latest: "true"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

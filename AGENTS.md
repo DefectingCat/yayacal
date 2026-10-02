@@ -42,6 +42,7 @@ Backend checks:
 ```bash
 cargo fmt --manifest-path server/Cargo.toml --check
 cargo clippy --manifest-path server/Cargo.toml --locked -- -D warnings
+cargo test --manifest-path server/Cargo.toml --locked
 bash server/tests/run.sh
 ```
 
@@ -49,7 +50,7 @@ Integration tests use disposable PostgreSQL through Docker.
 
 ## Commit & Pull Request Guidelines
 
-Commit each completed feature/fix separately using `feat:`, `fix:`, `refactor:`, `docs:`, `test:` or `chore:`; optional scopes include `fix(server):`. Inspect `git status` and stage only relevant files. Routine commits may use `main`; branch for review. Use `.agents/skills/yayacal-release/SKILL.md` for releases.
+Commit each completed feature/fix separately using `feat:`, `fix:`, `refactor:`, `docs:`, `test:` or `chore:`; optional scopes include `fix(server):`. Inspect `git status` and stage only relevant files. Routine commits may use `main`; branch for review. Android releases use `vX.Y.Z`; backend releases use `server-vX.Y.Z`. See `README.md` and `server/README.md` for release preparation and CI publishing.
 
 PRs should explain behavior changes, link relevant issues, report validation and include screenshots for UI changes.
 

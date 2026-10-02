@@ -8,7 +8,7 @@
 cd server
 cp .env.example .env
 # 将 POSTGRES_PASSWORD 改为随机十六进制值，例如 openssl rand -hex 24 的输出。
-docker compose up -d --build
+YAYA_GIT_SHA=$(git rev-parse HEAD) docker compose up -d --build
 curl http://127.0.0.1:8088/health
 ```
 
@@ -23,6 +23,57 @@ make server
 ```
 
 该目标进入 `server/`，自动加载已有的 `.env` 并运行 `cargo run --locked`。服务在前台运行，按 Ctrl+C 停止；`MEDIA_DIR` 的相对路径以 `server/` 为基准。Docker 使用的 `POSTGRES_PASSWORD` 不能代替本地运行需要的 `DATABASE_URL`。
+
+## 版本与发布镜像
+
+后端基础版本只维护在 `Cargo.toml` 的 `package.version`，独立于 Android。构建时拼接七位 Git commit hash，例如 `v0.1.0-a1b2c3d`。启动时先打印 `yaya server v0.1.0-a1b2c3d`，随后连接数据库；所有 HTTP 响应（含 `/health`、HEAD、404 和错误响应）带 `X-Server: yaya server v0.1.0-a1b2c3d`。
+
+Cargo 本地构建自动读取当前 commit，并跟踪 HEAD 和引用变化；也可设置 `YAYA_GIT_SHA` 传入完整 40 位或 64 位 SHA。版本编译进二进制，运行时环境变量不能更改它。无 Git 的开发源码副本显示 `unknown`；Docker 与 CI 设置 `YAYA_REQUIRE_GIT_SHA=1`，缺少真实 SHA 时构建失败。
+
+在仓库根目录构建：
+
+```sh
+make server-build    # server/target/release/yayacal-server
+make server-image    # 自动传入当前 SHA，生成 yayacal-moments-api:local
+```
+
+正式发布提供 `linux/amd64` 和 `linux/arm64` 的多架构镜像：
+
+```text
+ghcr.io/defectingcat/yayacal-server:0.1.0
+ghcr.io/defectingcat/yayacal-server:0.1.0-a1b2c3d
+ghcr.io/defectingcat/yayacal-server:latest
+```
+
+`latest` 指向版本号最高的已发布正式后端版本，重新运行旧版本发布不会回退它。GitHub Release 正文记录镜像 digest 和完整 commit SHA；部署可使用固定版本或 digest。
+
+使用发布镜像部署，在 `server/` 下执行（首次部署仍需按启动部分准备 `.env`）：
+
+```sh
+export SERVER_IMAGE=ghcr.io/defectingcat/yayacal-server:0.1.0
+docker compose pull api
+docker compose up -d --no-build
+curl -I http://127.0.0.1:8088/health
+```
+
+也可将 `SERVER_IMAGE` 写入不跟踪的 `.env`。首次通过 CI 发布 GHCR 包时默认可见性为 Private；公开拉取需在包设置中改为 Public，私有包则先登录 GHCR。
+
+## 准备后端发布
+
+1. 修改 `server/Cargo.toml` 的版本，执行 `cargo check --manifest-path server/Cargo.toml` 同步 `Cargo.lock` 中的本包版本。
+2. 将 `server/CHANGELOG.md` 的待发布记录整理到 `## [X.Y.Z] - YYYY-MM-DD`，保留 `Unreleased` 供后续开发使用。
+3. 运行后端检查，并在仓库根目录执行 `python3 scripts/release.py server server-vX.Y.Z` 校验版本、tag 与发布说明。
+4. 提交发布准备，推送代码和这一个 tag：
+
+```sh
+git push origin main
+git tag server-vX.Y.Z
+git push origin server-vX.Y.Z
+```
+
+`Server Release` 工作流先校验版本和 changelog，复用 `Server CI` 检查，再分别在原生 amd64/arm64 runner 上构建并运行真实 PostgreSQL/HTTP 镜像测试。两边通过后，将测试过的镜像传入发布 job，推送 GHCR 并合并 manifest，最后创建 `YaYa Server vX.Y.Z` GitHub Release。发布 job 使用 `GITHUB_TOKEN` 的 `contents: write` 与 `packages: write` 权限。
+
+后端 Release 不设置为仓库的 Latest，Android 的 `vX.Y.Z` tag 单独发布 APK。两端各自使用自己的版本文件和 changelog，也可以将两个 tag 放在同一 commit 上分别触发发布。
 
 ## 日志
 
@@ -118,10 +169,15 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 ```sh
 cargo fmt --check
 cargo clippy --locked -- -D warnings
+cargo test --locked
 bash tests/run.sh
 ```
 
 集成检查启动独立 PostgreSQL 18.6 容器和临时媒体目录，结束自动清理；覆盖双账号互动、并发幂等、评论回复关联、搜索分页、图片归属、私密访问和通知隔离。不要把 `tests/api.py` 指向生产服务。
+
+`make server-test` 在根目录运行 Rust 测试、发布校验测试和集成检查。每个接口响应都会校验 `X-Server`，并检查启动日志第一行与响应头一致。CI 传入独立计算的 `MOMENTS_EXPECTED_SERVER`，验证实际版本和 hash。
+
+没有 Docker 但安装了 PostgreSQL 的本机可执行 `MOMENTS_TEST_POSTGRES=local make server-test`；脚本通过 `initdb` 启动一次性数据库，结束后停止并清理。使用 `MOMENTS_TEST_PROFILE=release` 可测试 Release 二进制。验证已构建的 Docker 镜像用 `bash server/tests/run.sh --image yayacal-moments-api:local`；该模式使用独立 Docker 网络、数据库和媒体目录，同样运行完整接口测试。
 
 2026-09-30 本地验收：370 项 Android JVM 测试通过，Debug 安装与 Release 构建通过；Rust 格式和 Clippy 检查通过，5 项真实 PostgreSQL/HTTP 集成测试在本机进程及 Linux 容器内均通过。模拟器实际验证了图文发布、另一账号点赞评论、通知与回复、私密切换和个人搜索。日常验收只启动一台模拟器，通过切换账号检查，避免同时占用多台模拟器资源。数据库恢复与媒体文件哈希校验通过。这些是本地结果，GitHub CI 和公网部署另行执行。
 

@@ -1,0 +1,177 @@
+name: Server Release
+
+on:
+  push:
+    tags: ["server-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: server-release
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate server release
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.metadata.outputs.version }}
+      sha: ${{ steps.metadata.outputs.sha }}
+      short_sha: ${{ steps.metadata.outputs.short_sha }}
+      display_version: ${{ steps.metadata.outputs.display_version }}
+      image: ${{ steps.metadata.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Validate tag, Cargo version and changelog
+        id: metadata
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: python3 scripts/release.py server "$RELEASE_TAG" --github-output "$GITHUB_OUTPUT"
+
+  check:
+    needs: validate
+    uses: ./.github/workflows/server.yml
+
+  build:
+    name: Build and test ${{ matrix.arch }} image
+    needs: [validate, check]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Build release image
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: server
+          platforms: linux/${{ matrix.arch }}
+          load: true
+          provenance: false
+          tags: yayacal-server:test-${{ matrix.arch }}
+          build-args: YAYA_GIT_SHA=${{ needs.validate.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ needs.validate.outputs.display_version }}
+          cache-from: type=gha,scope=server-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=server-${{ matrix.arch }}
+      - name: Verify actual image against PostgreSQL and HTTP tests
+        env:
+          ARCH: ${{ matrix.arch }}
+          MOMENTS_EXPECTED_SERVER: yaya server ${{ needs.validate.outputs.display_version }}
+        run: bash server/tests/run.sh --image "yayacal-server:test-$ARCH"
+      - name: Export verified image
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: docker save --output "$RUNNER_TEMP/server-$ARCH.tar" "yayacal-server:test-$ARCH"
+      - name: Upload verified image
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: server-image-${{ matrix.arch }}
+          path: ${{ runner.temp }}/server-${{ matrix.arch }}.tar
+          compression-level: 0
+          retention-days: 1
+
+  publish:
+    name: Publish verified images and release
+    needs: [validate, build]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      packages: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      IMAGE: ${{ needs.validate.outputs.image }}
+      VERSION: ${{ needs.validate.outputs.version }}
+      BUILD_SHA: ${{ needs.validate.outputs.sha }}
+      SHORT_SHA: ${{ needs.validate.outputs.short_sha }}
+      RELEASE_TAG: ${{ github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Download verified images
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: server-image-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/server-images
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+      - name: Log in to GHCR
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare release metadata and check latest server version
+        id: metadata
+        run: |
+          gh release list --limit 1000 --json tagName,isDraft,isPrerelease > "$RUNNER_TEMP/published-releases.json"
+          python3 scripts/release.py server "$RELEASE_TAG" \
+            --notes-file "$RUNNER_TEMP/server-release.md" --github-output "$GITHUB_OUTPUT" \
+            --published-releases "$RUNNER_TEMP/published-releases.json"
+      - name: Push tested images and publish multi-platform manifest
+        id: image
+        env:
+          PUBLISH_LATEST: ${{ steps.metadata.outputs.publish_latest }}
+        run: |
+          for arch in amd64 arm64; do
+            docker load --input "$RUNNER_TEMP/server-images/server-$arch.tar"
+            docker tag "yayacal-server:test-$arch" "$IMAGE:build-$BUILD_SHA-$arch"
+            docker push "$IMAGE:build-$BUILD_SHA-$arch"
+          done
+          tags=(--tag "$IMAGE:$VERSION" --tag "$IMAGE:$VERSION-$SHORT_SHA")
+          if [ "$PUBLISH_LATEST" = true ]; then tags+=(--tag "$IMAGE:latest"); fi
+          docker buildx imagetools create "${tags[@]}" \
+            "$IMAGE:build-$BUILD_SHA-amd64" "$IMAGE:build-$BUILD_SHA-arm64"
+          docker buildx imagetools inspect "$IMAGE:$VERSION-$SHORT_SHA" \
+            --format '{{json .Manifest}}' > "$RUNNER_TEMP/server-manifest.json"
+          digest=$(python3 - "$RUNNER_TEMP/server-manifest.json" <<'PY'
+          import json
+          import re
+          import sys
+          with open(sys.argv[1]) as source:
+              manifest = json.load(source)
+          platforms = {(item["platform"]["os"], item["platform"]["architecture"]) for item in manifest["manifests"]}
+          assert platforms == {("linux", "amd64"), ("linux", "arm64")}, platforms
+          assert re.fullmatch(r"sha256:[0-9a-f]{64}", manifest["digest"])
+          print(manifest["digest"])
+          PY
+          )
+          echo "digest=$digest" >> "$GITHUB_OUTPUT"
+      - name: Add image digest to release notes
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import pathlib
+          notes = pathlib.Path(os.environ["RUNNER_TEMP"]) / "server-release.md"
+          image = os.environ["IMAGE"]
+          tag = os.environ["VERSION"] + "-" + os.environ["SHORT_SHA"]
+          digest = os.environ["IMAGE_DIGEST"]
+          with notes.open("a") as output:
+              output.write(f"\n## Docker 镜像\n\n支持 `linux/amd64` 和 `linux/arm64`。\n\n")
+              output.write(f"```sh\ndocker pull {image}:{tag}\ndocker pull {image}@{digest}\n```\n\n")
+              output.write(f"Commit: `{os.environ['BUILD_SHA']}`\n\nDigest: `{digest}`\n")
+          PY
+      - name: Create or update backend GitHub Release
+        env:
+          RELEASE_TITLE: ${{ steps.metadata.outputs.title }}
+        run: |
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release edit "$RELEASE_TAG" --title "$RELEASE_TITLE" \
+              --notes-file "$RUNNER_TEMP/server-release.md" --latest=false
+          else
+            gh release create "$RELEASE_TAG" --verify-tag --title "$RELEASE_TITLE" \
+              --notes-file "$RUNNER_TEMP/server-release.md" --latest=false
+          fi

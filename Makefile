@@ -4,7 +4,7 @@ BACKEND_PORT ?= 8088
 
 .DEFAULT_GOAL := release
 
-.PHONY: help release build install test fmt check clean profile server emulator
+.PHONY: help release build install test fmt check clean profile server server-build server-test server-image emulator
 
 help: ## 列出所有可用命令
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  make \033[36m%-9s\033[0m %s\n", $$1, $$2}'
@@ -27,6 +27,17 @@ server: ## 启动本地朋友圈后端（自动加载 server/.env）
 		if [ -f .env ]; then . ./.env; fi && \
 		: "$${DATABASE_URL:?请在 server/.env 或环境变量中设置 DATABASE_URL}" && \
 		exec cargo run --locked
+
+server-build: ## 构建带版本与 Git hash 的后端 Release 二进制
+	cargo build --manifest-path server/Cargo.toml --release --locked
+
+server-test: ## 后端单元测试与一次性 PostgreSQL/HTTP 集成测试
+	cargo test --manifest-path server/Cargo.toml --locked
+	python3 -m unittest discover -s scripts/tests -v
+	bash server/tests/run.sh
+
+server-image: ## 构建带当前 Git hash 的本地后端 Docker 镜像
+	docker build --build-arg YAYA_GIT_SHA="$$(git rev-parse HEAD)" -t yayacal-moments-api:local server
 
 test: ## 跑 :core 单元测试（make test T=CalendarUtilsTest 只跑单个类）
 ifdef T

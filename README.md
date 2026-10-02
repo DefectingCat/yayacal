@@ -67,4 +67,25 @@ make install    # 编译并安装 Debug APK
 
 构建产物位于 `app/build/outputs/apk/<variant>/` 目录。
 
+## 独立发布
+
+Android 和朋友圈后端分别维护版本与 changelog：
+
+| 组件 | 版本文件 | 更新记录 | 发布 tag | 产物 |
+| --- | --- | --- | --- | --- |
+| Android | `gradle.properties` 的 `app.version.base` | `CHANGELOG.md` | `vX.Y.Z` | APK |
+| 后端 | `server/Cargo.toml` 的 `package.version` | `server/CHANGELOG.md` | `server-vX.Y.Z` | GHCR amd64/arm64 镜像 |
+
+Android 发布前更新基础版本、递增 `app/build.gradle.kts` 中的 `versionCode`，并在根目录 changelog 整理对应版本的更新记录。执行 `python3 scripts/release.py android vX.Y.Z` 校验，提交并推送代码，然后仅推送对应 tag：
+
+```sh
+git push origin main
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+Android CI 校验 tag、版本与 changelog 后运行格式检查、单元测试和 APK 构建，自动创建 `YaYa vX.Y.Z` Release，并使用该版本的 changelog 作为正文。日常 Android CI 跳过仅涉及 `server/` 或后端工作流的修改。
+
+后端发布流程见 [server/README.md](server/README.md#准备后端发布)，后端 tag 只触发后端发布。日常 Server CI 检查后端、发布脚本和相关构建配置；任一组件发版都无需同步提升另一个组件的版本号。
+
 线条小狗表情包来自 https://www.douban.com/group/topic/264788645/?_i=9181692phrDzjR,9241256phrDzjR

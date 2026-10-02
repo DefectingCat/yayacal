@@ -4,6 +4,7 @@ mod interactions;
 mod logging;
 mod media;
 mod posts;
+mod version;
 
 use axum::{
     Router,
@@ -23,6 +24,7 @@ pub struct App {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     logging::init();
+    version::log_startup();
     let db = PgPoolOptions::new()
         .max_connections(10)
         .acquire_timeout(Duration::from_secs(10))
@@ -89,10 +91,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             "/health",
             get(health).layer(request_trace.on_response(logging::ResponseLogger::new(true))),
         )
-        .with_state(app);
+        .with_state(app)
+        .layer(version::header_layer());
     let address = std::env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:8088".into());
     let listener = tokio::net::TcpListener::bind(&address).await?;
-    tracing::info!(%address, "moments server listening");
+    tracing::info!(%address, version = version::VERSION, "moments server listening");
     axum::serve(listener, router)
         .with_graceful_shutdown(shutdown())
         .await?;

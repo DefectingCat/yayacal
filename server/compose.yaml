@@ -15,8 +15,11 @@ services:
       retries: 15
     restart: unless-stopped
   api:
-    image: yayacal-moments-api:local
-    build: .
+    image: ${SERVER_IMAGE:-yayacal-moments-api:local}
+    build:
+      context: .
+      args:
+        YAYA_GIT_SHA: ${YAYA_GIT_SHA:-}
     environment:
       DATABASE_URL: postgres://moments:${POSTGRES_PASSWORD}@db/moments
       BIND_ADDR: 0.0.0.0:8088

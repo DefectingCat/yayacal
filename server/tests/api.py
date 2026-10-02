@@ -1,6 +1,7 @@
 """真实 HTTP + PostgreSQL 集成检查。仅指向一次性测试数据库，测试会创建数据。"""
 import json
 import os
+import re
 import struct
 import unittest
 import urllib.error
@@ -10,6 +11,7 @@ import zlib
 from concurrent.futures import ThreadPoolExecutor
 
 BASE = os.environ.get("MOMENTS_TEST_URL", "http://127.0.0.1:8088")
+EXPECTED_SERVER = os.environ.get("MOMENTS_EXPECTED_SERVER")
 
 
 def call(method, path, body=None, actor="xiaobai", expected=200, content_type=None):
@@ -28,6 +30,10 @@ def call(method, path, body=None, actor="xiaobai", expected=200, content_type=No
     data = response.read()
     response.close()
     assert response.status == expected, (method, path, response.status, data)
+    server = response.headers.get("X-Server", "")
+    assert re.fullmatch(r"yaya server v[0-9]+\.[0-9]+\.[0-9]+-(?:[0-9a-f]{7}|unknown)", server), server
+    if EXPECTED_SERVER:
+        assert server == EXPECTED_SERVER, (server, EXPECTED_SERVER)
     return json.loads(data) if "application/json" in response.headers.get("Content-Type", "") else data
 
 
@@ -44,6 +50,14 @@ def upload(actor="xiaobai", data=None, expected=200):
 
 
 class ApiTest(unittest.TestCase):
+    def test_version_header_on_health_head_errors_and_fallback(self):
+        self.assertEqual(call("GET", "/health", actor=None), b"ok")
+        self.assertEqual(call("HEAD", "/health", actor=None), b"")
+        call("GET", "/api/v1/posts", actor=None, expected=401)
+        call("GET", "/missing", actor=None, expected=404)
+        self.assertEqual(call("HEAD", "/missing", actor=None, expected=404), b"")
+        call("POST", "/health", actor=None, expected=405)
+
     def test_reset_avatar_is_account_scoped_idempotent_and_preserves_cover(self):
         call("DELETE", "/api/v1/me/avatar", actor=None, expected=401)
         call("DELETE", "/api/v1/me/avatar", actor="unknown", expected=401)
