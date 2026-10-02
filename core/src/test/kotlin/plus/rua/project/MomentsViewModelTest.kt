@@ -621,6 +621,100 @@ class MomentsViewModelTest {
         assertFalse(vm.uiState.value.isLoadingMore)
     }
 
+    @Test fun like_pagedTimeline_preservesRowsCursorScopeAndCache() = runTest(dispatcher) {
+        val cache = MomentsTimelineCache()
+        val requests = mutableListOf<List<String?>>()
+        repository.posts = (1..41).map { MomentPost(id = "$it", authorId = "xiaobai", text = "照片$it") }
+        repository.load = { actor, author, query, cursor ->
+            requests += listOf(actor, author, query, cursor)
+            when (cursor) {
+                null -> MomentsPage(repository.posts.take(20), "page2")
+                "page2" -> MomentsPage(repository.posts.drop(20).take(20), "page3")
+                else -> MomentsPage(repository.posts.drop(40))
+            }
+        }
+        val vm = MomentsViewModel(storage, repository, cache)
+        vm.refreshPosts(authorId = "xiaobai", keyword = "照片")
+        advanceUntilIdle()
+        vm.loadMore()
+        advanceUntilIdle()
+
+        vm.toggleLike("21")
+        advanceUntilIdle()
+
+        assertEquals((1..40).map(Int::toString), vm.uiState.value.posts.map { it.id })
+        assertTrue(vm.uiState.value.posts.first { it.id == "21" }.isLikedByMe)
+        assertEquals("page3", vm.uiState.value.nextCursor)
+        assertEquals(2, requests.size)
+        assertEquals(vm.uiState.value.posts, cache.restore("xiaobai", "xiaobai", "照片").posts)
+        vm.loadMore()
+        advanceUntilIdle()
+        assertEquals((1..41).map(Int::toString), vm.uiState.value.posts.map { it.id })
+        assertEquals(listOf("xiaobai", "xiaobai", "照片", "page3"), requests.last())
+    }
+
+    @Test fun like_detailWithPagedComments_preservesCommentsAndCursor() = runTest(dispatcher) {
+        val comments = (1..130).map { MomentComment(id = "$it", authorId = "xiaobai", authorName = "小白", text = "评论$it") }
+        repository.posts = listOf(MomentPost(id = "post", authorId = "xiaobai", comments = comments.takeLast(3), commentCount = comments.size))
+        repository.commentsRequest = { _, _, cursor ->
+            val offset = cursor?.toInt() ?: 0
+            MomentsPage(comments.drop(offset).take(50), "${offset + 50}".takeIf { offset + 50 < comments.size })
+        }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        vm.loadMoreComments()
+        advanceUntilIdle()
+
+        vm.toggleLike("post")
+        advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.posts.single().isLikedByMe)
+        assertEquals(comments.take(100), vm.uiState.value.posts.single().comments)
+        assertEquals("100", vm.uiState.value.commentsCursor)
+    }
+
+    @Test fun like_postRefreshFailure_preservesLoadedPagesAndReportsOperationError() = runTest(dispatcher) {
+        repository.posts = listOf(MomentPost(id = "first", authorId = "xiaobai"), MomentPost(id = "second", authorId = "xiaobai"))
+        repository.load = { _, _, _, cursor -> MomentsPage(if (cursor == null) repository.posts.take(1) else repository.posts.drop(1), if (cursor == null) "next" else "last") }
+        val api = object : MomentsRepository by repository {
+            override suspend fun post(actor: String, id: String): MomentPost = throw IOException("网络超时")
+        }
+        val vm = MomentsViewModel(storage, api)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        vm.loadMore()
+        advanceUntilIdle()
+
+        vm.toggleLike("second")
+        advanceUntilIdle()
+
+        assertEquals(listOf("first", "second"), vm.uiState.value.posts.map { it.id })
+        assertEquals("last", vm.uiState.value.nextCursor)
+        assertEquals("网络超时", vm.uiState.value.operationError)
+        assertEquals(null, vm.uiState.value.error)
+    }
+
+    @Test fun like_accountChangesDuringPostRefresh_ignoresOldResponse() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentPost>()
+        repository.load = { actor, _, _, _ -> MomentsPage(listOf(MomentPost(id = actor, authorId = actor))) }
+        val api = object : MomentsRepository by repository {
+            override suspend fun post(actor: String, id: String): MomentPost = withContext(NonCancellable) { response.await() }
+        }
+        val vm = MomentsViewModel(storage, api)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        vm.toggleLike("xiaobai")
+        runCurrent()
+        vm.switchAccount(MomentAccount.ACCOUNT_XIAOJIMAO)
+        runCurrent()
+        response.complete(MomentPost(id = "xiaobai", authorId = "xiaobai", isLikedByMe = true))
+        advanceUntilIdle()
+
+        assertEquals("xiaojimao", vm.uiState.value.currentAccountId)
+        assertEquals(listOf("xiaojimao"), vm.uiState.value.posts.map { it.id })
+    }
+
     @Test fun like_failure_isAnOperationErrorAndKeepsPageUsable() = runTest(dispatcher) {
         repository.posts = listOf(MomentPost(id = "post", authorId = "xiaobai"))
         val vm = MomentsViewModel(storage, repository)

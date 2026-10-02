@@ -199,7 +199,7 @@ class MomentsViewModel(
         _uiState.update { it.copy(operationError = null) }
     }
 
-    private fun mutate(action: suspend (MomentsRepository, String) -> Unit) {
+    private fun mutate(postId: String? = null, action: suspend (MomentsRepository, String) -> Unit) {
         val actor = accountId
         val api = repository
         val cache = timelineCache
@@ -210,7 +210,28 @@ class MomentsViewModel(
                 action(api, actor)
                 cache.invalidatePosts(actor)
                 if (actor == accountId && version == generation) {
-                    load(false)
+                    if (postId == null) {
+                        load(false)
+                    } else {
+                        val updated = api.post(actor, postId)
+                        if (actor == accountId && version == generation) {
+                            // 点赞只更新该条动态，保留列表分页以及详情中已加载的完整评论。
+                            _uiState.update { state ->
+                                state.copy(
+                                    posts = state.posts.map { post ->
+                                        if (post.id != postId) {
+                                            post
+                                        } else if (detailId == postId) {
+                                            updated.copy(comments = post.comments)
+                                        } else {
+                                            updated
+                                        }
+                                    },
+                                )
+                            }
+                            if (detailId == null) cache.save(actor, author, query, _uiState.value)
+                        }
+                    }
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -223,7 +244,7 @@ class MomentsViewModel(
         val post = _uiState.value.posts.find { it.id == postId } ?: return
         val key = "$accountId:$postId"
         if (!liking.add(key)) return
-        mutate { api, actor ->
+        mutate(postId) { api, actor ->
             try {
                 api.like(actor, postId, !post.isLikedByMe)
             } finally {
