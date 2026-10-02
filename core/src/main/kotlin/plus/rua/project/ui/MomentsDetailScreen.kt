@@ -249,6 +249,7 @@ fun MomentsDetailScreen(
     var showDelete by remember { mutableStateOf(false) }
     var showMore by remember { mutableStateOf(false) }
     var isSending by remember { mutableStateOf(false) }
+    var scrollToLatestComment by remember(post.id, currentAccountId) { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var previewPhotos by remember { mutableStateOf<List<String>?>(null) }
     var previewIndex by remember { mutableStateOf(0) }
@@ -272,8 +273,7 @@ fun MomentsDetailScreen(
                         showEmoji = false
                         focusManager.clearFocus()
                         keyboard?.hide()
-                        // 数据更新后的尾项始终是留白，滚到末尾展示刚发送的评论。
-                        listState.animateScrollToItem(listState.layoutInfo.totalItemsCount - 1)
+                        scrollToLatestComment = true
                     } else {
                         error = "评论发送失败，请重试"
                     }
@@ -284,6 +284,17 @@ fun MomentsDetailScreen(
                     isSending = false
                 }
             }
+        }
+    }
+    LaunchedEffect(scrollToLatestComment, post.comments, networkState.isLoading, networkState.error) {
+        if (scrollToLatestComment && !networkState.isLoading && networkState.error == null) {
+            if (visibleComments.isNotEmpty()) {
+                // 使用本次组合中的评论位置，不能读取上一帧列表的总项数。
+                val firstCommentIndex = 1 + (if (post.likes.isNotEmpty()) 1 else 0) +
+                    (if (networkState.operationError != null) 1 else 0)
+                listState.animateScrollToItem(firstCommentIndex + visibleComments.lastIndex)
+            }
+            scrollToLatestComment = false
         }
     }
     LaunchedEffect(focusComment) {

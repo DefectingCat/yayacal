@@ -3,6 +3,7 @@ package plus.rua.project
 import android.content.ClipboardManager
 import android.graphics.Bitmap
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotFocused
@@ -12,6 +13,7 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.test.espresso.Espresso.pressBack
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -40,6 +42,7 @@ class MomentsCommentInteractionTest {
     private val post = mutableStateOf(MomentPost())
     private val deleteRequests = mutableListOf<String>()
     private var failDelete = false
+    private var commentsAfterSend: List<MomentComment>? = null
 
     @Before
     fun showDetail() {
@@ -64,7 +67,19 @@ class MomentsCommentInteractionTest {
                     currentAccountId = account.value,
                     onBack = {},
                     onLike = {},
-                    onSendComment = { _, _, _ -> true },
+                    onSendComment = { text, replyTo, photo ->
+                        val comments = (commentsAfterSend ?: post.value.comments) + MomentComment(
+                            id = "sent",
+                            authorId = account.value.orEmpty(),
+                            authorName = "小白",
+                            text = text,
+                            timestamp = timestamp,
+                            replyToId = replyTo,
+                            photoPath = photo?.toString(),
+                        )
+                        post.value = post.value.copy(comments = comments, commentCount = comments.size)
+                        true
+                    },
                     onDeleteComment = { id ->
                         deleteRequests += id
                         if (failDelete) {
@@ -203,6 +218,25 @@ class MomentsCommentInteractionTest {
         compose.onNodeWithTag("moments_comment_delete_dialog").assertDoesNotExist()
         compose.onNodeWithTag("moment_comment_own-text").assertDoesNotExist()
         assertTrue(deleteRequests.isEmpty())
+    }
+
+    @Test
+    fun sendComment_largePagedList_showsNewestCommentAndClearsDraft() {
+        val comments = (1..120).map {
+            MomentComment(id = "page-$it", authorId = "xiaobai", authorName = "小白", text = "第 $it 条评论", timestamp = it.toLong())
+        }
+        commentsAfterSend = comments
+        compose.runOnIdle {
+            post.value = post.value.copy(comments = comments.take(50), commentCount = comments.size)
+            operationError.value = "之前的操作未完成"
+        }
+        compose.onNodeWithTag("moments_comment_input").performTextInput("第121条新评论")
+        compose.onNodeWithTag("moments_comment_send").performClick()
+
+        compose.onNodeWithTag("moment_comment_sent").assertIsDisplayed()
+        assertEquals("", compose.onNodeWithTag("moments_comment_input").fetchSemanticsNode().config[SemanticsProperties.EditableText].text)
+        assertEquals(121, post.value.comments.size)
+        saveScreenshot("comments-sent-after-pagination")
     }
 
     private fun openTextMenu() {

@@ -778,6 +778,169 @@ class MomentsViewModelTest {
         assertEquals(null, vm.uiState.value.error)
     }
 
+    @Test fun sendComment_pagedDetails_waitsUntilNewestCommentIsLoaded() = runTest(dispatcher) {
+        val comments = commentFixtures(60)
+        val tail = CompletableDeferred<Unit>()
+        var waitForTail = false
+        val paged = pagedCommentsRepository(comments)
+        val api = object : MomentsRepository by paged {
+            override suspend fun comments(actor: String, id: String, cursor: String?): MomentsPage<MomentComment> {
+                if (cursor != null && waitForTail) tail.await()
+                return paged.comments(actor, id, cursor)
+            }
+        }
+        val vm = MomentsViewModel(storage, api)
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        vm.loadMoreComments()
+        advanceUntilIdle()
+        waitForTail = true
+
+        val sent = async { vm.sendComment("post", "第61条评论", null) }
+        runCurrent()
+        assertFalse(sent.isCompleted)
+        assertTrue(vm.uiState.value.isLoading)
+        assertEquals(60, vm.uiState.value.posts.single().comments.size)
+        tail.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue(sent.await())
+        assertEquals(61, vm.uiState.value.posts.single().commentCount)
+        assertEquals(comments, vm.uiState.value.posts.single().comments)
+        assertEquals("第61条评论", vm.uiState.value.posts.single().comments.last().text)
+        assertEquals(null, vm.uiState.value.commentsCursor)
+    }
+
+    @Test fun sendComment_unloadedLaterPages_reachesNewestAndKeepsRangeOnRefresh() = runTest(dispatcher) {
+        val comments = commentFixtures(125)
+        val requests = mutableListOf<Pair<String, String?>>()
+        val vm = MomentsViewModel(storage, pagedCommentsRepository(comments, requests))
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        assertEquals(50, vm.uiState.value.posts.single().comments.size)
+
+        assertTrue(vm.sendComment("post", "第126条评论", null))
+
+        assertEquals(comments, vm.uiState.value.posts.single().comments)
+        assertEquals(listOf(null, null, "50", "100"), requests.map { it.second })
+        assertTrue(requests.all { it.first == "xiaobai" })
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        assertEquals(126, vm.uiState.value.posts.single().comments.size)
+        assertEquals("第126条评论", vm.uiState.value.posts.single().comments.last().text)
+        assertEquals(null, vm.uiState.value.commentsCursor)
+    }
+
+    @Test fun sendComment_readFailure_keepsConfirmedWriteAndRetryLoadsNewest() = runTest(dispatcher) {
+        val comments = commentFixtures(60)
+        var failTail = false
+        val paged = pagedCommentsRepository(comments)
+        val api = object : MomentsRepository by paged {
+            override suspend fun comments(actor: String, id: String, cursor: String?): MomentsPage<MomentComment> {
+                if (cursor != null && failTail) throw IOException("网络超时")
+                return paged.comments(actor, id, cursor)
+            }
+        }
+        val vm = MomentsViewModel(storage, api)
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        val previous = vm.uiState.value.posts.single().comments
+        failTail = true
+
+        assertTrue(vm.sendComment("post", "已发送的评论", null))
+
+        assertEquals(61, comments.size)
+        assertEquals(previous, vm.uiState.value.posts.single().comments)
+        assertEquals("网络超时", vm.uiState.value.error)
+        failTail = false
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        assertEquals(comments, vm.uiState.value.posts.single().comments)
+        assertEquals("已发送的评论", vm.uiState.value.posts.single().comments.last().text)
+        assertEquals(null, vm.uiState.value.error)
+    }
+
+    @Test fun sendComment_photoTimeoutRetry_reusesRequestAndUploadWithoutDuplicates() = runTest(dispatcher) {
+        val comments = commentFixtures(60)
+        val attempts = mutableListOf<Pair<String, String?>>()
+        val paged = pagedCommentsRepository(comments)
+        val api = object : MomentsRepository by paged {
+            override suspend fun comment(actor: String, id: String, requestId: String, text: String, media: String?, replyTo: String?) {
+                attempts += requestId to media
+                paged.comment(actor, id, requestId, text, media, replyTo)
+                if (attempts.size == 1) throw IOException("网络超时")
+            }
+        }
+        val vm = MomentsViewModel(storage, api)
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        val photo = File.createTempFile("comment-fixture-", ".image").apply { writeText("fixture") }
+        try {
+            val error = runCatching { vm.sendComment("post", "图片评论", null, "photo") { photo } }.exceptionOrNull()
+            assertEquals("网络超时", error?.message)
+            assertFalse(photo.exists())
+            assertTrue(vm.sendComment("post", "图片评论", null, "photo") { error("不应重新上传") })
+
+            assertEquals(2, attempts.size)
+            assertEquals(attempts.first(), attempts.last())
+            assertEquals(1, repository.uploads.size)
+            assertEquals(61, comments.size)
+            assertEquals(comments, vm.uiState.value.posts.single().comments)
+        } finally {
+            photo.delete()
+        }
+    }
+
+    @Test fun sendComment_accountChangesDuringWrite_keepsCapturedActorAndNewPage() = runTest(dispatcher) {
+        val comments = commentFixtures(60)
+        val write = CompletableDeferred<Unit>()
+        val actors = mutableListOf<String>()
+        val paged = pagedCommentsRepository(comments)
+        repository.load = { actor, _, _, _ -> MomentsPage(listOf(MomentPost(id = actor, authorId = actor))) }
+        val api = object : MomentsRepository by paged {
+            override suspend fun comment(actor: String, id: String, requestId: String, text: String, media: String?, replyTo: String?) {
+                withContext(NonCancellable) { write.await() }
+                actors += actor
+                paged.comment(actor, id, requestId, text, media, replyTo)
+            }
+        }
+        val vm = MomentsViewModel(storage, api)
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        val sent = async { vm.sendComment("post", "小白的评论", null) }
+        runCurrent()
+        vm.switchAccount(MomentAccount.ACCOUNT_XIAOJIMAO)
+        runCurrent()
+        write.complete(Unit)
+        advanceUntilIdle()
+
+        assertTrue(sent.await())
+        assertEquals(listOf("xiaobai"), actors)
+        assertEquals("xiaojimao", vm.uiState.value.currentAccountId)
+        assertEquals(listOf("xiaojimao"), vm.uiState.value.posts.map { it.id })
+    }
+
+    private fun commentFixtures(count: Int) = (1..count).map {
+        MomentComment(id = "$it", authorId = "xiaobai", authorName = "小白", text = "评论$it", timestamp = it.toLong())
+    }.toMutableList()
+
+    private fun pagedCommentsRepository(comments: MutableList<MomentComment>, requests: MutableList<Pair<String, String?>> = mutableListOf()): MomentsRepository {
+        repository.posts = listOf(MomentPost(id = "post", authorId = "xiaobai"))
+        return object : MomentsRepository by repository {
+            override suspend fun post(actor: String, id: String): MomentPost = repository.post(actor, id).copy(comments = comments.takeLast(3), commentCount = comments.size)
+            override suspend fun comments(actor: String, id: String, cursor: String?): MomentsPage<MomentComment> {
+                requests += actor to cursor
+                val offset = cursor?.toInt() ?: 0
+                return MomentsPage(comments.drop(offset).take(50), "${offset + 50}".takeIf { offset + 50 < comments.size })
+            }
+            override suspend fun comment(actor: String, id: String, requestId: String, text: String, media: String?, replyTo: String?) {
+                if (comments.none { it.id == requestId }) {
+                    comments += MomentComment(id = requestId, authorId = actor, authorName = "小白", text = text, timestamp = comments.size + 1L, photoPath = media, replyToId = replyTo)
+                }
+            }
+        }
+    }
+
     @Test fun detail_deletedPost_reportsUnavailableAndClearsStaleContent() = runTest(dispatcher) {
         repository.posts = listOf(MomentPost(id = "post", authorId = "xiaobai"))
         val vm = MomentsViewModel(storage, repository, restoreTimeline = false)

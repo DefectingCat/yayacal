@@ -53,6 +53,7 @@ class MomentsViewModel(
     private var author: String? = initialAuthorId
     private var query: String? = null
     private var detailId: String? = null
+    private var pendingCommentRefresh: String? = null
     private var commentSignature: List<String?>? = null
     private var commentRequestId = ""
     private var commentMediaId: String? = null
@@ -66,6 +67,7 @@ class MomentsViewModel(
 
     fun reconnect(context: Context) {
         accountGeneration++
+        pendingCommentRefresh = null
         repository = MomentsConnection.repository(context.applicationContext)
         timelineCache = MomentsTimelineCache.forConnection(MomentsConnection.url(context))
         timelineCache.clear()
@@ -89,6 +91,7 @@ class MomentsViewModel(
         author = null
         query = null
         detailId = null
+        pendingCommentRefresh = null
         commentSignature = null
         refreshPosts()
     }
@@ -111,21 +114,24 @@ class MomentsViewModel(
         if (!_uiState.value.isLoading && _uiState.value.nextCursor != null) load(true)
     }
 
-    private fun load(more: Boolean) {
+    private fun load(more: Boolean): Job {
         refreshJob?.cancel()
         val version = ++generation
         val actor = accountId
         if (_uiState.value.currentAccountId != actor) {
             accountGeneration++
+            pendingCommentRefresh = null
             _uiState.value = restoreState(actor, author, query)
         }
         val api = repository
         val id = detailId
+        val loadAllComments = id != null && pendingCommentRefresh == id
+        val loadedCommentCount = _uiState.value.posts.firstOrNull { it.id == id }?.comments?.size ?: 0
         val selectedAuthor = author
         val keyword = query
         val cursor = if (more) _uiState.value.nextCursor else null
         _uiState.update { it.copy(isLoading = true, isLoadingMore = more, error = if (more) it.error else null, loadMoreError = null, unavailable = false) }
-        refreshJob = viewModelScope.launch {
+        val job = viewModelScope.launch {
             try {
                 val accounts = api.accounts(actor)
                 val profile = accounts.first { it.id == (selectedAuthor ?: actor) }
@@ -139,9 +145,15 @@ class MomentsViewModel(
                     api.posts(actor, selectedAuthor, keyword, cursor)
                 } else {
                     val post = api.post(actor, id)
-                    val comments = api.comments(actor, id)
+                    var comments = api.comments(actor, id)
+                    val items = comments.items.toMutableList()
+                    // 普通刷新保留已读到的评论范围；发送后读到尾页，才能显示服务端确认的新评论。
+                    while (comments.nextCursor != null && (loadAllComments || items.size < loadedCommentCount)) {
+                        comments = api.comments(actor, id, comments.nextCursor)
+                        items += comments.items
+                    }
                     commentsCursor = comments.nextCursor
-                    MomentsPage(listOf(post.copy(comments = comments.items)))
+                    MomentsPage(listOf(post.copy(comments = items.distinctBy { it.id })))
                 }
                 val unread = api.notifications(actor).unreadCount
                 if (version == generation && actor == accountId) {
@@ -153,6 +165,7 @@ class MomentsViewModel(
                         )
                     }
                     if (id == null) timelineCache.save(actor, selectedAuthor, keyword, _uiState.value)
+                    if (id != null && pendingCommentRefresh == id) pendingCommentRefresh = null
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
@@ -171,6 +184,8 @@ class MomentsViewModel(
                 }
             }
         }
+        refreshJob = job
+        return job
     }
 
     fun loadMoreComments() {
@@ -256,19 +271,29 @@ class MomentsViewModel(
     fun deleteComment(id: String) = mutate { api, actor -> api.deleteComment(actor, id) }
     fun setVisibility(id: String, visibility: String) = mutate { api, actor -> api.visibility(actor, id, visibility) }
 
-    /** 失败时保留同一请求 ID 和已上传图片，网络超时后的重试不会产生第二条评论。 */
-    suspend fun sendComment(context: Context, id: String, text: String, replyTo: String?, photo: Uri?): Boolean {
+    /** 失败时保留请求 ID 与图片；服务端确认后等待评论同步，再通知界面清空草稿并滚动。 */
+    suspend fun sendComment(context: Context, id: String, text: String, replyTo: String?, photo: Uri?): Boolean = sendComment(
+        id,
+        text,
+        replyTo,
+        photo?.toString(),
+        photo?.let { uri -> suspend { copyMomentPhoto(context, uri) } },
+    )
+
+    /** 图片准备可注入，文字评论不依赖 Android Context；读取失败不撤销已经确认的评论写入。 */
+    internal suspend fun sendComment(id: String, text: String, replyTo: String?, photoKey: String? = null, preparePhoto: (suspend () -> File)? = null): Boolean {
         val actor = accountId
         val api = repository
         val cache = timelineCache
-        val signature = listOf(actor, id, text.trim(), replyTo, photo?.toString())
+        val version = accountGeneration
+        val signature = listOf(actor, id, text.trim(), replyTo, photoKey)
         if (signature != commentSignature) {
             commentSignature = signature
             commentRequestId = UUID.randomUUID().toString()
             commentMediaId = null
         }
-        if (photo != null && commentMediaId == null) {
-            val file = copyMomentPhoto(context, photo)
+        if (preparePhoto != null && commentMediaId == null) {
+            val file = preparePhoto()
             try {
                 commentMediaId = api.upload(actor, file)
             } finally {
@@ -283,7 +308,11 @@ class MomentsViewModel(
         }
         commentSignature = null
         cache.invalidatePosts(actor)
-        if (actor == accountId) refreshPost(id)
+        if (actor == accountId && version == accountGeneration && (detailId == null || detailId == id)) {
+            pendingCommentRefresh = id
+            detailId = id
+            load(false).join()
+        }
         return true
     }
 
