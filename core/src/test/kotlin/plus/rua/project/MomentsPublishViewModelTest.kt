@@ -62,6 +62,8 @@ class MomentsPublishViewModelTest {
         assertFalse(success)
         assertEquals("晚安 🐶", first.uiState.value.text)
         assertFalse(first.uiState.value.isPublishing)
+        assertEquals(MomentsPublishErrorSource.Publish, first.uiState.value.errorSource)
+        assertEquals(listOf(photo.absolutePath), first.uiState.value.photos)
         val restored = vm()
         assertEquals(first.uiState.value.text, restored.uiState.value.text)
         repository.failPublish = false
@@ -122,6 +124,27 @@ class MomentsPublishViewModelTest {
         assertEquals(8, vm.uiState.value.photos.size)
         vm.selectVisibility("私密")
         assertEquals("私密", vm.uiState.value.visibility)
+    }
+
+    @Test fun draftSaveFailure_preservesTextAndDoesNotOfferPublishRetry() {
+        val vm = vm()
+        val draftDirectory = File(dir, "moments/drafts/${"default".hashCode()}/xiaobai")
+        File(draftDirectory, "draft.tmp").mkdir()
+        vm.onTextChanged("还在编辑中的内容")
+        assertEquals("还在编辑中的内容", vm.uiState.value.text)
+        assertEquals(MomentsPublishErrorSource.Draft, vm.uiState.value.errorSource)
+        assertTrue(repository.attempts.isEmpty())
+    }
+
+    @Test fun editAfterPublishFailure_clearsOldOperationError() = runTest(dispatcher) {
+        val vm = vm()
+        vm.onTextChanged("原文")
+        repository.failPublish = true
+        vm.publish {}
+        advanceUntilIdle()
+        vm.onTextChanged("修改后的文字")
+        assertEquals(null, vm.uiState.value.error)
+        assertEquals(null, vm.uiState.value.errorSource)
     }
 }
 

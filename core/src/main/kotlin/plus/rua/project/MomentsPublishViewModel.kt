@@ -16,6 +16,9 @@ import java.io.File
 import java.util.Properties
 import java.util.UUID
 
+/** 发布页错误对应的操作，避免把选图或保存草稿失败误当成发布重试。 */
+enum class MomentsPublishErrorSource { Draft, Photo, Publish }
+
 /** 发布草稿、上传状态及位置/可见性选择状态；失败时保留全部草稿。 */
 data class MomentsPublishUiState(
     val text: String = "",
@@ -30,6 +33,7 @@ data class MomentsPublishUiState(
     val isPublishing: Boolean = false,
     val isPreparingPhotos: Boolean = false,
     val error: String? = null,
+    val errorSource: MomentsPublishErrorSource? = null,
 ) {
     val canPublish: Boolean get() = (text.isNotBlank() || photos.isNotEmpty()) && !isPublishing && !isPreparingPhotos
     val remainingPhotoSlots: Int get() = (MAX_PHOTOS - photos.size).coerceAtLeast(0)
@@ -89,7 +93,7 @@ class MomentsPublishViewModel(
             temp.outputStream().use { data.store(it, null) }
             check(temp.renameTo(draftFile)) { "草稿保存失败" }
         } catch (e: Exception) {
-            _uiState.update { it.copy(error = "草稿保存失败，请检查存储空间") }
+            _uiState.update { it.copy(error = "草稿保存失败，请检查存储空间", errorSource = MomentsPublishErrorSource.Draft) }
         }
     }
 
@@ -103,7 +107,7 @@ class MomentsPublishViewModel(
         ) {
             requestId = UUID.randomUUID().toString()
         }
-        _uiState.value = updated.copy(error = null)
+        _uiState.value = updated.copy(error = null, errorSource = null)
         saveDraft()
     }
     fun onTextChanged(text: String) = edit { it.copy(text = text) }
@@ -111,7 +115,7 @@ class MomentsPublishViewModel(
     fun addPhotosFromUris(context: Context, uris: List<Uri>) {
         if (_uiState.value.isPublishing || _uiState.value.isPreparingPhotos) return
         val selected = uris.take(_uiState.value.remainingPhotoSlots)
-        _uiState.update { it.copy(isPreparingPhotos = true, error = null) }
+        _uiState.update { it.copy(isPreparingPhotos = true, error = null, errorSource = null) }
         viewModelScope.launch {
             try {
                 for (uri in selected) {
@@ -129,7 +133,7 @@ class MomentsPublishViewModel(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _uiState.update { it.copy(error = e.message ?: "读取图片失败") }
+                _uiState.update { it.copy(error = e.message ?: "读取图片失败", errorSource = MomentsPublishErrorSource.Photo) }
             } finally {
                 _uiState.update { it.copy(isPreparingPhotos = false) }
             }
@@ -173,7 +177,7 @@ class MomentsPublishViewModel(
     fun publish(onSuccess: () -> Unit) {
         val state = _uiState.value
         if (!state.canPublish) return
-        _uiState.update { it.copy(isPublishing = true, error = null) }
+        _uiState.update { it.copy(isPublishing = true, error = null, errorSource = null) }
         viewModelScope.launch {
             try {
                 val media = state.photos.map { path ->
@@ -193,7 +197,7 @@ class MomentsPublishViewModel(
                     uploaded.clear()
                     saveDraft()
                 }
-                _uiState.update { it.copy(isPublishing = false, error = e.message ?: "发布失败，请重试") }
+                _uiState.update { it.copy(isPublishing = false, error = e.message ?: "发布失败，请重试", errorSource = MomentsPublishErrorSource.Publish) }
             }
         }
     }

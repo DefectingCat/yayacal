@@ -271,7 +271,7 @@ fun MomentsDetailScreen(
                     }
                 } catch (exception: Exception) {
                     if (exception is CancellationException) throw exception
-                    error = "评论发送失败，请重试"
+                    error = exception.message ?: "评论发送失败，请重试"
                 } finally {
                     isSending = false
                 }
@@ -428,10 +428,15 @@ fun MomentsDetailScreen(
                         }
                     }
                 }
-                error?.let { Text(it, color = MaterialTheme.colorScheme.error, fontSize = 12.sp, modifier = Modifier.padding(8.dp)) }
+                error?.let {
+                    MomentsErrorNotice(it, title = "评论还没发出去", hint = "已保留文字和图片", actionLabel = "重新发送", onAction = if (isSending) null else send, modifier = Modifier.padding(8.dp))
+                }
                 Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                     BasicTextField(
-                        value = draft, onValueChange = { draft = it }, enabled = !isSending,
+                        value = draft, onValueChange = {
+                            draft = it
+                            error = null
+                        }, enabled = !isSending,
                         textStyle = TextStyle(color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, lineHeight = 20.sp),
                         cursorBrush = SolidColor(linkColor), maxLines = 4,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
@@ -472,7 +477,7 @@ fun MomentsDetailScreen(
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF07C160), contentColor = Color.White),
                         modifier = Modifier.height(36.dp).testTag("moments_comment_send"),
                     ) {
-                        Text(if (isSending) "发送中" else "发送", fontSize = 13.sp)
+                        if (isSending) MomentsLoadingSpinner(color = Color.White, modifier = Modifier.size(16.dp)) else Text("发送", fontSize = 13.sp)
                     }
                 }
                 if (showEmoji) {

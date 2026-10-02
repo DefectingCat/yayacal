@@ -53,8 +53,8 @@ internal fun MomentsConnectionDialog(onSaved: () -> Unit, onDismiss: () -> Unit)
             OutlinedTextField(value = url, onValueChange = {
                 url = it
                 error = null
-            }, label = { Text("服务地址") }, singleLine = true)
-            error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+            }, label = { Text("服务地址") }, singleLine = true, isError = error != null)
+            error?.let { MomentsErrorNotice(it, title = "地址需要调整", hint = "修改后再保存", modifier = Modifier.padding(top = 12.dp)) }
         }
     }, confirmButton = {
         TextButton(onClick = {

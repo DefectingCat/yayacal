@@ -78,6 +78,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.github.panpf.sketch.AsyncImage
+import plus.rua.project.MomentsPublishErrorSource
 import plus.rua.project.MomentsPublishUiState
 import plus.rua.project.MomentsPublishViewModel
 import plus.rua.project.MomentsStorage
@@ -277,8 +278,6 @@ fun MomentsPublishScreen(
             .navigationBarsPadding()
             .testTag("moments_publish_screen"),
     ) {
-        uiState.error?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(16.dp)) }
-        if (uiState.isPreparingPhotos) Text("正在准备图片…", modifier = Modifier.padding(16.dp))
         // 1. 顶部操作栏：取消 | 占位 | 微信绿“发表”按钮
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -315,6 +314,10 @@ fun MomentsPublishScreen(
                 contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
                 modifier = Modifier.testTag("publish_submit_button"),
             ) {
+                if (uiState.isPublishing) {
+                    MomentsLoadingSpinner(color = Color.White, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                }
                 Text(
                     text = if (uiState.isPublishing) "发表中..." else "发表",
                     fontSize = 14.sp,
@@ -331,6 +334,34 @@ fun MomentsPublishScreen(
                 .weight(1f)
                 .verticalScroll(scrollState),
         ) {
+            uiState.error?.let { error ->
+                MomentsErrorNotice(
+                    error = error,
+                    title = when (uiState.errorSource) {
+                        MomentsPublishErrorSource.Draft -> "草稿暂未保存"
+                        MomentsPublishErrorSource.Photo -> "图片未能添加"
+                        else -> "这条动态还没发出去"
+                    },
+                    hint = if (uiState.errorSource == MomentsPublishErrorSource.Draft) "内容仍在当前页面，请暂时不要退出" else "已保留文字和已选图片",
+                    actionLabel = when (uiState.errorSource) {
+                        MomentsPublishErrorSource.Publish -> "重新发表"
+                        MomentsPublishErrorSource.Photo -> "重新选图"
+                        else -> null
+                    },
+                    onAction = when {
+                        uiState.errorSource == MomentsPublishErrorSource.Publish && uiState.canPublish -> onPublish
+                        uiState.errorSource == MomentsPublishErrorSource.Photo && !uiState.isPreparingPhotos -> onAddPhotosClick
+                        else -> null
+                    },
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
+                )
+            }
+            if (uiState.isPreparingPhotos) {
+                Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MomentsLoadingSpinner(modifier = Modifier.size(18.dp))
+                    Text("正在准备图片…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                }
+            }
             // 文字输入区
             Box(
                 modifier =

@@ -16,6 +16,8 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -115,15 +117,14 @@ fun MomentsNetworkPermission(
     val openSettings = denied && activity?.shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION) == false
     Surface(modifier.fillMaxSize()) {
         if (required == null) {
-            Box(contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            Box(contentAlignment = Alignment.Center) { MomentsLoadingSpinner() }
         } else {
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
-                modifier = Modifier.padding(32.dp).testTag("moments_local_network_permission"),
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.verticalScroll(rememberScrollState()).padding(24.dp).testTag("moments_local_network_permission"),
             ) {
-                Text("允许访问本地朋友圈", style = MaterialTheme.typography.titleLarge)
-                Text("朋友圈服务位于本地网络，需要允许访问附近设备才能加载和发布动态。", textAlign = TextAlign.Center)
+                MomentsStateContent(title = "允许访问本地朋友圈", description = "朋友圈服务位于本地网络\n允许访问附近设备后，就能查看和发布动态", isError = true)
                 Button(
                     enabled = !pending,
                     onClick = {
@@ -135,7 +136,9 @@ fun MomentsNetworkPermission(
                             launcher.launch(LOCAL_NETWORK_PERMISSION)
                         }
                     },
-                ) { Text(if (openSettings) "打开应用设置" else "允许访问") }
+                ) {
+                    if (pending) MomentsLoadingSpinner() else Text(if (openSettings) "打开应用设置" else "允许访问")
+                }
                 TextButton(onClick = { showConnection = true }) { Text("连接设置") }
                 TextButton(onClick = onBack) { Text("返回") }
             }

@@ -222,11 +222,7 @@ fun MomentsLocationScreen(
                     .padding(top = 48.dp),
                 contentAlignment = Alignment.TopCenter,
             ) {
-                Text(
-                    text = "没有找到相关位置",
-                    color = Color(0xFF999999),
-                    fontSize = 14.sp,
-                )
+                MomentsStateContent(title = "没有找到相关位置", description = "换个关键词，或使用自定义位置")
             }
         } else {
             LazyColumn(

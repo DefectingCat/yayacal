@@ -81,12 +81,15 @@ internal fun MomentsAvatarSheet(
     ) {
         Column(Modifier.fillMaxWidth().background(background).navigationBarsPadding()) {
             Text(
-                text = error ?: "头像设置",
-                color = if (error == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error,
+                text = "头像设置",
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
             )
+            error?.let {
+                MomentsErrorNotice(it, title = "头像未能恢复", hint = "当前头像已保留，可以再次尝试恢复", modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+            }
             HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
             AvatarActionRow(
                 text = "从手机相册选择",
@@ -131,7 +134,7 @@ private fun AvatarActionRow(text: String, onClick: () -> Unit, enabled: Boolean 
         Box(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(horizontal = 24.dp, vertical = 16.dp), contentAlignment = Alignment.Center) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
                 if (isLoading) {
-                    CircularProgressIndicator(modifier = Modifier.size(16.dp), color = Color(0xFF07C160), strokeWidth = 2.dp)
+                    MomentsLoadingSpinner(modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(10.dp))
                 }
                 Text(text = text, fontSize = 17.sp, color = LocalContentColor.current)
