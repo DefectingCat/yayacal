@@ -136,9 +136,34 @@ fun MomentsDetailScreen(
     LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshPost(postId) }
     val post = uiState.posts.find { it.id == postId }
     if (post == null) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp)) {
-            TextButton(onClick = onBack) { Text("返回") }
-            MomentsLoadStatus(uiState.isLoading, uiState.error, false, { viewModel.refreshPost(postId) }, {})
+        Column(modifier.fillMaxSize().background(momentsBackgroundColor()).semantics { testTagsAsResourceId = true }.testTag("moments_detail_screen")) {
+            MomentsDetailTopBar(onBack = onBack)
+            MomentsRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = { viewModel.refreshPost(postId) },
+                enabled = !uiState.isLoading && !uiState.unavailable,
+                content = {
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        item(key = "state") {
+                            when {
+                                uiState.unavailable -> MomentsStateContent(
+                                    title = "这条动态已不可见",
+                                    description = "内容可能已删除，或当前账号无法查看",
+                                    isError = true,
+                                    actionLabel = "返回",
+                                    onAction = onBack,
+                                    modifier = Modifier.fillParentMaxHeight(),
+                                )
+
+                                uiState.error != null -> MomentsErrorContent(uiState.error.orEmpty(), modifier = Modifier.fillParentMaxHeight())
+
+                                else -> MomentsLoadingContent(layout = MomentsLoadingLayout.Detail)
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.weight(1f),
+            )
         }
         return
     }
@@ -160,6 +185,7 @@ fun MomentsDetailScreen(
             networkState = uiState,
             onRefresh = { viewModel.refreshPost(postId) },
             onLoadComments = viewModel::loadMoreComments,
+            onDismissOperationError = viewModel::dismissOperationError,
             modifier = Modifier.weight(1f),
         )
     }
@@ -179,7 +205,8 @@ fun MomentsDetailScreen(
  * @param onChangeVisibility 作者点击切换可见性时触发
  * @param onDeleteComment 点击本人评论的删除按钮时触发
  * @param networkState 加载与分页状态
- * @param onRefresh 点击刷新或重试时触发
+ * @param onRefresh 未加载时下拉页面触发
+ * @param onDismissOperationError 点击操作失败提示的“知道了”时触发
  * @param onLoadComments 点击加载更多评论时触发
  * @param modifier 布局修饰符
  */
@@ -198,6 +225,7 @@ fun MomentsDetailScreen(
     networkState: plus.rua.project.MomentsUiState = plus.rua.project.MomentsUiState(),
     onRefresh: () -> Unit = {},
     onLoadComments: () -> Unit = {},
+    onDismissOperationError: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -268,26 +296,10 @@ fun MomentsDetailScreen(
             modifier.fillMaxSize().background(backgroundColor).imePadding()
                 .semantics { testTagsAsResourceId = true }.testTag("moments_detail_screen"),
         ) {
-            Row(
-                Modifier.fillMaxWidth().background(
-                    if (backgroundColor == Color.White) Color(0xFFEDEDED) else barColor,
-                ).statusBarsPadding().height(48.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack, modifier = Modifier.testTag("moments_detail_back")) {
-                    Icon(Icons.Filled.ChevronLeft, "返回", modifier = Modifier.size(28.dp))
-                }
-                Row(
-                    Modifier.weight(1f),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text("详情", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                    if (post.visibility.startsWith("私密")) {
-                        Icon(Icons.Filled.Lock, "私密动态", modifier = Modifier.padding(start = 4.dp).size(13.dp))
-                    }
-                }
-                Box(Modifier.size(48.dp)) {
+            MomentsDetailTopBar(
+                onBack = onBack,
+                isPrivate = post.visibility.startsWith("私密"),
+                actions = {
                     if (onDelete != null) {
                         IconButton(onClick = { showMore = true }) { Icon(Icons.Filled.MoreHoriz, "更多") }
                         DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
@@ -303,72 +315,93 @@ fun MomentsDetailScreen(
                             })
                         }
                     }
-                }
-            }
-            LazyColumn(state = listState, modifier = Modifier.weight(1f).testTag("moments_detail_list")) {
-                item(key = "post") {
-                    MomentFeedItem(
-                        post = post, authorName = post.authorName, avatarPath = post.authorAvatarPath,
-                        onAuthorClick = { onAuthorClick(post.authorId) },
-                        onDelete = onDelete?.let { { showDelete = true } },
-                        onLike = onLike,
-                        onComment = {
-                            replyToName = null
-                            replyToId = null
-                            showEmoji = false
-                            focusRequester.requestFocus()
-                            keyboard?.show()
-                        },
-                        showFullTimestamp = true,
-                        onPhotoClick = { photos, index ->
-                            previewPhotos = photos
-                            previewIndex = index
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
-                    )
-                }
-                if (post.likes.isNotEmpty()) {
-                    item(key = "likes") {
-                        Row(
-                            Modifier.padding(horizontal = 12.dp).fillMaxWidth().background(barColor)
-                                .padding(horizontal = 12.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Icon(Icons.Outlined.FavoriteBorder, "点赞", tint = linkColor, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(14.dp))
-                            post.likes.forEach { liker -> MomentAvatar(liker.avatarPath, liker.name, Modifier.size(30.dp).padding(end = 4.dp)) }
+                },
+            )
+            MomentsRefreshBox(
+                isRefreshing = networkState.isRefreshing,
+                onRefresh = onRefresh,
+                enabled = !networkState.isLoading,
+                content = {
+                    LazyColumn(state = listState, modifier = Modifier.fillMaxSize().testTag("moments_detail_list")) {
+                        networkState.error?.let { error ->
+                            item(key = "network_error") { MomentsErrorNotice(error, modifier = Modifier.padding(16.dp)) }
                         }
-                    }
-                }
-                itemsIndexed(post.comments, key = { _, comment -> comment.id }) { index, comment ->
-                    MomentCommentRow(
-                        comment = comment,
-                        avatarPath = comment.authorAvatarPath,
-                        showCommentIcon = index == 0,
-                        onReply = {
-                            if (!comment.deleted) {
-                                replyToName = comment.authorName
-                                replyToId = comment.id
-                                showEmoji = false
-                                focusRequester.requestFocus()
-                                keyboard?.show()
+                        networkState.operationError?.let { error ->
+                            item(key = "operation_error") {
+                                MomentsErrorNotice(error, title = "操作未完成", hint = "请稍后重新操作", actionLabel = "知道了", onAction = onDismissOperationError, modifier = Modifier.padding(16.dp))
                             }
-                        },
-                        onPhotoClick = {
-                            previewPhotos = listOfNotNull(comment.photoPath)
-                            previewIndex = 0
-                        },
-                        modifier = Modifier.padding(horizontal = 12.dp),
-                    )
-                    if (!comment.deleted && comment.authorId == currentAccountId) {
-                        TextButton(onClick = { onDeleteComment(comment.id) }, modifier = Modifier.padding(start = 48.dp)) { Text("删除评论") }
+                        }
+                        item(key = "post") {
+                            MomentFeedItem(
+                                post = post, authorName = post.authorName, avatarPath = post.authorAvatarPath,
+                                onAuthorClick = { onAuthorClick(post.authorId) },
+                                onDelete = onDelete?.let { { showDelete = true } },
+                                onLike = onLike,
+                                onComment = {
+                                    replyToName = null
+                                    replyToId = null
+                                    showEmoji = false
+                                    focusRequester.requestFocus()
+                                    keyboard?.show()
+                                },
+                                showFullTimestamp = true,
+                                onPhotoClick = { photos, index ->
+                                    previewPhotos = photos
+                                    previewIndex = index
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
+                            )
+                        }
+                        if (post.likes.isNotEmpty()) {
+                            item(key = "likes") {
+                                Row(
+                                    Modifier.padding(horizontal = 12.dp).fillMaxWidth().background(barColor)
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(Icons.Outlined.FavoriteBorder, "点赞", tint = linkColor, modifier = Modifier.size(18.dp))
+                                    Spacer(Modifier.width(14.dp))
+                                    post.likes.forEach { liker -> MomentAvatar(liker.avatarPath, liker.name, Modifier.size(30.dp).padding(end = 4.dp)) }
+                                }
+                            }
+                        }
+                        itemsIndexed(post.comments, key = { _, comment -> comment.id }) { index, comment ->
+                            MomentCommentRow(
+                                comment = comment,
+                                avatarPath = comment.authorAvatarPath,
+                                showCommentIcon = index == 0,
+                                onReply = {
+                                    if (!comment.deleted) {
+                                        replyToName = comment.authorName
+                                        replyToId = comment.id
+                                        showEmoji = false
+                                        focusRequester.requestFocus()
+                                        keyboard?.show()
+                                    }
+                                },
+                                onPhotoClick = {
+                                    previewPhotos = listOfNotNull(comment.photoPath)
+                                    previewIndex = 0
+                                },
+                                modifier = Modifier.padding(horizontal = 12.dp),
+                            )
+                            if (!comment.deleted && comment.authorId == currentAccountId) {
+                                TextButton(onClick = { onDeleteComment(comment.id) }, modifier = Modifier.padding(start = 48.dp)) { Text("删除评论") }
+                            }
+                        }
+                        if (post.comments.isEmpty() && networkState.commentsCursor == null) {
+                            item(key = "no_comments") {
+                                Text("还没有评论，聊聊你的想法吧", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp))
+                            }
+                        }
+                        item(key = "more") {
+                            MomentsPagingFooter(networkState.commentsCursor != null, networkState.isLoadingMore, networkState.loadMoreError, onLoadComments, enabled = !networkState.isLoading)
+                        }
+                        item(key = "bottom") { Spacer(Modifier.height(20.dp)) }
                     }
-                }
-                item(key = "network") {
-                    MomentsLoadStatus(networkState.isLoading, networkState.error, networkState.commentsCursor != null, onRefresh, onLoadComments)
-                }
-                item(key = "bottom") { Spacer(Modifier.height(20.dp)) }
-            }
+                },
+                modifier = Modifier.weight(1f),
+            )
             Column(Modifier.fillMaxWidth().background(barColor).navigationBarsPadding()) {
                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
                 if (replyToName != null) {
@@ -586,4 +619,27 @@ internal fun momentsBackgroundColor(): Color = if (MaterialTheme.colorScheme.sur
 fun formatMomentDetailTime(timestamp: Long, timeZone: TimeZone = TimeZone.currentSystemDefault()): String {
     val dateTime = Instant.fromEpochMilliseconds(timestamp).toLocalDateTime(timeZone)
     return "${dateTime.year}年${dateTime.month.ordinal + 1}月${dateTime.day}日 ${dateTime.hour.toString().padStart(2, '0')}:${dateTime.minute.toString().padStart(2, '0')}"
+}
+
+/** 加载、错误和正文共用的详情导航栏；点击返回时调用 onBack，操作菜单由 actions 提供。 */
+@Composable
+private fun MomentsDetailTopBar(
+    onBack: () -> Unit,
+    isPrivate: Boolean = false,
+    actions: @Composable () -> Unit = {},
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier.fillMaxWidth().background(momentsBarColor()).statusBarsPadding().height(48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(onClick = onBack, modifier = Modifier.testTag("moments_detail_back")) {
+            Icon(Icons.Filled.ChevronLeft, "返回", modifier = Modifier.size(28.dp))
+        }
+        Row(Modifier.weight(1f), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+            Text("详情", fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            if (isPrivate) Icon(Icons.Filled.Lock, "私密动态", modifier = Modifier.padding(start = 4.dp).size(13.dp))
+        }
+        Box(Modifier.size(48.dp)) { actions() }
+    }
 }

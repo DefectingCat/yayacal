@@ -27,19 +27,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import plus.rua.project.MomentsConnection
 
-/** 加载进度、失败重试与分页入口共用同一显示规则。 */
-@Composable
-internal fun MomentsLoadStatus(loading: Boolean, error: String?, hasMore: Boolean, onRefresh: () -> Unit, onMore: () -> Unit, modifier: Modifier = Modifier) {
-    Column(modifier.fillMaxWidth().padding(horizontal = 16.dp)) {
-        if (loading) LinearProgressIndicator(Modifier.fillMaxWidth())
-        if (error != null) Text(error, color = MaterialTheme.colorScheme.error)
-        Row {
-            TextButton(onClick = onRefresh, enabled = !loading) { Text(if (error == null) "刷新" else "重试") }
-            if (hasMore) TextButton(onClick = onMore, enabled = !loading) { Text("加载更多") }
-        }
-    }
-}
-
 /** 仅在页面前台时轮询，离开页面自动取消。 */
 @Composable
 internal fun MomentsPoll(key: Any?, onRefresh: () -> Unit) {

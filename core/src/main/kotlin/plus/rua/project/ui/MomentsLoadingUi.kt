@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -116,15 +117,26 @@ internal fun MomentsLoadingSpinner(
     }
 }
 
-/** 首次请求尚未完成时保留列表结构，避免用“暂无动态”的插画替代待加载内容。 */
+internal enum class MomentsLoadingLayout { List, Album, Detail }
+
+/** 首次请求尚未完成时保留对应页面的列表、网格或详情结构，避免闪出空状态。 */
 @Composable
-internal fun MomentsLoadingContent(modifier: Modifier = Modifier) {
+internal fun MomentsLoadingContent(layout: MomentsLoadingLayout = MomentsLoadingLayout.List, modifier: Modifier = Modifier) {
     val placeholderColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
     val shape = RoundedCornerShape(4.dp)
     Column(
         modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 24.dp).testTag("moments_loading_placeholder"),
         verticalArrangement = Arrangement.spacedBy(32.dp),
     ) {
+        if (layout == MomentsLoadingLayout.Album) {
+            repeat(2) {
+                Box(Modifier.fillMaxWidth(0.3f).height(20.dp).background(placeholderColor, shape))
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    repeat(3) { Box(Modifier.weight(1f).aspectRatio(1f).background(placeholderColor, shape)) }
+                }
+            }
+            return@Column
+        }
         repeat(2) {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(40.dp).background(placeholderColor, shape))
@@ -133,6 +145,9 @@ internal fun MomentsLoadingContent(modifier: Modifier = Modifier) {
                     Box(Modifier.fillMaxWidth(0.8f).height(12.dp).background(placeholderColor, shape))
                     Box(Modifier.fillMaxWidth(0.6f).height(12.dp).background(placeholderColor, shape))
                     Spacer(Modifier.height(8.dp))
+                    if (layout == MomentsLoadingLayout.Detail && it == 0) {
+                        Box(Modifier.fillMaxWidth().aspectRatio(1.5f).background(placeholderColor, shape))
+                    }
                 }
             }
         }

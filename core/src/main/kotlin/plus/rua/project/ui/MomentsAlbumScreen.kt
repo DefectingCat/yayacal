@@ -153,7 +153,7 @@ fun MomentsAlbumScreen(
 /**
  * 朋友圈相册页面（无状态版）。
  *
- * @param onRefresh 点击刷新时触发
+ * @param onRefresh 未加载时下拉页面触发
  * @param onLoadMore 点击加载更多时触发
  * @param uiState 朋友圈当前 UI 状态
  * @param onBack 点击左上角返回按钮时触发
@@ -190,79 +190,87 @@ fun MomentsAlbumScreen(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
             )
 
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-            ) {
-                item(key = "network") { MomentsLoadStatus(uiState.isLoading, uiState.error, uiState.nextCursor != null, onRefresh, onLoadMore) }
-                if (groupedYears.isEmpty() && !uiState.isLoading && uiState.error == null) {
-                    item(key = "empty_state") {
-                        Box(
-                            modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 120.dp, bottom = 40.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "暂无朋友圈相册",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
-                } else {
-                    groupedYears.forEach { yearGroup ->
-                        // 年份标题，如“2025 年”
-                        item(key = "year_${yearGroup.year}") {
-                            Text(
-                                text = "${yearGroup.year} 年",
-                                style =
-                                MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 24.sp,
-                                ),
-                                color = MaterialTheme.colorScheme.onSurface,
-                                modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp)
-                                    .testTag("moments_album_year_${yearGroup.year}"),
-                            )
-                        }
+            MomentsRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = onRefresh,
+                enabled = !uiState.isLoading,
+                content = {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                    ) {
+                        if (groupedYears.isEmpty()) {
+                            item(key = "empty_state") {
+                                when {
+                                    uiState.error != null -> MomentsErrorContent(uiState.error, modifier = Modifier.fillParentMaxHeight())
+                                    !uiState.hasLoadedPosts -> MomentsLoadingContent(layout = MomentsLoadingLayout.Album)
+                                    else -> MomentsStateContent(title = "暂无朋友圈相册", description = "生活里的小片段，都可以收藏在这里", modifier = Modifier.fillParentMaxHeight())
+                                }
+                            }
+                        } else {
+                            uiState.error?.let { error ->
+                                item(key = "network_error") { MomentsErrorNotice(error, modifier = Modifier.padding(16.dp)) }
+                            }
 
-                        // 该年份下的各个月份分组
-                        yearGroup.months.forEach { monthGroup ->
-                            item(key = "month_${yearGroup.year}_${monthGroup.month}") {
-                                MomentsAlbumMonthSection(
-                                    month = monthGroup.month,
-                                    posts = monthGroup.posts,
-                                    onPostClick = onPostClick,
-                                    modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 24.dp, vertical = 8.dp)
-                                        .testTag("moments_album_month_${yearGroup.year}_${monthGroup.month}"),
-                                )
+                            groupedYears.forEach { yearGroup ->
+                                // 年份标题，如“2025 年”
+                                item(key = "year_${yearGroup.year}") {
+                                    Text(
+                                        text = "${yearGroup.year} 年",
+                                        style =
+                                        MaterialTheme.typography.titleLarge.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 24.sp,
+                                        ),
+                                        color = MaterialTheme.colorScheme.onSurface,
+                                        modifier =
+                                        Modifier
+                                            .fillMaxWidth()
+                                            .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 12.dp)
+                                            .testTag("moments_album_year_${yearGroup.year}"),
+                                    )
+                                }
+
+                                // 该年份下的各个月份分组
+                                yearGroup.months.forEach { monthGroup ->
+                                    item(key = "month_${yearGroup.year}_${monthGroup.month}") {
+                                        MomentsAlbumMonthSection(
+                                            month = monthGroup.month,
+                                            posts = monthGroup.posts,
+                                            onPostClick = onPostClick,
+                                            modifier =
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(horizontal = 24.dp, vertical = 8.dp)
+                                                .testTag("moments_album_month_${yearGroup.year}_${monthGroup.month}"),
+                                        )
+                                    }
+                                }
                             }
                         }
+
+                        if (groupedYears.isNotEmpty()) {
+                            item(key = "more") {
+                                MomentsPagingFooter(uiState.nextCursor != null, uiState.isLoadingMore, uiState.loadMoreError, onLoadMore, enabled = !uiState.isLoading)
+                            }
+                        }
+                        // 底部时间轴结束标志：— · —
+                        if (groupedYears.isNotEmpty() && uiState.nextCursor == null && !uiState.isLoading && uiState.error == null) {
+                            item(key = "album_footer") { UserMomentsFooter(modifier = Modifier.testTag("moments_album_footer")) }
+                        }
+
+                        // 底部安全留白
+                        item(key = "bottom_spacer") {
+                            Spacer(
+                                modifier =
+                                Modifier
+                                    .navigationBarsPadding()
+                                    .height(16.dp),
+                            )
+                        }
                     }
-                }
-
-                // 底部时间轴结束标志：— · —
-                item(key = "album_footer") {
-                    UserMomentsFooter(modifier = Modifier.testTag("moments_album_footer"))
-                }
-
-                // 底部安全留白
-                item(key = "bottom_spacer") {
-                    Spacer(
-                        modifier =
-                        Modifier
-                            .navigationBarsPadding()
-                            .height(16.dp),
-                    )
-                }
-            }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }

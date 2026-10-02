@@ -105,10 +105,15 @@ fun MomentsSearchScreen(
     modifier: Modifier = Modifier,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId) }
     var query by rememberSaveable { mutableStateOf("") }
     val keyword = query.trim()
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        if (keyword.isNotEmpty() && uiState.searchQuery == keyword && uiState.hasLoadedPosts) {
+            viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId, keyword = keyword)
+        }
+    }
     LaunchedEffect(keyword) {
+        if (keyword.isEmpty()) return@LaunchedEffect
         kotlinx.coroutines.delay(250)
         viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId, keyword = keyword)
     }
@@ -205,71 +210,76 @@ fun MomentsSearchScreen(
             }
         }
 
-        MomentsLoadStatus(uiState.isLoading, uiState.error, uiState.nextCursor != null, { viewModel.refreshPosts() }, viewModel::loadMore)
         if (keyword.isNotEmpty()) {
-            Box(modifier = Modifier.weight(1f).fillMaxWidth().background(momentsBackgroundColor())) {
-                key(keyword) {
-                    LazyColumn(
-                        contentPadding = PaddingValues(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 128.dp),
-                        modifier = Modifier.fillMaxSize().testTag("moments_search_results"),
-                    ) {
-                        item(key = "summary") {
-                            Text(
-                                highlightedSearchText("找到与「$keyword」相关的朋友圈，已加载${results.size}条。", keyword, highlightColor),
-                                color = mutedColor,
-                                fontSize = 14.sp,
-                                modifier = Modifier.padding(bottom = 24.dp).testTag("moments_search_count"),
-                            )
-                        }
-                        items(results, key = { it.post.id }) { result ->
-                            SearchResultCard(
-                                result = result,
-                                keyword = keyword,
-                                highlightColor = highlightColor,
-                                mutedColor = mutedColor,
-                                onClick = {
-                                    keyboard?.hide()
-                                    focusManager.clearFocus()
-                                    onPostClick(result.post.id)
-                                },
-                            )
-                        }
-                        if (!uiState.isLoading && uiState.error == null && uiState.searchQuery == keyword) {
-                            item(key = "footer") {
-                                if (results.isEmpty()) {
+            val isCurrentSearch = uiState.searchQuery == keyword
+            MomentsRefreshBox(
+                isRefreshing = !isCurrentSearch || uiState.isRefreshing,
+                onRefresh = { viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId, keyword = keyword) },
+                enabled = !uiState.isLoading && isCurrentSearch,
+                content = {
+                    key(keyword) {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize().testTag("moments_search_results"),
+                            contentPadding = PaddingValues(bottom = 24.dp),
+                        ) {
+                            if (results.isEmpty()) {
+                                item(key = "state") {
+                                    when {
+                                        !isCurrentSearch -> MomentsLoadingContent()
+
+                                        uiState.error != null -> MomentsErrorContent(uiState.error.orEmpty(), title = "搜索暂时未能完成", modifier = Modifier.fillParentMaxHeight())
+
+                                        !uiState.hasLoadedPosts -> MomentsLoadingContent()
+
+                                        else -> MomentsStateContent(
+                                            title = "没有找到相关的朋友圈",
+                                            description = "试试正文、位置或评论中的其他关键词",
+                                            seed = keyword,
+                                            modifier = Modifier.fillParentMaxHeight().testTag("moments_search_empty"),
+                                        )
+                                    }
+                                }
+                            } else {
+                                uiState.error?.let { error ->
+                                    item(key = "error") { MomentsErrorNotice(error, modifier = Modifier.padding(16.dp)) }
+                                }
+                                item(key = "summary") {
                                     Text(
-                                        "没有找到相关的朋友圈",
+                                        highlightedSearchText("找到与「$keyword」相关的朋友圈，已加载${results.size}条。", keyword, highlightColor),
                                         color = mutedColor,
-                                        fontSize = 15.sp,
-                                        modifier = Modifier.padding(top = 48.dp).testTag("moments_search_empty"),
+                                        fontSize = 14.sp,
+                                        modifier = Modifier.padding(24.dp).testTag("moments_search_count"),
                                     )
-                                } else if (uiState.nextCursor == null) {
-                                    Row(
-                                        horizontalArrangement = Arrangement.Center,
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        modifier = Modifier.fillMaxWidth().padding(top = 40.dp),
-                                    ) {
-                                        Spacer(Modifier.width(24.dp).height(1.dp).background(mutedColor.copy(alpha = 0.3f)))
-                                        Text("以上为全部搜索结果", color = mutedColor, fontSize = 14.sp, modifier = Modifier.padding(horizontal = 8.dp))
-                                        Spacer(Modifier.width(24.dp).height(1.dp).background(mutedColor.copy(alpha = 0.3f)))
+                                }
+                                items(results, key = { it.post.id }) { result ->
+                                    Box(Modifier.padding(horizontal = 24.dp)) {
+                                        SearchResultCard(
+                                            result = result,
+                                            keyword = keyword,
+                                            highlightColor = highlightColor,
+                                            mutedColor = mutedColor,
+                                            onClick = {
+                                                keyboard?.hide()
+                                                focusManager.clearFocus()
+                                                onPostClick(result.post.id)
+                                            },
+                                        )
+                                    }
+                                }
+                                item(key = "more") {
+                                    MomentsPagingFooter(uiState.nextCursor != null, uiState.isLoadingMore, uiState.loadMoreError, viewModel::loadMore, enabled = !uiState.isLoading)
+                                }
+                                if (uiState.nextCursor == null && !uiState.isLoading && uiState.error == null) {
+                                    item(key = "end") {
+                                        Text("以上为全部搜索结果", color = mutedColor, fontSize = 14.sp, textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(24.dp))
                                     }
                                 }
                             }
                         }
                     }
-                }
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .fillMaxWidth()
-                        .background(momentsBackgroundColor())
-                        .padding(horizontal = 24.dp, vertical = 24.dp),
-                ) {
-                    Text("没有搜到想找的朋友圈", color = momentsLinkColor(), fontSize = 14.sp)
-                    Text("试试正文、位置或评论中的关键词", color = mutedColor, fontSize = 13.sp, modifier = Modifier.padding(top = 4.dp))
-                }
-            }
+                },
+                modifier = Modifier.weight(1f).fillMaxWidth().background(momentsBackgroundColor()),
+            )
         }
     }
 }

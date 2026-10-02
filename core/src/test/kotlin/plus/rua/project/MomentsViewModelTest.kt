@@ -455,6 +455,67 @@ class MomentsViewModelTest {
         vm.dismissOperationError()
         assertEquals(null, vm.uiState.value.operationError)
     }
+
+    @Test fun notifications_initialAndEmpty_areDistinctStates() = runTest(dispatcher) {
+        val vm = MomentsNotificationsViewModel(storage, repository)
+        assertTrue(vm.uiState.value.isRefreshing)
+        assertFalse(vm.uiState.value.hasLoaded)
+        vm.refresh()
+        advanceUntilIdle()
+        assertFalse(vm.uiState.value.isRefreshing)
+        assertTrue(vm.uiState.value.hasLoaded)
+        assertTrue(vm.uiState.value.notifications.isEmpty())
+    }
+
+    @Test fun notifications_pagingFailure_preservesRowsAndRetryCursor() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentsPage<MomentNotification>>()
+        repository.notificationsRequest = { _, cursor ->
+            if (cursor == null) MomentsPage(listOf(MomentNotification(id = "first")), "next") else response.await()
+        }
+        val vm = MomentsNotificationsViewModel(storage, repository)
+        vm.refresh()
+        advanceUntilIdle()
+        vm.refresh(more = true)
+        runCurrent()
+        assertTrue(vm.uiState.value.isLoadingMore)
+        assertFalse(vm.uiState.value.isRefreshing)
+        response.completeExceptionally(IOException("离线"))
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.error)
+        assertEquals("离线", vm.uiState.value.loadMoreError)
+        assertEquals("first", vm.uiState.value.notifications.single().id)
+        assertEquals("next", vm.uiState.value.nextCursor)
+    }
+
+    @Test fun notifications_readOrDeleteFailure_doesNotReplaceLoadedList() = runTest(dispatcher) {
+        repository.notes["xiaobai"] = listOf(MomentNotification(id = "first"))
+        repository.notificationsReadFailure = IOException("离线")
+        val vm = MomentsNotificationsViewModel(storage, repository)
+        vm.refresh()
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.hasLoaded)
+        assertEquals(null, vm.uiState.value.error)
+        assertTrue(vm.uiState.value.operationError!!.contains("标记为已读"))
+        repository.notificationsDeleteFailure = IOException("网络超时")
+        vm.clearAll()
+        advanceUntilIdle()
+        assertEquals("网络超时", vm.uiState.value.operationError)
+        assertEquals("first", vm.uiState.value.notifications.single().id)
+        assertEquals(null, vm.uiState.value.error)
+    }
+
+    @Test fun detail_deletedPost_reportsUnavailableAndClearsStaleContent() = runTest(dispatcher) {
+        repository.posts = listOf(MomentPost(id = "post", authorId = "xiaobai"))
+        val vm = MomentsViewModel(storage, repository, restoreTimeline = false)
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        repository.posts = emptyList()
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        assertTrue(vm.uiState.value.unavailable)
+        assertFalse(vm.uiState.value.isLoading)
+        assertTrue(vm.uiState.value.posts.isEmpty())
+    }
 }
 
 private class MomentsVmTestInMemoryPrefs : SharedPreferences {

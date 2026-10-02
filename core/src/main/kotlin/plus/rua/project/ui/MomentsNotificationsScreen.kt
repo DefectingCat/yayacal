@@ -109,6 +109,7 @@ fun MomentsNotificationsScreen(
         onClearAll = { viewModel.clearAll() },
         onRefresh = { viewModel.refresh() },
         onLoadMore = { viewModel.refresh(more = true) },
+        onDismissOperationError = viewModel::dismissOperationError,
         modifier = modifier,
     )
 }
@@ -120,8 +121,9 @@ fun MomentsNotificationsScreen(
  * @param onBack 点击左上角返回按钮时触发
  * @param onPostClick 点击消息条目时触发，参数为对应的动态 ID
  * @param onDeleteNotification 单条消息删除回调
- * @param onRefresh 点击刷新时触发
+ * @param onRefresh 未加载时下拉页面触发
  * @param onLoadMore 点击加载更多时触发
+ * @param onDismissOperationError 点击操作错误提示的“知道了”时触发
  * @param onClearAll 清空全部消息回调
  * @param modifier 布局修饰符
  */
@@ -134,6 +136,7 @@ fun MomentsNotificationsScreen(
     onClearAll: () -> Unit = {},
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
+    onDismissOperationError: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -215,48 +218,61 @@ fun MomentsNotificationsScreen(
                 color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
             )
 
-            LazyColumn(modifier = Modifier.fillMaxSize()) {
-                item(key = "network") { MomentsLoadStatus(uiState.isLoading, uiState.error, uiState.nextCursor != null, onRefresh, onLoadMore) }
-                if (uiState.notifications.isEmpty() && !uiState.isLoading && uiState.error == null) {
-                    item(key = "empty_state") {
-                        Box(
-                            modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .padding(top = 120.dp, bottom = 40.dp),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "暂无互动消息",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            MomentsRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = onRefresh,
+                enabled = !uiState.isLoading,
+                content = {
+                    LazyColumn(modifier = Modifier.fillMaxSize()) {
+                        uiState.operationError?.let { error ->
+                            item(key = "operation_error") {
+                                MomentsErrorNotice(error, title = "操作未完成", hint = "请稍后重新操作", actionLabel = "知道了", onAction = onDismissOperationError, modifier = Modifier.padding(16.dp))
+                            }
+                        }
+                        if (uiState.notifications.isEmpty()) {
+                            item(key = "empty_state") {
+                                when {
+                                    uiState.error != null -> MomentsErrorContent(uiState.error, modifier = Modifier.fillParentMaxHeight())
+                                    !uiState.hasLoaded -> MomentsLoadingContent()
+                                    else -> MomentsStateContent(title = "暂无互动消息", description = "收到的赞和评论会出现在这里", modifier = Modifier.fillParentMaxHeight())
+                                }
+                            }
+                        } else {
+                            uiState.error?.let { error ->
+                                item(key = "network_error") { MomentsErrorNotice(error, modifier = Modifier.padding(16.dp)) }
+                            }
+
+                            items(
+                                items = uiState.notifications,
+                                key = { it.id },
+                            ) { notification ->
+                                MomentsNotificationItem(
+                                    notification = notification,
+                                    currentYear = currentYear,
+                                    onClick = { onPostClick(notification.postId) },
+                                    onLongClick = { notificationToDelete = notification },
+                                )
+                            }
+                        }
+
+                        if (uiState.notifications.isNotEmpty()) {
+                            item(key = "more") {
+                                MomentsPagingFooter(uiState.nextCursor != null, uiState.isLoadingMore, uiState.loadMoreError, onLoadMore, enabled = !uiState.isLoading)
+                            }
+                        }
+                        // 底部安全留白
+                        item(key = "bottom_spacer") {
+                            Spacer(
+                                modifier =
+                                Modifier
+                                    .navigationBarsPadding()
+                                    .height(16.dp),
                             )
                         }
                     }
-                } else {
-                    items(
-                        items = uiState.notifications,
-                        key = { it.id },
-                    ) { notification ->
-                        MomentsNotificationItem(
-                            notification = notification,
-                            currentYear = currentYear,
-                            onClick = { onPostClick(notification.postId) },
-                            onLongClick = { notificationToDelete = notification },
-                        )
-                    }
-                }
-
-                // 底部安全留白
-                item(key = "bottom_spacer") {
-                    Spacer(
-                        modifier =
-                        Modifier
-                            .navigationBarsPadding()
-                            .height(16.dp),
-                    )
-                }
-            }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
         }
     }
 }

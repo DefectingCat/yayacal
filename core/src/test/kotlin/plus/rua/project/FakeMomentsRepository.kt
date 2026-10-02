@@ -19,6 +19,9 @@ internal class FakeMomentsRepository : MomentsRepository {
     var resetAvatarRequest: (suspend (String) -> MomentPerson)? = null
     var commentsRequest: (suspend (String, String, String?) -> MomentsPage<MomentComment>)? = null
     var mutationFailure: Exception? = null
+    var notificationsRequest: (suspend (String, String?) -> MomentsPage<MomentNotification>)? = null
+    var notificationsReadFailure: Exception? = null
+    var notificationsDeleteFailure: Exception? = null
     override suspend fun accounts(actor: String) = profiles
     override suspend fun posts(actor: String, author: String?, query: String?, cursor: String?) = load?.invoke(actor, author, query, cursor) ?: MomentsPage(posts.filter { author == null || it.authorId == author })
     override suspend fun post(actor: String, id: String) = posts.firstOrNull { it.id == id } ?: throw MomentsApiException(404, "不存在")
@@ -53,11 +56,13 @@ internal class FakeMomentsRepository : MomentsRepository {
     override suspend fun comments(actor: String, id: String, cursor: String?) = commentsRequest?.invoke(actor, id, cursor) ?: MomentsPage(post(actor, id).comments)
     override suspend fun comment(actor: String, id: String, requestId: String, text: String, media: String?, replyTo: String?) = Unit
     override suspend fun deleteComment(actor: String, id: String) = Unit
-    override suspend fun notifications(actor: String, cursor: String?) = MomentsPage(notes[actor].orEmpty(), unreadCount = notes[actor].orEmpty().count { !it.isRead })
+    override suspend fun notifications(actor: String, cursor: String?) = notificationsRequest?.invoke(actor, cursor) ?: MomentsPage(notes[actor].orEmpty(), unreadCount = notes[actor].orEmpty().count { !it.isRead })
     override suspend fun readNotifications(actor: String, ids: List<String>) {
+        notificationsReadFailure?.let { throw it }
         read += actor to ids
     }
     override suspend fun deleteNotification(actor: String, id: String?) {
+        notificationsDeleteFailure?.let { throw it }
         notes[actor] = if (id == null) emptyList() else notes[actor].orEmpty().filterNot { it.id == id }
     }
 }
