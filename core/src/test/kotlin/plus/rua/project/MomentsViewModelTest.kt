@@ -43,6 +43,24 @@ class MomentsViewModelTest {
         assertFalse(state.hasLoadedPosts)
     }
 
+    @Test fun uncachedSearch_failureKeepsQueryAndCanRetrySameKeyword() = runTest(dispatcher) {
+        repository.load = { _, _, _, _ -> throw IOException("网络不可用") }
+        val vm = MomentsViewModel(storage, repository, restoreTimeline = false)
+        vm.refreshPosts(authorId = "xiaobai", keyword = "散步")
+        advanceUntilIdle()
+        assertEquals("散步", vm.uiState.value.searchQuery)
+        assertEquals("网络不可用", vm.uiState.value.error)
+        assertFalse(vm.uiState.value.isRefreshing)
+        assertFalse(vm.uiState.value.hasLoadedPosts)
+
+        repository.load = { _, _, _, _ -> MomentsPage(emptyList()) }
+        vm.refreshPosts(authorId = "xiaobai", keyword = "散步")
+        advanceUntilIdle()
+        assertEquals("散步", vm.uiState.value.searchQuery)
+        assertEquals(null, vm.uiState.value.error)
+        assertTrue(vm.uiState.value.hasLoadedPosts)
+    }
+
     @Test fun firstLoad_emptyResponse_reportsEmptyOnlyAfterSuccess() = runTest(dispatcher) {
         val response = CompletableDeferred<MomentsPage<MomentPost>>()
         repository.load = { _, _, _, _ -> response.await() }

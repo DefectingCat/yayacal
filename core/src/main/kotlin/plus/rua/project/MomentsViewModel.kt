@@ -61,7 +61,7 @@ class MomentsViewModel(
     private fun restoreState(actor: String, author: String?, keyword: String?): MomentsUiState = if (restoreTimeline) {
         timelineCache.restore(actor, author, keyword)
     } else {
-        MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(author ?: actor).name, isLoading = true)
+        MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(author ?: actor).name, isLoading = true, searchQuery = keyword.orEmpty())
     }
 
     fun reconnect(context: Context) {
