@@ -17,6 +17,10 @@ class MomentsPhotoPreviewTest {
         assertEquals("$url&thumbnail=true", momentsThumbnailUri("$url&thumbnail=true"))
     }
 
+    @Test fun remotePhoto_withoutQuery_thumbnailUsesQuerySeparator() {
+        assertEquals("https://example.com/api/v1/media/photo?thumbnail=true", momentsThumbnailUri("https://example.com/api/v1/media/photo"))
+    }
+
     @Test
     fun resolvePhotoUri_nullOrBlank_returnsNull() {
         assertNull(resolvePhotoUri(null))

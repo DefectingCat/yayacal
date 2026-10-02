@@ -32,8 +32,10 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -60,6 +62,7 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.window.DialogWindowProvider
 import androidx.core.view.WindowCompat
 import com.github.panpf.sketch.rememberAsyncImageState
+import com.github.panpf.sketch.request.LoadState
 import com.github.panpf.zoomimage.SketchZoomAsyncImage
 import com.github.panpf.zoomimage.rememberSketchZoomState
 import kotlinx.coroutines.Dispatchers
@@ -96,6 +99,25 @@ fun MomentsPhotoPreviewDialog(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var showActionMenu by remember { mutableStateOf(false) }
+    var isSaving by remember { mutableStateOf(false) }
+    var failedSavePath by remember { mutableStateOf<String?>(null) }
+    val savePhoto: (String) -> Unit = { path ->
+        if (!isSaving) {
+            isSaving = true
+            failedSavePath = null
+            coroutineScope.launch {
+                try {
+                    if (saveImageToGallery(context, path)) {
+                        Toast.makeText(context, "已保存到系统相册", Toast.LENGTH_SHORT).show()
+                    } else {
+                        failedSavePath = path
+                    }
+                } finally {
+                    isSaving = false
+                }
+            }
+        }
+    }
 
     Dialog(
         onDismissRequest = onDismiss,
@@ -120,155 +142,178 @@ fun MomentsPhotoPreviewDialog(
             }
         }
 
-        Box(
-            modifier =
-            modifier
-                .fillMaxSize()
-                .background(Color.Black)
-                .semantics { testTagsAsResourceId = true }
-                .testTag("moments_photo_preview_dialog"),
-            contentAlignment = Alignment.Center,
-        ) {
-            // 1. 水平滑动图片分页
-            HorizontalPager(
-                state = pagerState,
-                modifier = Modifier.fillMaxSize(),
-            ) { page ->
-                val rawPath = photos[page]
-                val photoUri = remember(rawPath) { resolvePhotoUri(rawPath) }
-                val asyncImageState = rememberAsyncImageState()
-                val zoomState = rememberSketchZoomState()
+        MaterialTheme(colorScheme = darkColorScheme(primary = Color(0xFFB3C5AE))) {
+            Box(
+                modifier =
+                modifier
+                    .fillMaxSize()
+                    .background(Color.Black)
+                    .semantics { testTagsAsResourceId = true }
+                    .testTag("moments_photo_preview_dialog"),
+                contentAlignment = Alignment.Center,
+            ) {
+                // 1. 水平滑动图片分页
+                HorizontalPager(
+                    state = pagerState,
+                    modifier = Modifier.fillMaxSize(),
+                ) { page ->
+                    val rawPath = photos[page]
+                    val photoUri = remember(rawPath) { resolvePhotoUri(rawPath) }
+                    val asyncImageState = rememberAsyncImageState()
+                    val zoomState = rememberSketchZoomState()
 
-                Box(
-                    modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null,
-                            onClick = {
-                                if (showActionMenu) {
-                                    showActionMenu = false
+                    Box(
+                        modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = {
+                                    if (showActionMenu) {
+                                        showActionMenu = false
+                                    } else {
+                                        onDismiss()
+                                    }
+                                },
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (photoUri != null) {
+                            SketchZoomAsyncImage(
+                                uri = photoUri,
+                                contentDescription = "朋友圈大图预览",
+                                state = asyncImageState,
+                                zoomState = zoomState,
+                                alignment = Alignment.Center,
+                                contentScale = ContentScale.Fit,
+                                onTap = {
+                                    if (showActionMenu) {
+                                        showActionMenu = false
+                                    } else {
+                                        onDismiss()
+                                    }
+                                },
+                                onLongPress = {
+                                    showActionMenu = true
+                                },
+                                modifier = Modifier.fillMaxSize(),
+                            )
+                        }
+                        when {
+                            photoUri == null || asyncImageState.loadState is LoadState.Error -> MomentsStateContent(
+                                title = "图片暂时打不开",
+                                description = "可以重新加载，或返回后稍后再看",
+                                isError = true,
+                                actionLabel = if (photoUri == null) "返回" else "重新加载",
+                                onAction = if (photoUri == null) {
+                                    onDismiss
                                 } else {
-                                    onDismiss()
-                                }
-                            },
-                        ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (photoUri != null) {
-                        SketchZoomAsyncImage(
-                            uri = photoUri,
-                            contentDescription = "朋友圈大图预览",
-                            state = asyncImageState,
-                            zoomState = zoomState,
-                            alignment = Alignment.Center,
-                            contentScale = ContentScale.Fit,
-                            onTap = {
-                                if (showActionMenu) {
-                                    showActionMenu = false
-                                } else {
-                                    onDismiss()
-                                }
-                            },
-                            onLongPress = {
-                                showActionMenu = true
-                            },
-                            modifier = Modifier.fillMaxSize(),
+                                    { asyncImageState.restart() }
+                                },
+                            )
+
+                            asyncImageState.loadState == null || asyncImageState.loadState is LoadState.Started -> MomentsLoadingSpinner(color = Color.White)
+                        }
+                    }
+                }
+
+                // 2. 顶部张数指示器（多图时展示，如 5/9）
+                if (photos.size > 1 && !showActionMenu) {
+                    Box(
+                        modifier =
+                        Modifier
+                            .align(Alignment.TopCenter)
+                            .statusBarsPadding()
+                            .padding(top = 16.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.35f))
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                            .testTag("moments_preview_page_number"),
+                    ) {
+                        Text(
+                            text = "${pagerState.currentPage + 1}/${photos.size}",
+                            color = Color.White,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
                         )
                     }
                 }
-            }
 
-            // 2. 顶部张数指示器（多图时展示，如 5/9）
-            if (photos.size > 1 && !showActionMenu) {
-                Box(
-                    modifier =
-                    Modifier
-                        .align(Alignment.TopCenter)
-                        .statusBarsPadding()
-                        .padding(top = 16.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.Black.copy(alpha = 0.35f))
-                        .padding(horizontal = 10.dp, vertical = 4.dp)
-                        .testTag("moments_preview_page_number"),
-                ) {
-                    Text(
-                        text = "${pagerState.currentPage + 1}/${photos.size}",
-                        color = Color.White,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
-                    )
-                }
-            }
-
-            // 3. 底部白色圆点指示器（多图时展示）
-            if (photos.size > 1 && !showActionMenu) {
-                Box(
-                    modifier =
-                    Modifier
-                        .align(Alignment.BottomCenter)
-                        .navigationBarsPadding()
-                        .padding(bottom = 24.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color.Black.copy(alpha = 0.35f))
-                        .padding(horizontal = 10.dp, vertical = 5.dp)
-                        .testTag("moments_preview_dots_indicator"),
-                ) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(7.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                // 3. 底部白色圆点指示器（多图时展示）
+                if (photos.size > 1 && !showActionMenu) {
+                    Box(
+                        modifier =
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .navigationBarsPadding()
+                            .padding(bottom = 24.dp)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.Black.copy(alpha = 0.35f))
+                            .padding(horizontal = 10.dp, vertical = 5.dp)
+                            .testTag("moments_preview_dots_indicator"),
                     ) {
-                        repeat(photos.size) { index ->
-                            val isSelected = pagerState.currentPage == index
-                            Box(
-                                modifier =
-                                Modifier
-                                    .size(if (isSelected) 7.dp else 6.dp)
-                                    .clip(CircleShape)
-                                    .background(
-                                        if (isSelected) Color.White else Color.White.copy(alpha = 0.45f),
-                                    ),
-                            )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(7.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            repeat(photos.size) { index ->
+                                val isSelected = pagerState.currentPage == index
+                                Box(
+                                    modifier =
+                                    Modifier
+                                        .size(if (isSelected) 7.dp else 6.dp)
+                                        .clip(CircleShape)
+                                        .background(
+                                            if (isSelected) Color.White else Color.White.copy(alpha = 0.45f),
+                                        ),
+                                )
+                            }
                         }
                     }
                 }
-            }
 
-            // 4. 微信风格长按底部操作菜单
-            AnimatedVisibility(
-                visible = showActionMenu,
-                enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
-                exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
-                modifier = Modifier.align(Alignment.BottomCenter),
-            ) {
-                MomentsPreviewActionMenu(
-                    onSavePhoto = {
-                        val currentPath = photos.getOrNull(pagerState.currentPage)
-                        if (currentPath != null) {
-                            coroutineScope.launch {
-                                val success = saveImageToGallery(context, currentPath)
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        context,
-                                        if (success) "已保存到系统相册" else "保存失败",
-                                        Toast.LENGTH_SHORT,
-                                    ).show()
-                                }
-                            }
-                        }
-                        showActionMenu = false
-                    },
-                    onFavorite = {
-                        Toast.makeText(context, "已收藏", Toast.LENGTH_SHORT).show()
-                        showActionMenu = false
-                    },
-                    onSendToFriend = {
-                        Toast.makeText(context, "发送给朋友功能正在开发中", Toast.LENGTH_SHORT).show()
-                        showActionMenu = false
-                    },
-                    onCancel = { showActionMenu = false },
-                )
+                if (isSaving) {
+                    Row(Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 60.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        MomentsLoadingSpinner(color = Color.White)
+                        Text("正在保存图片…", color = Color.White, fontSize = 13.sp)
+                    }
+                }
+                failedSavePath?.let { path ->
+                    MomentsErrorNotice(
+                        error = "保存图片失败",
+                        title = "图片还没保存到相册",
+                        hint = "请检查网络、相册权限和存储空间",
+                        actionLabel = "重新保存",
+                        onAction = { savePhoto(path) },
+                        modifier = Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = 60.dp, start = 16.dp, end = 16.dp),
+                    )
+                }
+
+                // 4. 微信风格长按底部操作菜单
+                AnimatedVisibility(
+                    visible = showActionMenu,
+                    enter = fadeIn() + slideInVertically(initialOffsetY = { it }),
+                    exit = fadeOut() + slideOutVertically(targetOffsetY = { it }),
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                ) {
+                    MomentsPreviewActionMenu(
+                        onSavePhoto = {
+                            val currentPath = photos.getOrNull(pagerState.currentPage)
+                            if (currentPath != null) savePhoto(currentPath)
+                            showActionMenu = false
+                        },
+                        onFavorite = {
+                            Toast.makeText(context, "已收藏", Toast.LENGTH_SHORT).show()
+                            showActionMenu = false
+                        },
+                        onSendToFriend = {
+                            Toast.makeText(context, "发送给朋友功能正在开发中", Toast.LENGTH_SHORT).show()
+                            showActionMenu = false
+                        },
+                        onCancel = { showActionMenu = false },
+                    )
+                }
             }
         }
     }
@@ -384,7 +429,7 @@ fun resolvePhotoUri(path: String?): String? {
 
 /** 列表加载服务端缩略图；大图预览与保存仍保留原始地址。 */
 internal fun momentsThumbnailUri(path: String?): String? = resolvePhotoUri(path)?.let {
-    if (it.startsWith("http") && it.contains("/api/v1/media/") && !it.contains("thumbnail=")) "$it&thumbnail=true" else it
+    if (it.startsWith("http") && it.contains("/api/v1/media/") && !it.contains("thumbnail=")) "$it${if ('?' in it) '&' else '?'}thumbnail=true" else it
 }
 
 /**

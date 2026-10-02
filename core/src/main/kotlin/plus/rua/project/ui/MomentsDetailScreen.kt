@@ -558,7 +558,7 @@ private fun MomentCommentRow(
                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             modifier = Modifier.padding(top = 6.dp).size(88.dp),
                         ) {
-                            AsyncImage(uri = "file://$path", contentDescription = "评论图片", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            AsyncImage(uri = momentsThumbnailUri(path), state = rememberMomentsImageState(), contentDescription = "评论图片", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         }
                     }
                 }
@@ -599,12 +599,13 @@ internal fun MomentsDeleteDialog(onDismiss: () -> Unit, onConfirm: () -> Unit) {
     }
 }
 
+/** 动态、评论和点赞头像；远端加载失败时保留人物占位。 */
 @Composable
 internal fun MomentAvatar(avatarPath: String?, name: String, modifier: Modifier = Modifier) {
     Surface(shape = RoundedCornerShape(4.dp), color = MaterialTheme.colorScheme.surfaceVariant, modifier = modifier) {
         val uri = remember(avatarPath) { resolvePhotoUri(avatarPath) }
         if (uri != null) {
-            AsyncImage(uri = uri, contentDescription = "$name 的头像", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+            AsyncImage(uri = uri, state = rememberMomentsImageState(avatar = true), contentDescription = "$name 的头像", contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
         } else {
             Box(contentAlignment = Alignment.Center) { Icon(Icons.Filled.Person, "$name 的头像", modifier = Modifier.padding(4.dp)) }
         }

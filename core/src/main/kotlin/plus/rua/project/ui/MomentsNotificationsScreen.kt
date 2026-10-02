@@ -464,6 +464,7 @@ private fun MomentsNotificationItem(
                 val uri = rememberPhotoUri(notification.postPhotoPath)
                 AsyncImage(
                     uri = uri,
+                    state = rememberMomentsImageState(),
                     contentDescription = "动态配图缩略图",
                     contentScale = ContentScale.Crop,
                     modifier =
@@ -530,6 +531,7 @@ private fun NotificationAuthorAvatar(
             val uri = rememberPhotoUri(avatarPath)
             AsyncImage(
                 uri = uri,
+                state = rememberMomentsImageState(avatar = true),
                 contentDescription = "$name 的头像",
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

@@ -523,6 +523,7 @@ private fun PhotoThumbnail(
 
         AsyncImage(
             uri = fileUri,
+            state = rememberMomentsImageState(),
             contentDescription = "已选配图",
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),

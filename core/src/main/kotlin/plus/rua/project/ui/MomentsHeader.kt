@@ -268,7 +268,7 @@ fun MomentsHeader(
                 if (avatarUri != null) {
                     AsyncImage(
                         uri = avatarUri,
-                        state = rememberMomentsImageState(),
+                        state = rememberMomentsImageState(avatar = true),
                         contentDescription = "用户头像",
                         contentScale = ContentScale.Crop,
                         modifier = Modifier.fillMaxSize(),

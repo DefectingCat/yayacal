@@ -23,33 +23,60 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BrokenImage
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Person
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.pulltorefresh.PullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.ColorPainter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.ProgressBarRangeInfo
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.progressBarRangeInfo
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.github.panpf.sketch.painter.EquitablePainter
 import com.github.panpf.sketch.rememberAsyncImageState
 import com.github.panpf.sketch.request.ImageOptions
+import com.github.panpf.sketch.state.IconPainterStateImage
 import com.github.panpf.sketch.state.ThumbnailMemoryCacheStateImage
 
-// 页面间图片尺寸不同也可先显示同一 URI 已解码的图片，避免封面、头像和缩略图闪成空块。
-internal val momentsImageOptions = ImageOptions { placeholder(ThumbnailMemoryCacheStateImage()) }
-
-/** 每个图片组件独立持有加载状态，共用跨尺寸的缓存占位规则。 */
+/** 图片独立持有加载状态；优先复用缓存，失败时显示柔和图标，头像保留人物占位。 */
 @Composable
-internal fun rememberMomentsImageState() = rememberAsyncImageState(options = momentsImageOptions)
+internal fun rememberMomentsImageState(avatar: Boolean = false): com.github.panpf.sketch.AsyncImageState {
+    val background = MaterialTheme.colorScheme.surfaceContainerHigh
+    val tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+    val loadingIcon = if (avatar) Icons.Outlined.Person else Icons.Outlined.Image
+    val errorIcon = if (avatar) Icons.Outlined.Person else Icons.Outlined.BrokenImage
+    val loadingPainter = rememberVectorPainter(loadingIcon)
+    val errorPainter = rememberVectorPainter(errorIcon)
+    val iconSize = with(LocalDensity.current) { 24.dp.toPx() }
+    val options = remember(background, tint, loadingPainter, errorPainter, iconSize) {
+        val backdrop = EquitablePainter(ColorPainter(background), background)
+        val placeholder = IconPainterStateImage(EquitablePainter(loadingPainter, loadingIcon), backdrop, Size(iconSize, iconSize), tint)
+        val failure = IconPainterStateImage(EquitablePainter(errorPainter, errorIcon), backdrop, Size(iconSize, iconSize), tint)
+        ImageOptions {
+            placeholder(ThumbnailMemoryCacheStateImage(defaultImage = placeholder))
+            error(failure)
+            fallback(failure)
+        }
+    }
+    return rememberAsyncImageState(options = options)
+}
 
 /** 顶部轻量加载指示器，随下拉显示，刷新时旋转；避开状态栏和导航按钮。 */
 @Composable

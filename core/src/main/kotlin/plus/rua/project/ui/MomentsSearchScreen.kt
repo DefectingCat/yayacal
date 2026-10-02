@@ -307,7 +307,8 @@ private fun SearchResultCard(
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     result.post.photoPaths.take(3).forEach { path ->
                         AsyncImage(
-                            uri = if (path.startsWith("file://")) path else "file://$path",
+                            uri = momentsThumbnailUri(path),
+                            state = rememberMomentsImageState(),
                             contentDescription = "动态配图",
                             contentScale = ContentScale.Crop,
                             modifier = Modifier.size(86.dp).clip(RoundedCornerShape(2.dp)),
