@@ -294,6 +294,7 @@ fun MomentsScreen(
             onLikePost = viewModel::toggleLike,
             onRefresh = { viewModel.refreshPosts() },
             onLoadMore = viewModel::loadMore,
+            onDismissOperationError = viewModel::dismissOperationError,
             modifier =
             Modifier
                 .fillMaxSize()
@@ -419,6 +420,7 @@ fun MomentsScreen(
  * @param onPostClick 点击动态正文或互动区时触发
  * @param onCommentClick 点击“评论”操作时触发
  * @param onRefresh 未加载时下拉刷新触发
+ * @param onDismissOperationError 点击操作失败提示的“知道了”时触发
  * @param onLoadMore 点击加载更多时触发
  * @param onLikePost 点击“赞/取消”操作时触发
  * @param modifier 布局修饰符
@@ -442,6 +444,7 @@ fun MomentsScreen(
     onLikePost: (String) -> Unit = {},
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
+    onDismissOperationError: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val listState = rememberLazyListState()
@@ -502,6 +505,12 @@ fun MomentsScreen(
                     )
                 }
 
+                uiState.operationError?.let { error ->
+                    item(key = "operation_error") {
+                        MomentsErrorNotice(error, title = "操作未完成", hint = "请稍后重新操作", actionLabel = "知道了", onAction = onDismissOperationError, modifier = Modifier.padding(16.dp))
+                    }
+                }
+
                 if (uiState.posts.isEmpty()) {
                     item(key = "empty_content") {
                         if (!uiState.hasLoadedPosts && uiState.error == null) {
@@ -518,12 +527,7 @@ fun MomentsScreen(
                 } else {
                     uiState.error?.let { error ->
                         item(key = "network_error") {
-                            Text(
-                                text = "$error\n下拉页面重试",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-                            )
+                            MomentsErrorNotice(error = error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
                         }
                     }
                     items(uiState.posts, key = { it.id }) { post ->
@@ -571,17 +575,9 @@ fun MomentsScreen(
                     }
                 }
 
-                if (uiState.posts.isNotEmpty() && uiState.nextCursor != null) {
+                if (uiState.posts.isNotEmpty()) {
                     item(key = "more") {
-                        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            if (uiState.isLoadingMore) {
-                                MomentsLoadingSpinner(modifier = Modifier.padding(16.dp))
-                            } else {
-                                TextButton(onClick = onLoadMore, enabled = !uiState.isLoading) {
-                                    Text("加载更多")
-                                }
-                            }
-                        }
+                        MomentsPagingFooter(uiState.nextCursor != null, uiState.isLoadingMore, uiState.loadMoreError, onLoadMore, enabled = !uiState.isLoading)
                     }
                 }
                 // 底部系统手势栏安全留白
@@ -754,76 +750,17 @@ internal fun MomentsEmptyContent(
     canPublish: Boolean = true,
     modifier: Modifier = Modifier,
 ) {
-    Column(
-        modifier =
-        modifier
-            .fillMaxWidth()
-            .heightIn(min = 320.dp)
-            .padding(horizontal = 32.dp, vertical = 40.dp)
-            .testTag("moments_empty_placeholder"),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        AnimatedWebp(
-            seed = listOf(accountId, error),
-            modifier = Modifier.size(140.dp),
+    if (error != null) {
+        MomentsErrorContent(error = error, modifier = modifier)
+    } else {
+        MomentsStateContent(
+            title = "暂无朋友圈动态",
+            description = "生活点滴与精彩瞬间，值得记录与分享",
+            seed = accountId,
+            actionLabel = if (canPublish) "发布第一条动态" else null,
+            onAction = if (canPublish) onPublish else null,
+            modifier = modifier,
         )
-
-        Spacer(modifier = Modifier.height(18.dp))
-
-        Text(
-            text = when {
-                error != null -> "动态加载失败"
-                else -> "暂无朋友圈动态"
-            },
-            style =
-            MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 17.sp,
-            ),
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Text(
-            text = when {
-                error != null -> "$error\n下拉页面重试"
-                else -> "生活点滴与精彩瞬间，值得记录与分享"
-            },
-            style =
-            MaterialTheme.typography.bodyMedium.copy(
-                fontSize = 14.sp,
-            ),
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-            lineHeight = 20.sp,
-        )
-
-        if (canPublish && error == null) {
-            Spacer(modifier = Modifier.height(24.dp))
-            OutlinedButton(
-                onClick = onPublish,
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)),
-                colors =
-                ButtonDefaults.outlinedButtonColors(
-                    contentColor = MaterialTheme.colorScheme.primary,
-                ),
-                modifier = Modifier.testTag("moments_empty_publish_button"),
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.CameraAlt,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "发布第一条动态",
-                    fontWeight = FontWeight.Medium,
-                )
-            }
-        }
     }
 }
 

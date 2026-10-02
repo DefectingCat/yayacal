@@ -216,6 +216,7 @@ fun UserMomentsScreen(
         isOwnProfile = isOwnProfile,
         onRefresh = { viewModel.refreshPosts(authorId = authorId ?: viewModel.accountId) },
         onLoadMore = viewModel::loadMore,
+        onDismissOperationError = viewModel::dismissOperationError,
         isCoverExpanded = isCoverExpanded,
         onBack = {
             if (isCoverExpanded) {
@@ -257,6 +258,7 @@ fun UserMomentsScreen(
  *
  * @param isOwnProfile 是否正在展示本人主页，控制资料编辑及发布入口
  * @param onRefresh 未加载时下拉刷新触发
+ * @param onDismissOperationError 点击操作失败提示的“知道了”时触发
  * @param onLoadMore 点击加载更多时触发
  * @param uiState 当前 UI 状态
  * @param isCoverExpanded 封面是否展开
@@ -281,6 +283,7 @@ fun UserMomentsScreen(
     isOwnProfile: Boolean = true,
     onRefresh: () -> Unit = {},
     onLoadMore: () -> Unit = {},
+    onDismissOperationError: () -> Unit = {},
     onPublish: () -> Unit = {},
     onPrivatePublish: () -> Unit = {},
     onSearch: () -> Unit = {},
@@ -355,6 +358,12 @@ fun UserMomentsScreen(
                     )
                 }
 
+                uiState.operationError?.let { error ->
+                    item(key = "operation_error") {
+                        MomentsErrorNotice(error, title = "操作未完成", hint = "请稍后重新操作", actionLabel = "知道了", onAction = onDismissOperationError, modifier = Modifier.padding(16.dp))
+                    }
+                }
+
                 if (uiState.posts.isEmpty()) {
                     item(key = "empty_content") {
                         if (!uiState.hasLoadedPosts && uiState.error == null) {
@@ -372,12 +381,7 @@ fun UserMomentsScreen(
                 } else {
                     uiState.error?.let { error ->
                         item(key = "network_error") {
-                            Text(
-                                text = "$error\n下拉页面重试",
-                                color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium,
-                                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 16.dp),
-                            )
+                            MomentsErrorNotice(error = error, modifier = Modifier.padding(horizontal = 24.dp, vertical = 16.dp))
                         }
                     }
                     // “今天” 分组：发表与私密发表入口及今天发表的动态
@@ -441,22 +445,12 @@ fun UserMomentsScreen(
                         }
                     }
 
-                    if (uiState.nextCursor != null) {
-                        item(key = "more") {
-                            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                                if (uiState.isLoadingMore) {
-                                    MomentsLoadingSpinner(modifier = Modifier.padding(16.dp))
-                                } else {
-                                    TextButton(onClick = onLoadMore, enabled = !uiState.isLoading) {
-                                        Text("加载更多")
-                                    }
-                                }
-                            }
-                        }
+                    item(key = "more") {
+                        MomentsPagingFooter(uiState.nextCursor != null, uiState.isLoadingMore, uiState.loadMoreError, onLoadMore, enabled = !uiState.isLoading)
                     }
                     // 底部时间轴结束标志：— · —
-                    item(key = "timeline_footer") {
-                        UserMomentsFooter()
+                    if (uiState.nextCursor == null && uiState.error == null && !uiState.isLoading) {
+                        item(key = "timeline_footer") { UserMomentsFooter() }
                     }
                 }
 

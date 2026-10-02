@@ -57,14 +57,15 @@ internal fun MomentsRefreshIndicator(
     state: PullToRefreshState,
     color: Color,
     containerColor: Color,
+    belowTopBar: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val fraction = state.distanceFraction.coerceIn(0f, 1f)
     if (!isRefreshing && fraction <= 0f) return
     Box(
         modifier
-            .statusBarsPadding()
-            .padding(top = 64.dp)
+            .then(if (belowTopBar) Modifier else Modifier.statusBarsPadding())
+            .padding(top = if (belowTopBar) 12.dp else 64.dp)
             .graphicsLayer { alpha = if (isRefreshing) 1f else fraction }
             .size(32.dp)
             .background(containerColor, CircleShape)
@@ -97,7 +98,7 @@ internal fun MomentsLoadingSpinner(
     }
     Canvas(
         modifier.size(20.dp).semantics {
-            contentDescription = "正在加载动态"
+            contentDescription = "正在加载"
             progressBarRangeInfo = ProgressBarRangeInfo.Indeterminate
         },
     ) {

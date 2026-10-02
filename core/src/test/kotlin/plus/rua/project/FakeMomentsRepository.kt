@@ -17,6 +17,8 @@ internal class FakeMomentsRepository : MomentsRepository {
     var profiles = listOf(MomentPerson("xiaobai", "小白"), MomentPerson("xiaojimao", "小鸡毛"))
     val avatarResets = mutableListOf<String>()
     var resetAvatarRequest: (suspend (String) -> MomentPerson)? = null
+    var commentsRequest: (suspend (String, String, String?) -> MomentsPage<MomentComment>)? = null
+    var mutationFailure: Exception? = null
     override suspend fun accounts(actor: String) = profiles
     override suspend fun posts(actor: String, author: String?, query: String?, cursor: String?) = load?.invoke(actor, author, query, cursor) ?: MomentsPage(posts.filter { author == null || it.authorId == author })
     override suspend fun post(actor: String, id: String) = posts.firstOrNull { it.id == id } ?: throw MomentsApiException(404, "不存在")
@@ -39,6 +41,7 @@ internal class FakeMomentsRepository : MomentsRepository {
         return profile
     }
     override suspend fun like(actor: String, id: String, liked: Boolean) {
+        mutationFailure?.let { throw it }
         posts = posts.map { if (it.id == id) it.copy(isLikedByMe = liked) else it }
     }
     override suspend fun deletePost(actor: String, id: String) {
@@ -47,7 +50,7 @@ internal class FakeMomentsRepository : MomentsRepository {
     override suspend fun visibility(actor: String, id: String, visibility: String) {
         posts = posts.map { if (it.id == id) it.copy(visibility = visibility) else it }
     }
-    override suspend fun comments(actor: String, id: String, cursor: String?) = MomentsPage(post(actor, id).comments)
+    override suspend fun comments(actor: String, id: String, cursor: String?) = commentsRequest?.invoke(actor, id, cursor) ?: MomentsPage(post(actor, id).comments)
     override suspend fun comment(actor: String, id: String, requestId: String, text: String, media: String?, replyTo: String?) = Unit
     override suspend fun deleteComment(actor: String, id: String) = Unit
     override suspend fun notifications(actor: String, cursor: String?) = MomentsPage(notes[actor].orEmpty(), unreadCount = notes[actor].orEmpty().count { !it.isRead })

@@ -399,6 +399,62 @@ class MomentsViewModelTest {
         assertTrue(vm.uiState.value.notifications.isEmpty())
         assertEquals("b", repository.notes["xiaojimao"]!!.single().id)
     }
+
+    @Test fun paging_failure_keepsCursorAndOnlySetsFooterError() = runTest(dispatcher) {
+        var fail = true
+        repository.load = { _, _, _, cursor ->
+            if (cursor != null && fail) throw IOException("离线")
+            MomentsPage(listOf(MomentPost(id = if (cursor == null) "first" else "second")), if (cursor == null) "next" else null)
+        }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        vm.loadMore()
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.error)
+        assertEquals("离线", vm.uiState.value.loadMoreError)
+        assertEquals("next", vm.uiState.value.nextCursor)
+        assertEquals(listOf("first"), vm.uiState.value.posts.map { it.id })
+        fail = false
+        vm.loadMore()
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.loadMoreError)
+        assertEquals(listOf("first", "second"), vm.uiState.value.posts.map { it.id })
+    }
+
+    @Test fun comments_pagingFailure_doesNotBecomePageRefreshFailure() = runTest(dispatcher) {
+        repository.posts = listOf(MomentPost(id = "post", authorId = "xiaobai"))
+        val response = CompletableDeferred<MomentsPage<MomentComment>>()
+        repository.commentsRequest = { _, _, cursor -> if (cursor == null) MomentsPage(emptyList(), "next") else response.await() }
+        val vm = MomentsViewModel(storage, repository, restoreTimeline = false)
+        vm.refreshPost("post")
+        advanceUntilIdle()
+        vm.loadMoreComments()
+        runCurrent()
+        assertTrue(vm.uiState.value.isLoadingMore)
+        assertFalse(vm.uiState.value.isRefreshing)
+        response.completeExceptionally(IOException("网络超时"))
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.error)
+        assertEquals("网络超时", vm.uiState.value.loadMoreError)
+        assertEquals("post", vm.uiState.value.posts.single().id)
+        assertFalse(vm.uiState.value.isLoadingMore)
+    }
+
+    @Test fun like_failure_isAnOperationErrorAndKeepsPageUsable() = runTest(dispatcher) {
+        repository.posts = listOf(MomentPost(id = "post", authorId = "xiaobai"))
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        repository.mutationFailure = IOException("离线")
+        vm.toggleLike("post")
+        advanceUntilIdle()
+        assertEquals(null, vm.uiState.value.error)
+        assertEquals("离线", vm.uiState.value.operationError)
+        assertEquals("post", vm.uiState.value.posts.single().id)
+        vm.dismissOperationError()
+        assertEquals(null, vm.uiState.value.operationError)
+    }
 }
 
 private class MomentsVmTestInMemoryPrefs : SharedPreferences {

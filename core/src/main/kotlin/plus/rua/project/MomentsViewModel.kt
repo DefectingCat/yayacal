@@ -24,6 +24,8 @@ data class MomentsUiState(
     val isLoadingMore: Boolean = false,
     val hasLoadedPosts: Boolean = false,
     val error: String? = null,
+    val loadMoreError: String? = null,
+    val operationError: String? = null,
     val nextCursor: String? = null,
     val commentsCursor: String? = null,
     val unreadCount: Int = 0,
@@ -122,7 +124,7 @@ class MomentsViewModel(
         val selectedAuthor = author
         val keyword = query
         val cursor = if (more) _uiState.value.nextCursor else null
-        _uiState.update { it.copy(isLoading = true, isLoadingMore = more, error = null, unavailable = false) }
+        _uiState.update { it.copy(isLoading = true, isLoadingMore = more, error = if (more) it.error else null, loadMoreError = null, unavailable = false) }
         refreshJob = viewModelScope.launch {
             try {
                 val accounts = api.accounts(actor)
@@ -157,7 +159,14 @@ class MomentsViewModel(
                 if (version == generation && actor == accountId) {
                     _uiState.update {
                         val missing = id != null && e is MomentsApiException && e.status == 404
-                        it.copy(isLoading = false, isLoadingMore = false, error = e.message ?: "加载失败，请重试", unavailable = missing, posts = if (missing) emptyList() else it.posts)
+                        it.copy(
+                            isLoading = false,
+                            isLoadingMore = false,
+                            error = if (more) it.error else e.message ?: "加载失败，请重试",
+                            loadMoreError = if (more) e.message ?: "加载失败，请重试" else null,
+                            unavailable = missing,
+                            posts = if (missing) emptyList() else it.posts,
+                        )
                     }
                 }
             }
@@ -170,20 +179,24 @@ class MomentsViewModel(
         if (_uiState.value.isLoading) return
         val actor = accountId
         val version = generation
-        _uiState.update { it.copy(isLoading = true) }
-        viewModelScope.launch {
+        _uiState.update { it.copy(isLoading = true, isLoadingMore = true, loadMoreError = null) }
+        refreshJob = viewModelScope.launch {
             try {
                 val page = repository.comments(actor, id, cursor)
                 if (version == generation && actor == accountId) {
                     _uiState.update {
-                        it.copy(isLoading = false, commentsCursor = page.nextCursor, posts = it.posts.map { p -> p.copy(comments = (p.comments + page.items).distinctBy { c -> c.id }) })
+                        it.copy(isLoading = false, isLoadingMore = false, commentsCursor = page.nextCursor, posts = it.posts.map { p -> p.copy(comments = (p.comments + page.items).distinctBy { c -> c.id }) })
                     }
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                if (version == generation && actor == accountId) _uiState.update { it.copy(isLoading = false, error = e.message) }
+                if (version == generation && actor == accountId) _uiState.update { it.copy(isLoading = false, isLoadingMore = false, loadMoreError = e.message ?: "评论加载失败") }
             }
         }
+    }
+
+    fun dismissOperationError() {
+        _uiState.update { it.copy(operationError = null) }
     }
 
     private fun mutate(action: suspend (MomentsRepository, String) -> Unit) {
@@ -191,6 +204,7 @@ class MomentsViewModel(
         val api = repository
         val cache = timelineCache
         val version = generation
+        _uiState.update { it.copy(operationError = null) }
         viewModelScope.launch {
             try {
                 action(api, actor)
@@ -200,7 +214,7 @@ class MomentsViewModel(
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                if (actor == accountId && version == generation) _uiState.update { it.copy(error = e.message ?: "操作失败，请重试") }
+                if (actor == accountId && version == generation) _uiState.update { it.copy(operationError = e.message ?: "操作失败，请重试") }
             }
         }
     }
