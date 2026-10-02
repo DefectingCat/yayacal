@@ -266,8 +266,8 @@ class MomentsViewModel(
         return true
     }
 
-    fun setAvatarFromUri(context: Context, uri: Uri) = setProfile(context, uri, false)
-    fun setCoverFromUri(context: Context, uri: Uri) = setProfile(context, uri, true)
+    fun setAvatarFromUri(context: Context, uri: Uri) = setProfilePhoto(cover = false) { copyMomentPhoto(context, uri) }
+    fun setCoverFromUri(context: Context, uri: Uri) = setProfilePhoto(cover = true) { copyMomentPhoto(context, uri) }
 
     /** 恢复请求始终使用开始时的账号；切号或换服务后的迟到结果不能覆盖新页面。失败抛给菜单供重试。 */
     suspend fun resetAvatar(): Boolean {
@@ -276,25 +276,49 @@ class MomentsViewModel(
         val version = accountGeneration
         val profile = api.resetAvatar(actor)
         if (actor != accountId || version != accountGeneration) return false
+        applyProfile(actor, profile)
+        return true
+    }
+
+    private fun applyProfile(actor: String, profile: MomentPerson) {
         _uiState.update {
             val accounts = if (it.accounts.any { account -> account.id == actor }) {
                 it.accounts.map { account -> if (account.id == actor) profile else account }
             } else {
                 it.accounts + profile
             }
-            it.copy(avatarPath = profile.avatarPath, coverPath = profile.coverPath, accounts = accounts, error = null)
+            if ((author ?: actor) == actor) {
+                it.copy(username = profile.name, avatarPath = profile.avatarPath, coverPath = profile.coverPath, accounts = accounts, error = null, operationError = null)
+            } else {
+                it.copy(accounts = accounts, operationError = null)
+            }
         }
         timelineCache.saveProfiles(actor, _uiState.value.accounts)
+        // 保存后的刷新使仍在途的旧资料请求失效，避免列表加载完成后把新封面覆盖回去。
         refreshPosts()
-        return true
     }
 
-    private fun setProfile(context: Context, uri: Uri, cover: Boolean) = mutate { api, actor ->
-        val file = copyMomentPhoto(context, uri)
-        try {
-            api.profile(actor, api.upload(actor, file), cover)
-        } finally {
-            file.delete()
+    /** 写入固定开始时的账号和连接；普通列表刷新不使保存失效，临时图片在请求结束后清理。 */
+    internal fun setProfilePhoto(cover: Boolean, preparePhoto: suspend () -> File) {
+        val actor = accountId
+        val api = repository
+        val cache = timelineCache
+        val version = accountGeneration
+        _uiState.update { it.copy(operationError = null) }
+        viewModelScope.launch {
+            try {
+                val file = preparePhoto()
+                val profile = try {
+                    api.profile(actor, api.upload(actor, file), cover)
+                } finally {
+                    file.delete()
+                }
+                cache.invalidatePosts(actor)
+                if (actor == accountId && version == accountGeneration) applyProfile(actor, profile)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                if (actor == accountId && version == accountGeneration) _uiState.update { it.copy(operationError = e.message ?: "保存失败，请重试") }
+            }
         }
     }
 

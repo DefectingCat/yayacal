@@ -2,6 +2,7 @@ package plus.rua.project
 
 import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.test.runTest
+import org.json.JSONObject
 import org.junit.Test
 import java.net.InetSocketAddress
 import kotlin.test.assertEquals
@@ -10,6 +11,40 @@ import kotlin.test.assertTrue
 
 /** 在真实 HTTP 上验证 DTO 映射、请求身份和错误响应，避免只测试假仓库。 */
 class MomentsRepositoryTest {
+    @Test
+    fun profile_usesPatchAndCapturedActor_andReturnsUpdatedProfile() = runTest {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val requests = mutableListOf<Triple<String, String?, String>>()
+        server.createContext("/api/v1/me") { exchange ->
+            val body = exchange.requestBody.readBytes().decodeToString()
+            requests += Triple(exchange.requestMethod, exchange.requestHeaders.getFirst("X-Account-ID"), body)
+            val input = JSONObject(body)
+            val avatar = input.optString("avatar_id", "old-avatar")
+            val cover = input.optString("cover_id", "old-cover")
+            val json = """{"id":"xiaobai","name":"小白","avatar_id":"$avatar","cover_id":"$cover"}""".toByteArray()
+            exchange.sendResponseHeaders(200, json.size.toLong())
+            exchange.responseBody.use { it.write(json) }
+            exchange.close()
+        }
+        server.start()
+        try {
+            val baseUrl = "http://127.0.0.1:${server.address.port}"
+            val api = HttpMomentsRepository(baseUrl)
+            val cover = api.profile("xiaobai", "new-cover", cover = true)
+            val avatar = api.profile("xiaobai", "new-avatar", cover = false)
+
+            assertEquals("$baseUrl/api/v1/media/new-cover?account_id=xiaobai", cover.coverPath)
+            assertEquals("$baseUrl/api/v1/media/old-avatar?account_id=xiaobai", cover.avatarPath)
+            assertEquals("$baseUrl/api/v1/media/new-avatar?account_id=xiaobai", avatar.avatarPath)
+            assertEquals("$baseUrl/api/v1/media/old-cover?account_id=xiaobai", avatar.coverPath)
+            assertTrue(requests.all { it.first == "PATCH" && it.second == "xiaobai" })
+            assertEquals(setOf("cover_id"), JSONObject(requests[0].third).keys().asSequence().toSet())
+            assertEquals(setOf("avatar_id"), JSONObject(requests[1].third).keys().asSequence().toSet())
+        } finally {
+            server.stop(0)
+        }
+    }
+
     @Test
     fun resetAvatar_usesDeleteAndCapturedActor_andMapsDefaultWithoutChangingCover() = runTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)

@@ -33,7 +33,7 @@ interface MomentsRepository {
     suspend fun post(actor: String, id: String): MomentPost
     suspend fun publish(actor: String, requestId: String, text: String, media: List<String>, visibility: String, location: String?, address: String?): MomentPost
     suspend fun upload(actor: String, file: File): String
-    suspend fun profile(actor: String, media: String, cover: Boolean)
+    suspend fun profile(actor: String, media: String, cover: Boolean): MomentPerson
 
     /** 清除当前账号的自定义头像，返回带内置默认头像路径的最新资料。 */
     suspend fun resetAvatar(actor: String): MomentPerson
@@ -143,9 +143,10 @@ class HttpMomentsRepository(
         val payload = MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("file", "photo", file.asRequestBody("application/octet-stream".toMediaType())).build()
         return JSONObject(request(actor, "POST", "/media", payload)).getString("id")
     }
-    override suspend fun profile(actor: String, media: String, cover: Boolean) {
-        request(actor, "PATCH", "/me", body((if (cover) "cover_id" else "avatar_id") to media))
-    }
+    override suspend fun profile(actor: String, media: String, cover: Boolean): MomentPerson = person(
+        JSONObject(request(actor, "PATCH", "/me", body((if (cover) "cover_id" else "avatar_id") to media))),
+        actor,
+    )
     override suspend fun resetAvatar(actor: String): MomentPerson = person(JSONObject(request(actor, "DELETE", "/me/avatar")), actor)
     override suspend fun like(actor: String, id: String, liked: Boolean) {
         request(actor, if (liked) "PUT" else "DELETE", "/posts/$id/like", if (liked) "".toRequestBody() else null)

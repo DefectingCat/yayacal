@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Before
+import java.io.File
 import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -254,6 +255,167 @@ class MomentsViewModelTest {
         assertTrue(reentered.uiState.value.posts.isEmpty())
         assertFalse(reentered.uiState.value.hasLoadedPosts)
         assertEquals(repository.profiles, reentered.uiState.value.accounts)
+    }
+
+    @Test fun setCover_resumeRefreshDuringSave_updatesProfileAndCacheWithoutReentry() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentPerson>()
+        val cache = MomentsTimelineCache()
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "white-avatar", "old-cover"), MomentPerson("xiaojimao", "小鸡毛", "chicken-avatar"))
+        repository.profileRequest = { _, _, _ -> response.await() }
+        val vm = MomentsViewModel(storage, repository, cache, initialAuthorId = "xiaobai")
+        vm.refreshPosts()
+        advanceUntilIdle()
+        val photo = profilePhoto()
+
+        vm.setProfilePhoto(cover = true) { photo }
+        runCurrent()
+        vm.refreshPosts(authorId = "xiaobai")
+        advanceUntilIdle()
+        assertEquals("old-cover", vm.uiState.value.coverPath)
+        // 保存成功后即使动态列表不可用，封面也必须立即更新并供其他页面复用。
+        repository.load = { _, _, _, _ -> throw IOException("列表不可用") }
+        response.complete(MomentPerson("xiaobai", "小白", "white-avatar", "new-cover"))
+        advanceUntilIdle()
+
+        assertEquals("new-cover", vm.uiState.value.coverPath)
+        assertEquals("white-avatar", vm.uiState.value.avatarPath)
+        assertEquals("new-cover", vm.uiState.value.accounts.first { it.id == "xiaobai" }.coverPath)
+        assertEquals("chicken-avatar", vm.uiState.value.accounts.first { it.id == "xiaojimao" }.avatarPath)
+        assertEquals("列表不可用", vm.uiState.value.error)
+        assertEquals("new-cover", MomentsViewModel(storage, repository, cache).uiState.value.coverPath)
+        assertFalse(photo.exists())
+    }
+
+    @Test fun setAvatar_resumeRefreshDuringSave_updatesAvatarAndKeepsCover() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentPerson>()
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", "old-avatar", "white-cover"))
+        repository.profileRequest = { _, _, _ -> response.await() }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        val photo = profilePhoto()
+
+        vm.setProfilePhoto(cover = false) { photo }
+        runCurrent()
+        vm.refreshPosts()
+        advanceUntilIdle()
+        response.complete(MomentPerson("xiaobai", "小白", "new-avatar", "white-cover"))
+        advanceUntilIdle()
+
+        assertEquals("new-avatar", vm.uiState.value.avatarPath)
+        assertEquals("white-cover", vm.uiState.value.coverPath)
+        assertFalse(repository.profileUpdates.single().third)
+        assertFalse(photo.exists())
+    }
+
+    @Test fun setCover_latePreSaveRefresh_doesNotRestoreOldCover() = runTest(dispatcher) {
+        val saved = CompletableDeferred<MomentPerson>()
+        val oldRefresh = CompletableDeferred<List<MomentPerson>>()
+        val cache = MomentsTimelineCache()
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", coverPath = "old-cover"))
+        repository.profileRequest = { _, _, _ -> saved.await() }
+        val vm = MomentsViewModel(storage, repository, cache)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        val oldProfiles = repository.profiles
+        var reads = 0
+        repository.accountsRequest = {
+            if (reads++ == 0) withContext(NonCancellable) { oldRefresh.await() } else repository.profiles
+        }
+        val photo = profilePhoto()
+
+        vm.setProfilePhoto(cover = true) { photo }
+        runCurrent()
+        vm.refreshPosts()
+        runCurrent()
+        saved.complete(MomentPerson("xiaobai", "小白", coverPath = "new-cover"))
+        runCurrent()
+        assertEquals("new-cover", vm.uiState.value.coverPath)
+        oldRefresh.complete(oldProfiles)
+        advanceUntilIdle()
+
+        assertEquals("new-cover", vm.uiState.value.coverPath)
+        assertEquals("new-cover", MomentsViewModel(storage, repository, cache).uiState.value.coverPath)
+        assertFalse(photo.exists())
+    }
+
+    @Test fun setCover_switchAwayAndBack_rejectsLateResultAndKeepsCapturedActor() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentPerson>()
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", coverPath = "white-cover"), MomentPerson("xiaojimao", "小鸡毛", coverPath = "chicken-cover"))
+        repository.profileRequest = { _, _, _ -> response.await() }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        val photo = profilePhoto()
+
+        vm.setProfilePhoto(cover = true) { photo }
+        runCurrent()
+        vm.switchAccount(MomentAccount.ACCOUNT_XIAOJIMAO)
+        advanceUntilIdle()
+        vm.switchAccount(MomentAccount.ACCOUNT_XIAOBAI)
+        advanceUntilIdle()
+        response.complete(MomentPerson("xiaobai", "小白", coverPath = "late-cover"))
+        advanceUntilIdle()
+
+        assertEquals("white-cover", vm.uiState.value.coverPath)
+        assertEquals(listOf("xiaobai"), repository.uploads)
+        assertEquals("xiaobai", repository.profileUpdates.single().first)
+        assertFalse(photo.exists())
+    }
+
+    @Test fun setCover_authorChangesDuringSave_preservesViewedProfile() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentPerson>()
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", coverPath = "white-cover"), MomentPerson("xiaojimao", "小鸡毛", coverPath = "chicken-cover"))
+        repository.profileRequest = { _, _, _ -> response.await() }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        val photo = profilePhoto()
+
+        vm.setProfilePhoto(cover = true) { photo }
+        runCurrent()
+        vm.refreshPosts(authorId = "xiaojimao")
+        advanceUntilIdle()
+        response.complete(MomentPerson("xiaobai", "小白", coverPath = "new-white-cover"))
+        advanceUntilIdle()
+
+        assertEquals("小鸡毛", vm.uiState.value.username)
+        assertEquals("chicken-cover", vm.uiState.value.coverPath)
+        assertEquals("new-white-cover", vm.uiState.value.accounts.first { it.id == "xiaobai" }.coverPath)
+        assertFalse(photo.exists())
+    }
+
+    @Test fun setCover_failureAfterResume_keepsCoverAndShowsErrorAndCanRetry() = runTest(dispatcher) {
+        val response = CompletableDeferred<MomentPerson>()
+        repository.profiles = listOf(MomentPerson("xiaobai", "小白", coverPath = "old-cover"))
+        repository.profileRequest = { _, _, _ -> response.await() }
+        val vm = MomentsViewModel(storage, repository)
+        vm.refreshPosts()
+        advanceUntilIdle()
+        val photo = profilePhoto()
+
+        vm.setProfilePhoto(cover = true) { photo }
+        runCurrent()
+        vm.refreshPosts()
+        advanceUntilIdle()
+        response.completeExceptionally(IOException("保存超时"))
+        advanceUntilIdle()
+
+        assertEquals("old-cover", vm.uiState.value.coverPath)
+        assertEquals("保存超时", vm.uiState.value.operationError)
+        assertFalse(photo.exists())
+        repository.profileRequest = null
+        val retry = profilePhoto()
+        vm.setProfilePhoto(cover = true) { retry }
+        advanceUntilIdle()
+        assertEquals(repository.profileUpdates.last().second, vm.uiState.value.coverPath)
+        assertEquals(null, vm.uiState.value.operationError)
+        assertFalse(retry.exists())
+    }
+
+    private fun profilePhoto(): File = File.createTempFile("moments-profile-test-", ".image").apply {
+        writeText("photo")
+        deleteOnExit()
     }
 
     @Test fun resetAvatar_updatesCurrentProfile_andKeepsCoverAndOtherAccount() = runTest(dispatcher) {

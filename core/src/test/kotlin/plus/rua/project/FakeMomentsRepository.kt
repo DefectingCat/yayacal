@@ -16,13 +16,16 @@ internal class FakeMomentsRepository : MomentsRepository {
     val read = mutableListOf<Pair<String, List<String>>>()
     var profiles = listOf(MomentPerson("xiaobai", "小白"), MomentPerson("xiaojimao", "小鸡毛"))
     val avatarResets = mutableListOf<String>()
+    val profileUpdates = mutableListOf<Triple<String, String, Boolean>>()
+    var accountsRequest: (suspend (String) -> List<MomentPerson>)? = null
+    var profileRequest: (suspend (String, String, Boolean) -> MomentPerson)? = null
     var resetAvatarRequest: (suspend (String) -> MomentPerson)? = null
     var commentsRequest: (suspend (String, String, String?) -> MomentsPage<MomentComment>)? = null
     var mutationFailure: Exception? = null
     var notificationsRequest: (suspend (String, String?) -> MomentsPage<MomentNotification>)? = null
     var notificationsReadFailure: Exception? = null
     var notificationsDeleteFailure: Exception? = null
-    override suspend fun accounts(actor: String) = profiles
+    override suspend fun accounts(actor: String) = accountsRequest?.invoke(actor) ?: profiles
     override suspend fun posts(actor: String, author: String?, query: String?, cursor: String?) = load?.invoke(actor, author, query, cursor) ?: MomentsPage(posts.filter { author == null || it.authorId == author })
     override suspend fun post(actor: String, id: String) = posts.firstOrNull { it.id == id } ?: throw MomentsApiException(404, "不存在")
     override suspend fun publish(actor: String, requestId: String, text: String, media: List<String>, visibility: String, location: String?, address: String?): MomentPost {
@@ -35,7 +38,14 @@ internal class FakeMomentsRepository : MomentsRepository {
         uploads += actor
         return UUID.randomUUID().toString()
     }
-    override suspend fun profile(actor: String, media: String, cover: Boolean) = Unit
+    override suspend fun profile(actor: String, media: String, cover: Boolean): MomentPerson {
+        profileUpdates += Triple(actor, media, cover)
+        val profile = profileRequest?.invoke(actor, media, cover) ?: profiles.first { it.id == actor }.let {
+            if (cover) it.copy(coverPath = media) else it.copy(avatarPath = media)
+        }
+        profiles = profiles.map { if (it.id == actor) profile else it }
+        return profile
+    }
     override suspend fun resetAvatar(actor: String): MomentPerson {
         avatarResets += actor
         resetAvatarRequest?.let { return it(actor) }
