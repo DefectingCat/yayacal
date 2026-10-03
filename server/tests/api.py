@@ -1,11 +1,14 @@
 """真实 HTTP + PostgreSQL 集成检查。仅指向一次性测试数据库，测试会创建数据。"""
 import json
+import http.client
 import os
 import re
 import struct
+import time
 import unittest
 import urllib.error
 import urllib.request
+import urllib.parse
 import uuid
 import zlib
 from concurrent.futures import ThreadPoolExecutor
@@ -29,7 +32,7 @@ def call(method, path, body=None, actor="xiaobai", expected=200, content_type=No
         response = error
     data = response.read()
     response.close()
-    assert response.status == expected, (method, path, response.status, data)
+    assert response.status in (expected if isinstance(expected, tuple) else (expected,)), (method, path, response.status, data)
     server = response.headers.get("X-Server", "")
     assert re.fullmatch(r"yaya server v[0-9]+\.[0-9]+\.[0-9]+-(?:[0-9a-f]{7}|unknown)", server), server
     if EXPECTED_SERVER:
@@ -60,6 +63,35 @@ def upload(actor="xiaobai", data=None, expected=200):
 
 
 class ApiTest(unittest.TestCase):
+    def test_media_upload_concurrency_is_bounded_before_reading_file(self):
+        address = urllib.parse.urlsplit(BASE)
+        connections = []
+        try:
+            for _ in range(2):
+                connection = http.client.HTTPConnection(address.hostname, address.port, timeout=5)
+                connections.append(connection)
+                connection.putrequest("POST", "/api/v1/media")
+                connection.putheader("X-Account-ID", "xiaobai")
+                connection.putheader("Content-Type", "multipart/form-data; boundary=held-upload")
+                connection.putheader("Content-Length", str(1024 * 1024))
+                # 保持两个未读完的请求，验证限制在文件读取前生效。
+                connection.endheaders(b'--held-upload\r\nContent-Disposition: form-data; name="file"; filename="test.png"\r\n\r\nx')
+            deadline = time.monotonic() + 5
+            while True:
+                result = upload(expected=(200, 429))
+                if "error" in result:
+                    self.assertEqual(result["error"], "图片上传繁忙，请稍后重试")
+                    break
+                self.assertLess(time.monotonic(), deadline, "上传并发限制未生效")
+                time.sleep(0.01)
+        finally:
+            for connection in connections:
+                connection.close()
+        deadline = time.monotonic() + 5
+        while "error" in upload(expected=(200, 429)):
+            self.assertLess(time.monotonic(), deadline, "取消上传后处理名额未释放")
+            time.sleep(0.01)
+
     def test_media_upload_size_boundaries(self):
         limit = 50 * 1024 * 1024
         for size in (10 * 1024 * 1024 + 1, limit):
