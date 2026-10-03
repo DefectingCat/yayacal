@@ -8,6 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.10.0] - 2026-10-03
+
+### Added
+
+- 朋友圈配图、图片评论、头像与封面在上传前自动生成压缩副本，原图保持不变；普通照片优先使用 WebP，长截图和透明图片优先保真。
+- 发布页显示逐张图片处理进度；处理失败时保留文字与已完成图片，可重试剩余图片，已处理和已上传的草稿继续复用。
+
+### Changed
+
+- 单张图片选择与上传上限提高至 50 MiB；后台逐张处理并限制解码像素，支持静态 JPEG、PNG 和 WebP。
+- Release 默认连接线上朋友圈服务，Debug 默认连接本机后端，两种构建分别保存服务地址。
+
+### Fixed
+
+- 图片处理覆盖 EXIF 的全部八种旋转和镜像方向，重新编码时移除定位等元数据；正确保留透明度与长截图。
+- 避免大型 PNG 的无关附加数据拖慢解码，并在取消或失败后清理未完成的临时文件。
+
 ## [1.9.0] - 2026-10-03
 
 ### Added
@@ -447,6 +464,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.10.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.10.0
 [1.9.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.9.0
 [1.8.1]: https://github.com/xfy/yayacal/releases/tag/v1.8.1
 [1.8.0]: https://github.com/xfy/yayacal/releases/tag/v1.8.0

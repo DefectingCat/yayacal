@@ -26,7 +26,7 @@ make server
 
 ## 版本与发布镜像
 
-后端基础版本只维护在 `Cargo.toml` 的 `package.version`，独立于 Android。构建时拼接七位 Git commit hash，例如 `v0.1.0-a1b2c3d`。启动时先打印 `yaya server v0.1.0-a1b2c3d`，随后连接数据库；所有 HTTP 响应（含 `/health`、HEAD、404 和错误响应）带 `X-Server: yaya server v0.1.0-a1b2c3d`。
+后端基础版本只维护在 `Cargo.toml` 的 `package.version`，独立于 Android。构建时拼接七位 Git commit hash，例如 `v0.1.1-a1b2c3d`。启动时先打印 `yaya server v0.1.1-a1b2c3d`，随后连接数据库；所有 HTTP 响应（含 `/health`、HEAD、404 和错误响应）带 `X-Server: yaya server v0.1.1-a1b2c3d`。
 
 Cargo 本地构建自动读取当前 commit，并跟踪 HEAD 和引用变化；也可设置 `YAYA_GIT_SHA` 传入完整 40 位或 64 位 SHA。版本编译进二进制，运行时环境变量不能更改它。无 Git 的开发源码副本显示 `unknown`；Docker 与 CI 设置 `YAYA_REQUIRE_GIT_SHA=1`，缺少真实 SHA 时构建失败。
 
@@ -40,8 +40,8 @@ make server-image    # 自动传入当前 SHA，生成 yayacal-moments-api:local
 正式发布提供 `linux/amd64` 和 `linux/arm64` 的多架构镜像：
 
 ```text
-ghcr.io/defectingcat/yayacal-server:0.1.0
-ghcr.io/defectingcat/yayacal-server:0.1.0-a1b2c3d
+ghcr.io/defectingcat/yayacal-server:0.1.1
+ghcr.io/defectingcat/yayacal-server:0.1.1-a1b2c3d
 ghcr.io/defectingcat/yayacal-server:latest
 ```
 
@@ -50,7 +50,7 @@ ghcr.io/defectingcat/yayacal-server:latest
 使用发布镜像部署，在 `server/` 下执行（首次部署仍需按启动部分准备 `.env`）：
 
 ```sh
-export SERVER_IMAGE=ghcr.io/defectingcat/yayacal-server:0.1.0
+export SERVER_IMAGE=ghcr.io/defectingcat/yayacal-server:0.1.1
 docker compose pull api
 docker compose up -d --no-build
 curl -I http://127.0.0.1:8088/health

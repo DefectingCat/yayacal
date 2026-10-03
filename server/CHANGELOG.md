@@ -5,6 +5,18 @@
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-03
+
+### Changed
+
+- 单张图片上传上限由 10 MiB 提高至 50 MiB，multipart 请求体上限为 51 MiB。
+- 图片上传同时最多处理两张，读取文件前获取名额；繁忙时返回 429，取消请求后正确释放名额。
+
+### Fixed
+
+- 超出图片或请求体上限时统一返回 413 与明确的大小提示。
+- 增加真实 PostgreSQL/HTTP 集成测试，覆盖超过旧上限、恰好 50 MiB、超限、并发限制和取消后的恢复。
+
 ## [0.1.0] - 2026-10-03
 
 ### Added
@@ -22,4 +34,5 @@
 - 恢复默认头像操作保持账号隔离、幂等性和封面资料。
 - 图片按方向信息纠正后再移除元数据。
 
+[0.1.1]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.1
 [0.1.0]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.0
