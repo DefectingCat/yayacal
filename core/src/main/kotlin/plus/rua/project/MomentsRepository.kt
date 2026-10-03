@@ -1,6 +1,5 @@
 package plus.rua.project
 
-import android.content.Context
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -16,7 +15,6 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.json.JSONArray
 import org.json.JSONObject
-import plus.rua.project.shared.BuildConfig
 import java.io.File
 import java.io.IOException
 import java.net.URLEncoder
@@ -50,24 +48,6 @@ interface MomentsRepository {
 
 /** HTTP 状态可用于区分已删除内容与暂时断网，界面只显示面向用户的说明。 */
 class MomentsApiException(val status: Int, message: String) : IOException(message)
-
-/** 连接地址与选中身份属于本机偏好，历史本地动态保持原样，避免猜测作者后误导入。 */
-object MomentsConnection {
-    internal const val PREFS = "moments_connection"
-    fun url(context: Context): String = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getString("url", if (BuildConfig.DEBUG) "http://10.0.2.2:8088" else "")!!.trimEnd('/')
-
-    fun save(context: Context, url: String) {
-        val uri = java.net.URI(url.trim())
-        require(uri.host != null && uri.userInfo == null && uri.query == null && uri.fragment == null && uri.path.orEmpty().trim('/').isEmpty()) { "请输入服务地址，例如 https://moments.example.com" }
-        require(uri.scheme == "https" || (BuildConfig.DEBUG && uri.scheme == "http")) { "服务地址需要使用 HTTPS" }
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("url", url.trim().trimEnd('/')).apply()
-    }
-
-    fun repository(context: Context): MomentsRepository = HttpMomentsRepository(url(context)) { id ->
-        "android.resource://${context.packageName}/${MomentAccount.findById(id).avatarResId}"
-    }
-}
 
 /** HTTP 实现把上传、JSON 映射与错误统一收在一个位置，所有业务请求都有显式账号。 */
 class HttpMomentsRepository(

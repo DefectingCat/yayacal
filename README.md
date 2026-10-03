@@ -26,7 +26,7 @@
 
 ## 朋友圈后端
 
-启动、依赖版本、接口、备份和集成测试见 [server/README.md](server/README.md)。应用的账号选择页提供「连接设置」，填写后端地址后直接选择小白或小鸡毛，不使用密码。两个账号的主页和通知独立，公开动态可互相查看、点赞和评论。
+启动、依赖版本、接口、备份和集成测试见 [server/README.md](server/README.md)。应用使用当前构建的默认后端地址，也可在账号选择页的「连接设置」修改，然后直接选择小白或小鸡毛，不使用密码。两个账号的主页和通知独立，公开动态可互相查看、点赞和评论。
 
 日历功能保持离线可用。旧版本本机朋友圈数据保留原样，不会自动上传或猜测作者归属。朋友圈写入以服务器确认成功为准，失败保留草稿供重试。
 
@@ -41,7 +41,15 @@ make install    # 编译并安装 Debug APK
 
 启动脚本需要 `adb`、`emulator` 和 `python3` 位于 PATH 中。`make emulator` 在独立会话中启动模拟器，等待系统启动完成，清除模拟器代理，并自动转发本机 8088 端口及检查后端健康状态。连接设置可使用 `http://127.0.0.1:8088`；默认的 `http://10.0.2.2:8088` 在 Android 17 上首次访问时会申请附近设备权限。可用 `AVD=名称`、`BACKEND_PORT=端口` 覆盖默认值，启动日志位于 `logs/emulator.log`。
 
-公网后端在「朋友圈 → 连接设置」填写 HTTPS 根地址，不带 `/api/v1`。公网地址不申请本地网络权限，Release 只接受 HTTPS；本机的 HTTP 与 ADB 转发用于 Debug 调试。
+朋友圈默认地址由 `core/build.gradle.kts` 的 `BuildConfig.MOMENTS_DEFAULT_URL` 在构建时注入：
+
+| 构建类型 | 默认服务地址 |
+| --- | --- |
+| Debug（`make build` / `make install`） | `http://10.0.2.2:8088` |
+| Release（`make` / `make release`） | `https://yaya.rua.plus` |
+| trace / benchmark | `https://yaya.rua.plus`，沿用 Release 配置 |
+
+手动修改时填写服务根地址，不带 `/api/v1`。Debug 与 Release 分别保存手动地址，trace / benchmark 共用 Release 设置；覆盖安装时会读取当前环境的设置，没有保存值时使用构建默认地址。首次升级会将旧 HTTP 地址迁入 Debug 设置；旧 HTTPS 地址不再覆盖默认值，Release 首次使用线上地址，之后仍可在「朋友圈 → 连接设置」修改。公网地址不申请本地网络权限，Release 只接受 HTTPS；本机的 HTTP 与 ADB 转发用于 Debug 调试。
 
 ```bash
 # Debug

@@ -24,6 +24,8 @@ android {
                 .toInt()
         consumerProguardFiles("proguard-rules.pro")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        // 非 Debug 构建统一使用线上服务，trace 继承 release，benchmark 回退到 release。
+        buildConfigField("String", "MOMENTS_DEFAULT_URL", "\"https://yaya.rua.plus\"")
 
         // 构建期扫描 assets/animations/ 生成 WebP 文件列表，避免运行期硬编码 (1..152)
         // 与 assets/ 目录耦合却不校验，导致增删文件后隐性 bug
@@ -45,6 +47,7 @@ android {
     buildTypes {
         debug {
             buildConfigField("boolean", "ENABLE_TRACE", "true")
+            buildConfigField("String", "MOMENTS_DEFAULT_URL", "\"http://10.0.2.2:8088\"")
         }
         release {
             isMinifyEnabled = false
