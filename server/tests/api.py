@@ -37,12 +37,22 @@ def call(method, path, body=None, actor="xiaobai", expected=200, content_type=No
     return json.loads(data) if "application/json" in response.headers.get("Content-Type", "") else data
 
 
+def png_image(size=None):
+    def chunk(kind, content):
+        return struct.pack(">I", len(content)) + kind + content + struct.pack(">I", zlib.crc32(kind + content))
+    data = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">2I5B", 2, 2, 8, 2, 0, 0, 0))
+    data += chunk(b"IDAT", zlib.compress(b"\x00\xff\x00\x00\x00\xff\x00" * 2))
+    if size is not None:
+        # 合法私有 ancillary chunk 控制文件大小，避免尺寸/解码内存干扰字节边界测试。
+        padding = size - len(data) - 24
+        assert padding >= 0
+        data += chunk(b"paDd", b"\x00" * padding)
+    return data + chunk(b"IEND", b"")
+
+
 def upload(actor="xiaobai", data=None, expected=200):
     if data is None:
-        def chunk(kind, content):
-            return struct.pack(">I", len(content)) + kind + content + struct.pack(">I", zlib.crc32(kind + content))
-        data = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">2I5B", 2, 2, 8, 2, 0, 0, 0))
-        data += chunk(b"IDAT", zlib.compress(b"\x00\xff\x00\x00\x00\xff\x00" * 2)) + chunk(b"IEND", b"")
+        data = png_image()
     boundary = uuid.uuid4().hex
     body = (f'--{boundary}\r\nContent-Disposition: form-data; name="file"; filename="../../test.png"\r\n'
             'Content-Type: image/png\r\n\r\n').encode() + data + f'\r\n--{boundary}--\r\n'.encode()
@@ -50,6 +60,20 @@ def upload(actor="xiaobai", data=None, expected=200):
 
 
 class ApiTest(unittest.TestCase):
+    def test_media_upload_size_boundaries(self):
+        limit = 50 * 1024 * 1024
+        for size in (10 * 1024 * 1024 + 1, limit):
+            with self.subTest(size=size):
+                media = upload(data=png_image(size))
+                self.assertEqual((media["width"], media["height"]), (2, 2))
+                stored = call("GET", f'/api/v1/media/{media["id"]}?account_id=xiaobai')
+                self.assertEqual(stored[:4], b"RIFF")
+                self.assertEqual(stored[8:12], b"WEBP")
+        for size in (limit + 1, 51 * 1024 * 1024 + 1):
+            with self.subTest(size=size):
+                error = upload(data=b"\x00" * size, expected=413)
+                self.assertEqual(error["error"], "图片不能超过 50 MiB")
+
     def test_version_header_on_health_head_errors_and_fallback(self):
         self.assertEqual(call("GET", "/health", actor=None), b"ok")
         self.assertEqual(call("HEAD", "/health", actor=None), b"")

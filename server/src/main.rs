@@ -12,13 +12,14 @@ use axum::{
     routing::{delete, get, patch, post, put},
 };
 use sqlx::postgres::PgPoolOptions;
-use std::{path::PathBuf, time::Duration};
+use std::{path::PathBuf, sync::Arc, time::Duration};
 use tower_http::trace::TraceLayer;
 
 #[derive(Clone)]
 pub struct App {
     pub db: sqlx::PgPool,
     pub media_dir: PathBuf,
+    pub media_uploads: Arc<tokio::sync::Semaphore>,
 }
 
 #[tokio::main]
@@ -36,6 +37,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         media_dir: std::env::var_os("MEDIA_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| "data/media".into()),
+        media_uploads: Arc::new(tokio::sync::Semaphore::new(2)),
     };
     tokio::fs::create_dir_all(&app.media_dir).await?;
     let cleanup = app.clone();
@@ -55,7 +57,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/api/v1/me/avatar", delete(accounts::reset_avatar))
         .route(
             "/api/v1/media",
-            post(media::upload).layer(DefaultBodyLimit::max(11 * 1024 * 1024)),
+            post(media::upload).layer(DefaultBodyLimit::max(media::MAX_UPLOAD_BODY_BYTES)),
         )
         .route("/api/v1/media/{id}", get(media::download))
         .route("/api/v1/posts", get(posts::list).post(posts::create))

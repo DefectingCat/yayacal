@@ -119,7 +119,7 @@ class HttpMomentsRepository(
         actor,
     )
     override suspend fun upload(actor: String, file: File): String {
-        require(file.length() in 1..(10L * 1024 * 1024)) { "图片不能超过 10 MiB" }
+        require(file.length() in 1..MomentsImagePolicy.MAX_UPLOAD_BYTES) { MomentsImagePolicy.SIZE_ERROR }
         val payload = MultipartBody.Builder().setType(MultipartBody.FORM).addFormDataPart("file", "photo", file.asRequestBody("application/octet-stream".toMediaType())).build()
         return JSONObject(request(actor, "POST", "/media", payload)).getString("id")
     }

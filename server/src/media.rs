@@ -16,6 +16,18 @@ use serde_json::{Value, json};
 use std::{io::Cursor, time::Duration};
 use uuid::Uuid;
 
+const MAX_UPLOAD_BYTES: usize = 50 * 1024 * 1024;
+pub const MAX_UPLOAD_BODY_BYTES: usize = MAX_UPLOAD_BYTES + 1024 * 1024;
+const UPLOAD_SIZE_ERROR: &str = "图片不能超过 50 MiB";
+
+fn upload_error(error: axum::extract::multipart::MultipartError) -> Error {
+    if error.status() == StatusCode::PAYLOAD_TOO_LARGE {
+        Error(StatusCode::PAYLOAD_TOO_LARGE, UPLOAD_SIZE_ERROR)
+    } else {
+        Error::bad("上传内容无效")
+    }
+}
+
 pub async fn require_owned(
     tx: &mut sqlx::Transaction<'_, sqlx::Postgres>,
     actor: &str,
@@ -39,22 +51,25 @@ pub async fn upload(
     Actor(actor): Actor,
     mut multipart: Multipart,
 ) -> Result<Json<Value>> {
+    // 在读取文件之前限制并发，避免多个请求各持有大文件及解码内存。
+    let permit = app
+        .media_uploads
+        .clone()
+        .try_acquire_owned()
+        .map_err(|_| Error(StatusCode::TOO_MANY_REQUESTS, "图片上传繁忙，请稍后重试"))?;
     let field = multipart
         .next_field()
         .await
-        .map_err(|_| Error::bad("上传内容无效或超过大小限制"))?
+        .map_err(upload_error)?
         .ok_or_else(|| Error::bad("请选择图片"))?;
-    let data = field
-        .bytes()
-        .await
-        .map_err(|_| Error::bad("上传内容无效或超过大小限制"))?;
-    if data.len() > 10 * 1024 * 1024 {
-        return Err(Error(StatusCode::PAYLOAD_TOO_LARGE, "图片不能超过 10 MiB"));
+    let data = field.bytes().await.map_err(upload_error)?;
+    if data.len() > MAX_UPLOAD_BYTES {
+        return Err(Error(StatusCode::PAYLOAD_TOO_LARGE, UPLOAD_SIZE_ERROR));
     }
     if multipart
         .next_field()
         .await
-        .map_err(|_| Error::bad("上传内容无效"))?
+        .map_err(upload_error)?
         .is_some()
     {
         return Err(Error::bad("每次上传一张图片"));
@@ -94,6 +109,8 @@ pub async fn upload(
             .write_to(&mut thumb, ImageFormat::WebP)
             .map_err(|_| Error::bad("图片编码失败"))?;
         Ok((
+            // 请求取消时阻塞任务仍可能运行，permit 必须随任务持有到处理结束。
+            permit,
             image.width(),
             image.height(),
             full.into_inner(),
@@ -102,7 +119,7 @@ pub async fn upload(
     })
     .await
     .map_err(|_| Error::bad("图片处理失败"))??;
-    let (width, height, full, thumb) = processed;
+    let (_permit, width, height, full, thumb) = processed;
     let id = Uuid::new_v4();
     tokio::fs::write(app.media_dir.join(format!("{id}.webp")), &full).await?;
     tokio::fs::write(app.media_dir.join(format!("{id}.thumb.webp")), thumb).await?;

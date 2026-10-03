@@ -392,12 +392,12 @@ internal suspend fun copyMomentPhoto(context: Context, uri: Uri): File = kotlinx
         input.use { source ->
             file.outputStream().use { target ->
                 val buffer = ByteArray(8192)
-                var total = 0
+                var total = 0L
                 while (true) {
                     val read = source.read(buffer)
                     if (read < 0) break
                     total += read
-                    require(total <= 10 * 1024 * 1024) { "图片不能超过 10 MiB" }
+                    require(total <= MomentsImagePolicy.MAX_UPLOAD_BYTES) { MomentsImagePolicy.SIZE_ERROR }
                     target.write(buffer, 0, read)
                 }
             }

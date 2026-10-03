@@ -143,7 +143,7 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 | `/accounts` | GET | 两个固定账号及各自头像、封面 ID |
 | `/me` | PATCH | 更新 avatar_id 或 cover_id，图片必须属于当前账号 |
 | `/me/avatar` | DELETE | 清除当前账号的自定义头像，返回账号资料；重复调用安全，封面保持原样 |
-| `/media` | POST | multipart，单张 JPEG/PNG/WebP，最多 10 MiB、边长 12000 像素，解码内存受限 |
+| `/media` | POST | multipart，单张 JPEG/PNG/WebP，最多 50 MiB；请求体最多 51 MiB、边长 12000 像素，解码内存受限 |
 | `/posts` | GET / POST | 分页查询 / 发布 |
 | `/posts/{id}` | GET / PATCH / DELETE | 详情 / 修改 visibility / 删除本人动态 |
 | `/posts/{id}/like` | PUT / DELETE | 幂等点赞 / 取消 |
@@ -161,6 +161,8 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 所有时间为服务端生成的 Unix 毫秒。动态列表携带最近三条评论预览；完整评论通过评论分页接口读取。自己操作不产生自己的通知，重复点赞/评论不重复通知。取消点赞后不再显示相应提醒；删帖、私密化后列表、详情、搜索、消息及媒体重新检查访问条件。
 
 取消点赞后再次点赞视为新的互动，生成一条新的未读提醒；同一次点赞的网络重试不会重复提醒。
+
+单张图片上限为 50 MiB（52,428,800 字节），multipart 请求体上限为 51 MiB；HTTPS 反向代理也应允许至少 51 MiB 的请求体，例如 Nginx `client_max_body_size 51m;`。文件或请求体超限统一返回 413。最多同时接收和处理两张图片，繁忙时返回 429 供客户端稍后重试；解码边长与内存限制独立于文件大小。
 
 删除动态清空内容与关联记录，保留 ID 墓碑用于防重；未引用图片宽限 24 小时后由每小时运行的清理任务删除。图片不直接作为公开静态目录暴露。
 

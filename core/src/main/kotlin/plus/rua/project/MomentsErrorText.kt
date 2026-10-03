@@ -9,7 +9,7 @@ internal fun momentsErrorDescription(error: String): String {
         "超时" in text || "timeout" in text || "timed out" in text -> "连接等待有些久，请稍后再试"
         "空间" in text || "enospc" in text -> "存储空间不足，请清理一些空间后再试"
         "草稿保存" in text -> "草稿暂时无法保存，请检查存储空间"
-        "图片不能超过" in text || "413" in text -> "图片过大，请选择不超过 10 MiB 的图片"
+        "图片不能超过" in text || "413" in text -> "图片过大，请选择不超过 50 MiB 的图片"
         "读取图片" in text || "无法读取图片" in text -> "这张图片暂时无法读取，请重新选择"
         "图片不存在" in text -> "图片已失效，请重新选择后再试"
         "账号已切换" in text -> "账号已切换，请返回后重新操作"

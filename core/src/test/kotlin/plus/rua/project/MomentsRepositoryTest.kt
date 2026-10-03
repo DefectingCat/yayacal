@@ -4,6 +4,9 @@ import com.sun.net.httpserver.HttpServer
 import kotlinx.coroutines.test.runTest
 import org.json.JSONObject
 import org.junit.Test
+import java.io.File
+import java.io.OutputStream
+import java.io.RandomAccessFile
 import java.net.InetSocketAddress
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -11,6 +14,38 @@ import kotlin.test.assertTrue
 
 /** 在真实 HTTP 上验证 DTO 映射、请求身份和错误响应，避免只测试假仓库。 */
 class MomentsRepositoryTest {
+    @Test
+    fun upload_sizeBoundary_accepts50MiBAndRejectsLargerBeforeRequest() = runTest {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        val sizes = mutableListOf<Long>()
+        val actors = mutableListOf<String?>()
+        server.createContext("/api/v1/media") { exchange ->
+            sizes += exchange.requestBody.use { it.copyTo(OutputStream.nullOutputStream()) }
+            actors += exchange.requestHeaders.getFirst("X-Account-ID")
+            val json = """{"id":"uploaded"}""".toByteArray()
+            exchange.sendResponseHeaders(200, json.size.toLong())
+            exchange.responseBody.use { it.write(json) }
+            exchange.close()
+        }
+        val file = File.createTempFile("moments-upload-test-", ".image")
+        server.start()
+        try {
+            val api = HttpMomentsRepository("http://127.0.0.1:${server.address.port}")
+            for (size in listOf(10L * 1024 * 1024 + 1, 50L * 1024 * 1024)) {
+                RandomAccessFile(file, "rw").use { it.setLength(size) }
+                assertEquals("uploaded", api.upload("xiaojimao", file))
+                assertTrue(sizes.last() in (size + 1)..(size + 1024 * 1024))
+            }
+            RandomAccessFile(file, "rw").use { it.setLength(50L * 1024 * 1024 + 1) }
+            assertEquals("图片不能超过 50 MiB", runCatching { api.upload("xiaojimao", file) }.exceptionOrNull()?.message)
+            assertEquals(2, sizes.size)
+            assertEquals(listOf<String?>("xiaojimao", "xiaojimao"), actors)
+        } finally {
+            server.stop(0)
+            file.delete()
+        }
+    }
+
     @Test
     fun profile_usesPatchAndCapturedActor_andReturnsUpdatedProfile() = runTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
