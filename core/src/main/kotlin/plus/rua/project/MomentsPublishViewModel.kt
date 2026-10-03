@@ -32,6 +32,10 @@ data class MomentsPublishUiState(
     val isVisibilityPickerVisible: Boolean = false,
     val isPublishing: Boolean = false,
     val isPreparingPhotos: Boolean = false,
+    val preparingPhotoIndex: Int = 0,
+    val preparingPhotoCount: Int = 0,
+    val failedPhotoIndex: Int? = null,
+    val canRetryPhotos: Boolean = true,
     val error: String? = null,
     val errorSource: MomentsPublishErrorSource? = null,
 ) {
@@ -52,12 +56,15 @@ class MomentsPublishViewModel(
     initialVisibility: String = "公开",
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     draftNamespace: String = "default",
+    private val preparePhoto: suspend (File, File) -> File = { source, directory -> MomentsImagePreparer.prepareFile(source, directory) },
 ) : ViewModel() {
     private val actor = MomentAccount.findById(storage.getCurrentAccountId()).id
     private val draftDir = File(filesDir, "moments/drafts/${draftNamespace.hashCode()}/$actor").apply { mkdirs() }
     private val draftFile = File(draftDir, "draft.properties")
     private var requestId = UUID.randomUUID().toString()
     private val uploaded = mutableMapOf<String, String>()
+    private val prepared = mutableSetOf<String>()
+    private var pendingPhotos: List<suspend () -> File> = emptyList()
     private val _uiState = MutableStateFlow(restore(initialVisibility))
     val uiState = _uiState.asStateFlow()
 
@@ -66,7 +73,10 @@ class MomentsPublishViewModel(
         val data = Properties().apply { draftFile.inputStream().use { load(it) } }
         requestId = data.getProperty("requestId", requestId)
         val photos = data.getProperty("photos", "").split('\n').filter { it.isNotBlank() && File(it).isFile }
-        photos.forEach { path -> data.getProperty("media:$path")?.let { uploaded[path] = it } }
+        photos.forEach { path ->
+            data.getProperty("media:$path")?.let { uploaded[path] = it }
+            if (data.getProperty("prepared:$path") == MomentsImagePolicy.VERSION) prepared += path
+        }
         MomentsPublishUiState(
             text = data.getProperty("text", ""),
             photos = photos,
@@ -75,7 +85,7 @@ class MomentsPublishViewModel(
         )
     }.getOrDefault(MomentsPublishUiState(visibility = initialVisibility))
 
-    private fun saveDraft() {
+    private fun saveDraft(): Boolean {
         val state = _uiState.value
         val data = Properties().apply {
             setProperty("requestId", requestId)
@@ -87,13 +97,16 @@ class MomentsPublishViewModel(
                 it.address?.let { address -> setProperty("address", address) }
             }
             uploaded.forEach { (path, id) -> setProperty("media:$path", id) }
+            prepared.filter { it in state.photos }.forEach { path -> setProperty("prepared:$path", MomentsImagePolicy.VERSION) }
         }
         try {
             val temp = File(draftDir, "draft.tmp")
             temp.outputStream().use { data.store(it, null) }
             check(temp.renameTo(draftFile)) { "草稿保存失败" }
+            return true
         } catch (e: Exception) {
             _uiState.update { it.copy(error = "草稿保存失败，请检查存储空间", errorSource = MomentsPublishErrorSource.Draft) }
+            return false
         }
     }
 
@@ -115,27 +128,48 @@ class MomentsPublishViewModel(
     fun addPhotosFromUris(context: Context, uris: List<Uri>) {
         if (_uiState.value.isPublishing || _uiState.value.isPreparingPhotos) return
         val selected = uris.take(_uiState.value.remainingPhotoSlots)
-        _uiState.update { it.copy(isPreparingPhotos = true, error = null, errorSource = null) }
+        val application = context.applicationContext
+        preparePhotos(selected.map { uri -> suspend { MomentsImagePreparer.prepare(application, uri) } })
+    }
+
+    /** 重试本次选图中尚未完成的图片，已准备和已上传的图片继续复用。 */
+    fun retryPreparingPhotos() = preparePhotos(pendingPhotos)
+
+    internal fun preparePhotos(photos: List<suspend () -> File>) {
+        if (_uiState.value.isPublishing || _uiState.value.isPreparingPhotos) return
+        val selected = photos.take(_uiState.value.remainingPhotoSlots)
+        if (selected.isEmpty()) return
+        pendingPhotos = selected
+        _uiState.update { it.copy(isPreparingPhotos = true, preparingPhotoIndex = 1, preparingPhotoCount = selected.size, failedPhotoIndex = null, error = null, errorSource = null) }
         viewModelScope.launch {
             try {
-                for (uri in selected) {
-                    val path = withContext(ioDispatcher) {
-                        val temp = copyMomentPhoto(context, uri)
-                        try {
-                            val photo = File(draftDir, "${UUID.randomUUID()}.image")
-                            temp.copyTo(photo)
-                            photo.absolutePath
-                        } finally {
-                            temp.delete()
+                for ((index, prepare) in selected.withIndex()) {
+                    _uiState.update { it.copy(preparingPhotoIndex = index + 1) }
+                    var staged: File? = null
+                    try {
+                        val path = withContext(ioDispatcher) {
+                            val temp = prepare()
+                            try {
+                                val photo = File(draftDir, "${UUID.randomUUID()}.image").also { staged = it }
+                                temp.copyTo(photo)
+                                photo.absolutePath
+                            } finally {
+                                temp.delete()
+                            }
                         }
+                        prepared += path
+                        addPhotoPaths(listOf(path))
+                        staged = null
+                        pendingPhotos = selected.drop(index + 1)
+                    } finally {
+                        staged?.delete()
                     }
-                    addPhotoPaths(listOf(path))
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
-                _uiState.update { it.copy(error = e.message ?: "读取图片失败", errorSource = MomentsPublishErrorSource.Photo) }
+                _uiState.update { it.copy(error = e.message ?: "读取图片失败", errorSource = MomentsPublishErrorSource.Photo, failedPhotoIndex = it.preparingPhotoIndex, canRetryPhotos = e !is IllegalArgumentException && "图片损坏" !in e.message.orEmpty()) }
             } finally {
-                _uiState.update { it.copy(isPreparingPhotos = false) }
+                _uiState.update { it.copy(isPreparingPhotos = false, preparingPhotoIndex = 0, preparingPhotoCount = 0) }
             }
         }
     }
@@ -144,6 +178,7 @@ class MomentsPublishViewModel(
         val path = _uiState.value.photos.getOrNull(index) ?: return
         edit { it.copy(photos = it.photos.filterIndexed { i, _ -> i != index }) }
         uploaded.remove(path)
+        prepared.remove(path)
         if (File(path).parentFile == draftDir) File(path).delete()
     }
     fun openLocationPicker() {
@@ -173,6 +208,37 @@ class MomentsPublishViewModel(
         }
     }
 
+    private suspend fun preparedFile(path: String): File {
+        val source = File(path)
+        if (path in prepared) return source
+        var staged: File? = null
+        try {
+            val photo = withContext(ioDispatcher) {
+                val result = preparePhoto(source, draftDir)
+                if (result.parentFile == draftDir) {
+                    result.also { if (it != source) staged = it }
+                } else {
+                    try {
+                        File(draftDir, "${UUID.randomUUID()}.image").also {
+                            staged = it
+                            result.copyTo(it)
+                        }
+                    } finally {
+                        if (result != source) result.delete()
+                    }
+                }
+            }
+            prepared += photo.absolutePath
+            _uiState.update { state -> state.copy(photos = state.photos.map { if (it == path) photo.absolutePath else it }) }
+            val saved = saveDraft()
+            staged = null
+            if (saved && source != photo && source.parentFile == draftDir) source.delete()
+            return photo
+        } finally {
+            staged?.delete()
+        }
+    }
+
     /** 只有服务端确认成功才触发 onSuccess；失败或取消不清空草稿。 */
     fun publish(onSuccess: () -> Unit) {
         val state = _uiState.value
@@ -181,14 +247,16 @@ class MomentsPublishViewModel(
         viewModelScope.launch {
             try {
                 val media = state.photos.map { path ->
-                    uploaded[path] ?: repository.upload(actor, File(path)).also {
-                        uploaded[path] = it
-                        saveDraft()
+                    uploaded[path] ?: preparedFile(path).let { photo ->
+                        uploaded[photo.absolutePath] ?: repository.upload(actor, photo).also {
+                            uploaded[photo.absolutePath] = it
+                            saveDraft()
+                        }
                     }
                 }
                 repository.publish(actor, requestId, state.text.trim(), media, state.visibility, state.selectedLocation?.name, state.selectedLocation?.address)
                 draftFile.delete()
-                state.photos.forEach { if (File(it).parentFile == draftDir) File(it).delete() }
+                _uiState.value.photos.forEach { if (File(it).parentFile == draftDir) File(it).delete() }
                 _uiState.update { it.copy(isPublishing = false) }
                 onSuccess()
             } catch (e: Exception) {

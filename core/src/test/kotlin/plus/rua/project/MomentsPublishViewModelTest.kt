@@ -1,8 +1,11 @@
 package plus.rua.project
 
 import android.content.SharedPreferences
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -33,7 +36,105 @@ class MomentsPublishViewModelTest {
         Dispatchers.resetMain()
         dir.deleteRecursively()
     }
-    private fun vm() = MomentsPublishViewModel(storage, dir, repository, ioDispatcher = dispatcher)
+    private fun vm(prepare: suspend (File, File) -> File = { file, _ -> file }) = MomentsPublishViewModel(storage, dir, repository, ioDispatcher = dispatcher, preparePhoto = prepare)
+
+    @Test fun preparePhotos_cancel_preservesFinishedDraftAndClearsBusyState() = runTest(dispatcher) {
+        val vm = vm()
+        vm.onTextChanged("取消后仍保留的草稿")
+        var cancelled = false
+        vm.preparePhotos(
+            listOf(
+                suspend { File.createTempFile("prepared-", ".image", dir).apply { writeText("finished") } },
+                suspend {
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        cancelled = true
+                    }
+                },
+            ),
+        )
+        advanceUntilIdle()
+        assertEquals(1, vm.uiState.value.photos.size)
+        assertTrue(vm.uiState.value.isPreparingPhotos)
+        vm.viewModelScope.cancel()
+        advanceUntilIdle()
+        assertTrue(cancelled)
+        assertFalse(vm.uiState.value.isPreparingPhotos)
+        val restored = vm()
+        assertEquals("取消后仍保留的草稿", restored.uiState.value.text)
+        assertEquals("finished", File(restored.uiState.value.photos.single()).readText())
+    }
+
+    @Test fun publish_draftSaveFailure_keepsLegacySourceForRestart() = runTest(dispatcher) {
+        val vm = vm { _, directory -> File.createTempFile("converted-", ".image", directory).apply { writeText("compressed") } }
+        val draftDirectory = File(dir, "moments/drafts/${"default".hashCode()}/xiaobai")
+        val original = File(draftDirectory, "legacy.image").apply { writeText("original") }
+        vm.addPhotoPaths(listOf(original.absolutePath))
+        File(draftDirectory, "draft.tmp").mkdir()
+        repository.failPublish = true
+        vm.publish {}
+        advanceUntilIdle()
+        assertTrue(original.exists())
+        assertEquals("original", File(vm().uiState.value.photos.single()).readText())
+    }
+
+    @Test fun preparePhotos_partialFailure_retryKeepsFinishedPhotosAndReportsIndex() = runTest(dispatcher) {
+        val calls = IntArray(3)
+        var fail = true
+        val vm = vm()
+        val tasks = (0..2).map { index ->
+            suspend {
+                calls[index]++
+                if (index == 1 && fail) error("图片压缩失败")
+                File.createTempFile("prepared-test-", ".image", dir).apply { writeText("photo-$index") }
+            }
+        }
+        vm.preparePhotos(tasks)
+        assertTrue(vm.uiState.value.isPreparingPhotos)
+        assertEquals(3, vm.uiState.value.preparingPhotoCount)
+        assertFalse(vm.uiState.value.canPublish)
+        advanceUntilIdle()
+        assertEquals(2, vm.uiState.value.failedPhotoIndex)
+        assertEquals(MomentsPublishErrorSource.Photo, vm.uiState.value.errorSource)
+        assertEquals(listOf("photo-0"), vm.uiState.value.photos.map { File(it).readText() })
+        fail = false
+        vm.retryPreparingPhotos()
+        advanceUntilIdle()
+        assertEquals(listOf(1, 2, 1), calls.toList())
+        assertEquals(listOf("photo-0", "photo-1", "photo-2"), vm.uiState.value.photos.map { File(it).readText() })
+        assertEquals(null, vm.uiState.value.failedPhotoIndex)
+        assertFalse(vm.uiState.value.isPreparingPhotos)
+        assertTrue(vm.uiState.value.canPublish)
+        val restored = vm { _, _ -> error("已处理副本不应重复压缩") }
+        restored.publish {}
+        advanceUntilIdle()
+        assertEquals(3, repository.uploads.size)
+        assertFalse(File(vm.uiState.value.photos.first()).exists())
+    }
+
+    @Test fun publish_legacyPhoto_preparesOnceAndPersistsCopyAcrossRetry() = runTest(dispatcher) {
+        val original = File(dir, "legacy.image").apply { writeText("original") }
+        var calls = 0
+        val vm = vm { _, directory ->
+            calls++
+            File.createTempFile("converted-", ".image", directory).apply { writeText("compressed") }
+        }
+        vm.addPhotoPaths(listOf(original.absolutePath))
+        repository.failPublish = true
+        vm.publish {}
+        advanceUntilIdle()
+        assertEquals("original", original.readText())
+        assertEquals("compressed", File(vm.uiState.value.photos.single()).readText())
+        assertEquals(1, calls)
+        val restored = vm { _, _ -> error("重试不应重复压缩") }
+        repository.failPublish = false
+        restored.publish {}
+        advanceUntilIdle()
+        assertEquals(1, repository.uploads.size)
+        assertEquals(repository.attempts.first(), repository.attempts.last())
+        assertTrue(original.exists())
+    }
 
     @Test fun unchangedPickers_afterFailure_reusesRequestId() = runTest(dispatcher) {
         val vm = vm()
@@ -63,7 +164,7 @@ class MomentsPublishViewModelTest {
         assertEquals("晚安 🐶", first.uiState.value.text)
         assertFalse(first.uiState.value.isPublishing)
         assertEquals(MomentsPublishErrorSource.Publish, first.uiState.value.errorSource)
-        assertEquals(listOf(photo.absolutePath), first.uiState.value.photos)
+        assertEquals("fixture", File(first.uiState.value.photos.single()).readText())
         val restored = vm()
         assertEquals(first.uiState.value.text, restored.uiState.value.text)
         repository.failPublish = false
@@ -84,7 +185,7 @@ class MomentsPublishViewModelTest {
         repository.publishFailure = MomentsApiException(400, "图片不存在或不属于当前账号")
         vm.publish {}
         advanceUntilIdle()
-        assertEquals(listOf(photo.absolutePath), vm.uiState.value.photos)
+        assertEquals("fixture", File(vm.uiState.value.photos.single()).readText())
         repository.publishFailure = null
         vm.publish {}
         advanceUntilIdle()

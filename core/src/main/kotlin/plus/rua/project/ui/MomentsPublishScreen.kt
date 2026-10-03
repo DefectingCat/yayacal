@@ -234,6 +234,7 @@ fun MomentsPublishScreen(
                         )
                     },
                     onRemovePhoto = viewModel::removePhotoAt,
+                    onRetryPhotos = viewModel::retryPreparingPhotos,
                     onLocationClick = viewModel::openLocationPicker,
                     onVisibilityClick = viewModel::openVisibilityPicker,
                 )
@@ -253,6 +254,7 @@ fun MomentsPublishScreen(
  * @param onRemovePhoto 点击某张配图右上角删除按钮时触发
  * @param onLocationClick 点击“所在位置”选项时触发
  * @param onVisibilityClick 点击“谁可以看”选项时触发
+ * @param onRetryPhotos 点击图片处理失败后的重试时触发，仅处理尚未完成的图片
  * @param modifier 布局修饰符
  */
 @Composable
@@ -265,6 +267,7 @@ fun MomentsPublishScreen(
     onRemovePhoto: (Int) -> Unit,
     onLocationClick: () -> Unit,
     onVisibilityClick: () -> Unit,
+    onRetryPhotos: () -> Unit = onAddPhotosClick,
     modifier: Modifier = Modifier,
 ) {
     val scrollState = rememberScrollState()
@@ -339,18 +342,18 @@ fun MomentsPublishScreen(
                     error = error,
                     title = when (uiState.errorSource) {
                         MomentsPublishErrorSource.Draft -> "草稿暂未保存"
-                        MomentsPublishErrorSource.Photo -> "图片未能添加"
+                        MomentsPublishErrorSource.Photo -> uiState.failedPhotoIndex?.let { "第 $it 张图片未能添加" } ?: "图片未能添加"
                         else -> "这条动态还没发出去"
                     },
                     hint = if (uiState.errorSource == MomentsPublishErrorSource.Draft) "内容仍在当前页面，请暂时不要退出" else "已保留文字和已选图片",
                     actionLabel = when (uiState.errorSource) {
                         MomentsPublishErrorSource.Publish -> "重新发表"
-                        MomentsPublishErrorSource.Photo -> "重新选图"
+                        MomentsPublishErrorSource.Photo -> if (uiState.canRetryPhotos) "重试处理" else "重新选图"
                         else -> null
                     },
                     onAction = when {
                         uiState.errorSource == MomentsPublishErrorSource.Publish && uiState.canPublish -> onPublish
-                        uiState.errorSource == MomentsPublishErrorSource.Photo && !uiState.isPreparingPhotos -> onAddPhotosClick
+                        uiState.errorSource == MomentsPublishErrorSource.Photo && !uiState.isPreparingPhotos -> if (uiState.canRetryPhotos) onRetryPhotos else onAddPhotosClick
                         else -> null
                     },
                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
@@ -359,7 +362,7 @@ fun MomentsPublishScreen(
             if (uiState.isPreparingPhotos) {
                 Row(Modifier.padding(horizontal = 20.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     MomentsLoadingSpinner(modifier = Modifier.size(18.dp))
-                    Text("正在准备图片…", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
+                    Text("正在处理图片 ${uiState.preparingPhotoIndex}/${uiState.preparingPhotoCount}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 13.sp)
                 }
             }
             // 文字输入区

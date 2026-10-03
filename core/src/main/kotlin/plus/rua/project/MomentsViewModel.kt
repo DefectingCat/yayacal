@@ -384,27 +384,5 @@ class MomentsViewModel(
     }
 }
 
-/** 将系统图片流复制到临时文件；文件数量由调用方的成功/失败清理负责。 */
-internal suspend fun copyMomentPhoto(context: Context, uri: Uri): File = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
-    val file = File.createTempFile("moment-upload-", ".image", context.cacheDir)
-    try {
-        val input = context.contentResolver.openInputStream(uri) ?: error("无法读取图片")
-        input.use { source ->
-            file.outputStream().use { target ->
-                val buffer = ByteArray(8192)
-                var total = 0L
-                while (true) {
-                    val read = source.read(buffer)
-                    if (read < 0) break
-                    total += read
-                    require(total <= MomentsImagePolicy.MAX_UPLOAD_BYTES) { MomentsImagePolicy.SIZE_ERROR }
-                    target.write(buffer, 0, read)
-                }
-            }
-        }
-        file
-    } catch (e: Exception) {
-        file.delete()
-        throw e
-    }
-}
+/** 为评论、头像与封面准备上传副本；成功文件由调用方在操作结束后清理。 */
+internal suspend fun copyMomentPhoto(context: Context, uri: Uri): File = MomentsImagePreparer.prepare(context, uri)
