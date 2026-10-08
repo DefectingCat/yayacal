@@ -14,6 +14,8 @@ curl http://127.0.0.1:8088/health
 
 容器只向本机发布 8088 端口，可由 HTTPS 反向代理或私人网络入口转发。PostgreSQL 不公开端口。数据库迁移在启动时执行，失败会停止启动；不能删除已有迁移后重新创建生产数据库。
 
+数据库升级后，旧镜像可能因 SQLx 检测到程序未包含的已应用迁移而报 `VersionMissing`，不能仅切换旧镜像回退。回退必须使用匹配的数据库与媒体备份，或保留现有迁移的兼容修复镜像；不要删除迁移记录强行启动。
+
 已有本地镜像时可使用 `docker compose up -d --no-build` 启动。若拉取基础镜像提示本机代理连接失败，需要修正 Docker Desktop 的代理配置，不必降级依赖。运行镜像使用非 root 用户，数据库和图片分别使用持久化卷；`/health` 同时检查数据库连通性，容器停止时处理 SIGTERM 并等待在途请求。
 
 本地运行需要先启动 PostgreSQL 并创建数据库。将 `DATABASE_URL`、可选的 `BIND_ADDR`（默认 `127.0.0.1:8088`）、`MEDIA_DIR`（默认 `data/media`）设置在 `server/.env` 或环境变量中，然后在仓库根目录执行：
@@ -195,3 +197,5 @@ bash tests/run.sh
 ## 备份与恢复
 
 需要同时备份数据库和 media 卷。在一致性备份窗口先停止 api（`docker compose stop api`），通过 `docker compose exec -T db pg_dump -U moments -d moments -Fc` 导出数据库，并备份 media 卷，再启动 api。恢复时也停止 api，将同一份备份中的数据库及媒体恢复后再启动；只恢复数据库无法找回图片。生产卷不使用 `docker compose down -v`。
+
+2026-10-08 高清预览验收：10 项 Rust 测试、Clippy、11 项真实 PostgreSQL/HTTP 检查通过，后者同时验证了本机进程和实际 amd64 镜像。Android 459 项 JVM 测试、Debug APK、图片请求测试 APK 与格式检查通过；模拟器验收按用户要求等待其手动启动后执行。线上 `v0.1.1-21f380c` 已补齐 12 张旧图，逐张原图 SHA-256 保持不变；列表缩略图平均 23 KiB，高清预览平均 228 KiB，原图平均 3068 KiB。数据库、媒体、配置及校验记录备份在服务器 `/root/docker/yayacal/backups/20261008-092929-preview-21f380c/`。
