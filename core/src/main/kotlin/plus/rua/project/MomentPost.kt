@@ -16,6 +16,7 @@ import java.util.UUID
  * @param visibility 可见性范围（如 "公开"、"私密"）
  * @param isLikedByMe 当前选择账号是否在服务端点赞人列表中
  * @param comments 服务端评论预览或详情页已加载的评论
+ * @param photoMetadata 按原图地址索引的远端图片大小与高清预览可用状态；旧数据为空
  */
 data class MomentPost(
     val id: String = UUID.randomUUID().toString(),
@@ -32,6 +33,7 @@ data class MomentPost(
     val authorAvatarPath: String? = null,
     val likes: List<MomentPerson> = emptyList(),
     val commentCount: Int = comments.size,
+    val photoMetadata: Map<String, MomentPhotoMetadata> = emptyMap(),
 ) {
     /**
      * 将动态对象编码为持久化单行字符串（无 JSON 依赖）。
@@ -94,6 +96,7 @@ data class MomentPost(
  * @param timestamp 发送时间（毫秒）
  * @param replyToName 回复对象的昵称，为 null 时评论整条动态
  * @param photoPath 评论图片的远端 URL 或旧记录路径，为 null 时没有图片
+ * @param photoMetadata 远端图片大小与高清预览状态；旧后端或无图片时为 null
  */
 data class MomentComment(
     val id: String = UUID.randomUUID().toString(),
@@ -106,6 +109,7 @@ data class MomentComment(
     val authorAvatarPath: String? = null,
     val replyToId: String? = null,
     val deleted: Boolean = false,
+    val photoMetadata: MomentPhotoMetadata? = null,
 ) {
     internal fun encodeToString(): String = listOf(
         id,
@@ -131,6 +135,9 @@ data class MomentComment(
         }.getOrNull()
     }
 }
+
+/** 图片规格由服务端明确提供；预览未就绪时客户端只能退回缩略图。 */
+data class MomentPhotoMetadata(val originalBytes: Long = 0, val previewAvailable: Boolean = false)
 
 /** 服务端返回的账号身份，用于作者资料与点赞人列表。 */
 data class MomentPerson(val id: String, val name: String, val avatarPath: String? = null, val coverPath: String? = null)

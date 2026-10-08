@@ -104,6 +104,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import plus.rua.project.MomentAccount
+import plus.rua.project.MomentPhotoMetadata
 import plus.rua.project.MomentPost
 import plus.rua.project.MomentsStorage
 import plus.rua.project.MomentsUiState
@@ -450,6 +451,7 @@ fun MomentsScreen(
     val listState = rememberLazyListState()
     val refreshState = rememberPullToRefreshState()
     var previewPhotos by remember { mutableStateOf<List<String>?>(null) }
+    var previewMetadata by remember { mutableStateOf(emptyMap<String, MomentPhotoMetadata>()) }
     var previewIndex by remember { mutableStateOf(0) }
     val scrollAlpha by remember {
         derivedStateOf {
@@ -547,6 +549,7 @@ fun MomentsScreen(
                                 onPhotoClick = { photos, index ->
                                     previewPhotos = photos
                                     previewIndex = index
+                                    previewMetadata = post.photoMetadata
                                 },
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             )
@@ -609,6 +612,7 @@ fun MomentsScreen(
                 photos = previewPhotos.orEmpty(),
                 initialIndex = previewIndex,
                 onDismiss = { previewPhotos = null },
+                photoMetadata = previewMetadata,
             )
         }
     }

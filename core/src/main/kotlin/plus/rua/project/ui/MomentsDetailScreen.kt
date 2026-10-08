@@ -104,6 +104,7 @@ import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import plus.rua.project.MomentComment
+import plus.rua.project.MomentPhotoMetadata
 import plus.rua.project.MomentPost
 import plus.rua.project.MomentsStorage
 import plus.rua.project.MomentsViewModel
@@ -252,6 +253,7 @@ fun MomentsDetailScreen(
     var scrollToLatestComment by remember(post.id, currentAccountId) { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var previewPhotos by remember { mutableStateOf<List<String>?>(null) }
+    var previewMetadata by remember { mutableStateOf(emptyMap<String, MomentPhotoMetadata>()) }
     var previewIndex by remember { mutableStateOf(0) }
     val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) photoUri = uri.toString()
@@ -374,6 +376,7 @@ fun MomentsDetailScreen(
                                 onPhotoClick = { photos, index ->
                                     previewPhotos = photos
                                     previewIndex = index
+                                    previewMetadata = post.photoMetadata
                                 },
                                 modifier = Modifier.padding(horizontal = 12.dp, vertical = 16.dp),
                             )
@@ -425,6 +428,7 @@ fun MomentsDetailScreen(
                                 onPhotoClick = {
                                     previewPhotos = listOfNotNull(comment.photoPath)
                                     previewIndex = 0
+                                    previewMetadata = comment.photoPath?.let { path -> comment.photoMetadata?.let { mapOf(path to it) } }.orEmpty()
                                 },
                                 modifier = Modifier.padding(horizontal = 12.dp),
                             )
@@ -553,7 +557,7 @@ fun MomentsDetailScreen(
         )
     }
     previewPhotos?.let { photos ->
-        MomentsPhotoPreviewDialog(photos, previewIndex, onDismiss = { previewPhotos = null })
+        MomentsPhotoPreviewDialog(photos, previewIndex, onDismiss = { previewPhotos = null }, photoMetadata = previewMetadata)
     }
 }
 

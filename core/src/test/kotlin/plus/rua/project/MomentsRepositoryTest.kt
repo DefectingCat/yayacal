@@ -160,6 +160,36 @@ class MomentsRepositoryTest {
     }
 
     @Test
+    fun remotePost_previewMetadata_preservesReadinessSizesAndCapturedAccount() = runTest {
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
+        server.createContext("/api/v1/posts/p") { exchange ->
+            val json = """{"id":"p","text":"图片","timestamp":123,"author_id":"xiaobai","author_name":"小白","avatar_id":null,
+                "visibility":"public","location":null,"location_address":null,
+                "photos":[{"id":"ready","bytes":5000000,"preview_bytes":300000},{"id":"legacy","bytes":2000000}],
+                "likes":[],"comment_count":1,"comments":[{"id":"c","author_id":"xiaojimao","author_name":"小鸡毛",
+                "avatar_id":null,"text":"图片评论","timestamp":456,"reply_to_id":null,"reply_to_name":null,
+                "media_id":"comment-photo","media_info":{"bytes":1000000,"preview_bytes":200000},"deleted":false}]}""".toByteArray()
+            exchange.sendResponseHeaders(200, json.size.toLong())
+            exchange.responseBody.use { it.write(json) }
+            exchange.close()
+        }
+        server.start()
+        try {
+            val base = "http://127.0.0.1:${server.address.port}"
+            val api = HttpMomentsRepository(base)
+            for (actor in listOf("xiaobai", "xiaojimao")) {
+                val post = api.post(actor, "p")
+                assertEquals(MomentPhotoMetadata(5_000_000, true), post.photoMetadata["$base/api/v1/media/ready?account_id=$actor"])
+                assertEquals(MomentPhotoMetadata(2_000_000, false), post.photoMetadata["$base/api/v1/media/legacy?account_id=$actor"])
+                assertEquals(MomentPhotoMetadata(1_000_000, true), post.comments.single().photoMetadata)
+                assertTrue(post.photoMetadata.keys.all { it.endsWith("account_id=$actor") })
+            }
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
     fun visibility_usesPatchAndCurrentActor_andSurfacesServerError() = runTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         var method = ""

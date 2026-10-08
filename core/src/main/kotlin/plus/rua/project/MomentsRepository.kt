@@ -86,6 +86,10 @@ class HttpMomentsRepository(
     }.toString().toRequestBody("application/json; charset=utf-8".toMediaType())
 
     private fun media(id: String?, actor: String): String? = id?.let { "$baseUrl/api/v1/media/$it?account_id=$actor" }
+    private fun photoMetadata(json: JSONObject) = MomentPhotoMetadata(
+        originalBytes = json.optLong("bytes", 0).coerceAtLeast(0),
+        previewAvailable = json.optLong("preview_bytes", 0) > 0,
+    )
     private fun person(json: JSONObject, actor: String): MomentPerson = MomentPerson(
         json.getString("id"),
         json.getString("name"),
@@ -97,12 +101,15 @@ class HttpMomentsRepository(
         timestamp = json.getLong("timestamp"), replyToName = json.optional("reply_to_name"), photoPath = media(json.optional("media_id"), actor),
         authorId = json.getString("author_id"), authorAvatarPath = media(json.optional("avatar_id"), actor) ?: defaultAvatar(json.getString("author_id")),
         replyToId = json.optional("reply_to_id"), deleted = json.optBoolean("deleted"),
+        photoMetadata = json.optJSONObject("media_info")?.let(::photoMetadata),
     )
     private fun post(json: JSONObject, actor: String): MomentPost {
         val likes = json.getJSONArray("likes").objects().map { person(it, actor) }
+        val photos = json.getJSONArray("photos").objects()
         return MomentPost(
             id = json.getString("id"), text = json.getString("text"), timestamp = json.getLong("timestamp"),
-            photoPaths = json.getJSONArray("photos").objects().mapNotNull { media(it.getString("id"), actor) },
+            photoPaths = photos.mapNotNull { media(it.getString("id"), actor) },
+            photoMetadata = photos.associate { media(it.getString("id"), actor)!! to photoMetadata(it) },
             location = json.optional("location"), locationAddress = json.optional("location_address"),
             visibility = if (json.getString("visibility") == "private") "私密" else "公开", isLikedByMe = likes.any { it.id == actor },
             comments = json.getJSONArray("comments").objects().map { comment(it, actor) }, authorId = json.getString("author_id"), authorName = json.getString("author_name"),
