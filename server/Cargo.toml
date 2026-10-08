@@ -12,9 +12,10 @@ serde_json = "1.0.151"
 uuid = { version = "1.26.1", features = ["v4", "serde"] }
 chrono = { version = "0.4.45", features = ["serde"] }
 image = { version = "0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
+webp = { version = "0.3.1", default-features = false }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-tower-http = { version = "0.7.1", features = ["trace", "set-header"] }
+tower-http = { version = "0.7.1", features = ["trace", "set-header", "fs"] }
 
 [dev-dependencies]
 tower = { version = "0.5.3", features = ["util"] }

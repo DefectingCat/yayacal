@@ -1,6 +1,7 @@
 """真实 HTTP + PostgreSQL 集成检查。仅指向一次性测试数据库，测试会创建数据。"""
 import json
 import http.client
+import hashlib
 import os
 import re
 import struct
@@ -37,7 +38,7 @@ def call(method, path, body=None, actor="xiaobai", expected=200, content_type=No
     assert re.fullmatch(r"yaya server v[0-9]+\.[0-9]+\.[0-9]+-(?:[0-9a-f]{7}|unknown)", server), server
     if EXPECTED_SERVER:
         assert server == EXPECTED_SERVER, (server, EXPECTED_SERVER)
-    return json.loads(data) if "application/json" in response.headers.get("Content-Type", "") else data
+    return json.loads(data) if data and "application/json" in response.headers.get("Content-Type", "") else data
 
 
 def png_image(size=None):
@@ -63,18 +64,34 @@ def upload(actor="xiaobai", data=None, expected=200):
 
 
 class ApiTest(unittest.TestCase):
+    def test_legacy_media_backfill_preserves_original_and_publishes_ready_variants(self):
+        fixture_path = os.environ.get("MOMENTS_TEST_LEGACY_FIXTURE")
+        if not fixture_path:
+            self.skipTest("启动补图检查需要通过 tests/run.sh 创建旧图片记录")
+        with open(fixture_path) as source:
+            fixture = json.load(source)
+        path = f'/api/v1/media/{fixture["id"]}?account_id=xiaobai'
+        self.assertEqual(hashlib.sha256(call("GET", path)).hexdigest(), fixture["sha256"])
+        post = call("POST", "/api/v1/posts", {"request_id": str(uuid.uuid4()), "text": "旧图片补图", "visibility": "private", "media_ids": [fixture["id"]]})
+        photo = post["photos"][0]
+        self.assertEqual(len(call("GET", path)), photo["bytes"])
+        for variant in ("thumbnail", "preview"):
+            self.assertGreater(photo[variant + "_bytes"], 0)
+            self.assertEqual(len(call("GET", path + "&variant=" + variant)), photo[variant + "_bytes"])
+        call("DELETE", f'/api/v1/posts/{post["id"]}', expected=204)
+
     def test_media_upload_concurrency_is_bounded_before_reading_file(self):
         address = urllib.parse.urlsplit(BASE)
         connections = []
         try:
-            for _ in range(2):
+            for _ in range(1):
                 connection = http.client.HTTPConnection(address.hostname, address.port, timeout=5)
                 connections.append(connection)
                 connection.putrequest("POST", "/api/v1/media")
                 connection.putheader("X-Account-ID", "xiaobai")
                 connection.putheader("Content-Type", "multipart/form-data; boundary=held-upload")
                 connection.putheader("Content-Length", str(1024 * 1024))
-                # 保持两个未读完的请求，验证限制在文件读取前生效。
+                # 保持一个未读完的请求，验证图片处理并发限制在文件读取前生效。
                 connection.endheaders(b'--held-upload\r\nContent-Disposition: form-data; name="file"; filename="test.png"\r\n\r\nx')
             deadline = time.monotonic() + 5
             while True:
@@ -185,6 +202,43 @@ class ApiTest(unittest.TestCase):
         call("PATCH", "/api/v1/me", {"cover_id": media["id"]}, actor="xiaojimao", expected=400)
         call("PATCH", "/api/v1/me", {"cover_id": media["id"]})
         call("GET", path + "?account_id=xiaojimao&thumbnail=true")
+
+    def test_media_variants_share_visibility_and_report_exact_sizes(self):
+        media = upload()
+        path = f'/api/v1/media/{media["id"]}?account_id=xiaobai'
+        for variant, size in [("original", media["bytes"]), ("thumbnail", media["thumbnail_bytes"]), ("preview", media["preview_bytes"])]:
+            data = call("GET", path + "&variant=" + variant)
+            self.assertEqual(len(data), size)
+            self.assertEqual(data[:4], b"RIFF")
+            self.assertEqual(call("HEAD", path + "&variant=" + variant), b"")
+        self.assertEqual(call("GET", path + "&thumbnail=true"), call("GET", path + "&variant=thumbnail"))
+        call("GET", path + "&variant=unsupported", expected=400)
+        original = call("GET", path)
+        request = urllib.request.Request(BASE + path, headers={"Range": "bytes=0-15"})
+        with urllib.request.urlopen(request) as response:
+            self.assertEqual(response.status, 206)
+            self.assertEqual(response.read(), original[:16])
+            self.assertEqual(response.headers["Content-Range"], f"bytes 0-15/{len(original)}")
+            self.assertEqual(response.headers["Cache-Control"], "private, no-store")
+            self.assertRegex(response.headers["X-Server"], r"^yaya server v[0-9]+\.[0-9]+\.[0-9]+-(?:[0-9a-f]{7}|unknown)$")
+            if EXPECTED_SERVER:
+                self.assertEqual(response.headers["X-Server"], EXPECTED_SERVER)
+        post = call("POST", "/api/v1/posts", {"request_id": str(uuid.uuid4()), "text": "规格权限", "visibility": "public", "media_ids": [media["id"]]})
+        self.assertEqual(post["photos"][0]["preview_bytes"], media["preview_bytes"])
+        comment_media = upload("xiaojimao")
+        call("POST", f'/api/v1/posts/{post["id"]}/comments', {"request_id": str(uuid.uuid4()), "text": "图片评论", "media_id": comment_media["id"]}, actor="xiaojimao")
+        comments = call("GET", f'/api/v1/posts/{post["id"]}/comments')["items"]
+        self.assertEqual(comments[0]["media_info"]["bytes"], comment_media["bytes"])
+        self.assertEqual(comments[0]["media_info"]["preview_bytes"], comment_media["preview_bytes"])
+        for variant in ("original", "thumbnail", "preview"):
+            other = path.replace("account_id=xiaobai", "account_id=xiaojimao") + "&variant=" + variant
+            call("GET", other)
+        call("PATCH", f'/api/v1/posts/{post["id"]}', {"visibility": "private"})
+        for variant in ("original", "thumbnail", "preview"):
+            other = path.replace("account_id=xiaobai", "account_id=xiaojimao") + "&variant=" + variant
+            call("GET", other, expected=404)
+            call("HEAD", other, expected=404)
+        call("DELETE", f'/api/v1/posts/{post["id"]}', expected=204)
 
     def test_two_accounts_complete_interaction_and_permissions(self):
         marker = uuid.uuid4().hex

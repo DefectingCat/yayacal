@@ -48,6 +48,8 @@ pub fn cursor(time: DateTime<Utc>, id: Uuid) -> String {
 pub const COMMENT_JSON: &str = r#"jsonb_build_object(
     'id',c.id,'author_id',c.author_id,'author_name',a.name,'avatar_id',a.avatar_id,
     'text',c.text,'media_id',c.media_id,'reply_to_id',c.reply_to_id,
+    'media_info',(SELECT jsonb_build_object('bytes',m.bytes,'thumbnail_bytes',m.thumbnail_bytes,'preview_bytes',m.preview_bytes)
+        FROM media m WHERE m.id=c.media_id AND NOT c.deleted),
     'reply_to_name',ra.name,'deleted',c.deleted,'timestamp',(extract(epoch from c.created_at)*1000)::bigint)"#;
 
 pub async fn value(db: &sqlx::PgPool, actor: &str, id: Uuid) -> Result<Value> {
@@ -57,7 +59,8 @@ pub async fn value(db: &sqlx::PgPool, actor: &str, id: Uuid) -> Result<Value> {
         'id',p.id,'author_id',p.author_id,'author_name',a.name,'avatar_id',a.avatar_id,
         'text',p.text,'location',p.location,'location_address',p.location_address,'visibility',p.visibility,
         'timestamp',(extract(epoch from p.created_at)*1000)::bigint,
-        'photos',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'width',m.width,'height',m.height) ORDER BY pm.position)
+        'photos',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',m.id,'width',m.width,'height',m.height,
+            'bytes',m.bytes,'thumbnail_bytes',m.thumbnail_bytes,'preview_bytes',m.preview_bytes) ORDER BY pm.position)
             FROM post_media pm JOIN media m ON m.id=pm.media_id WHERE pm.post_id=p.id),'[]'::jsonb),
         'likes',COALESCE((SELECT jsonb_agg(jsonb_build_object('id',a.id,'name',a.name,'avatar_id',a.avatar_id) ORDER BY l.created_at)
             FROM likes l JOIN accounts a ON a.id=l.account_id WHERE l.post_id=p.id),'[]'::jsonb),

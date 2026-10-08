@@ -107,6 +107,7 @@ docker compose logs -f api
 | UUID | 1.26.1 | https://docs.rs/uuid/latest/uuid/ |
 | Chrono | 0.4.45 | https://docs.rs/chrono/latest/chrono/ |
 | image | 0.25.10 | https://docs.rs/image/latest/image/ |
+| webp（libwebp 衍生图编码） | 0.3.1 | https://docs.rs/webp/0.3.1/webp/ |
 | tracing | 0.1.44 | https://docs.rs/tracing/latest/tracing/ |
 | tracing-subscriber | 0.3.23 | https://docs.rs/tracing-subscriber/latest/tracing_subscriber/ |
 | tower-http | 0.7.1 | https://docs.rs/tower-http/latest/tower_http/ |
@@ -123,7 +124,11 @@ docker compose logs -f api
 
 在「工具 → 朋友圈 → 连接设置」填写服务根地址（不含 `/api/v1`）。Release 只接受 HTTPS；Debug 可以连接本地 HTTP，默认模拟器地址为 `http://10.0.2.2:8088`。
 
-Android 在上传前自动处理图片，普通照片使用有损 WebP，长截图、PNG 和透明图片优先保真。约 2 MiB 为客户端优化目标；读取原图与最终上传文件都不得超过 50 MiB。后端继续独立校验大小、格式和解码资源，并校正方向、移除元数据、生成 480 像素缩略图。服务端当前使用无损 WebP，存储文件大小可能大于客户端上传文件。
+Android 在上传前自动处理图片，普通照片使用有损 WebP，长截图、PNG 和透明图片优先保真。约 2 MiB 为客户端优化目标；读取原图与最终上传文件都不得超过 50 MiB。后端继续独立校验大小、格式和解码资源，校正方向、移除元数据；上传大图保持无损 WebP 存储，文件大小可能大于客户端上传文件。
+
+后端上传时同时生成两档衍生图：列表缩略图长边最多 480 像素、WebP 质量 80；高清预览图普通照片长边最多 1600 像素、质量 85。长截图按短边最多 960 像素和总像素最多 800 万处理，长截图与透明图片的预览优先无损，不放大小图。编码在阻塞线程上执行，并发最多一张；浏览只读取成品文件，鉴权后流式返回，HEAD 和 Range 请求也校验可见性。
+
+启动时逐张补齐没有衍生图元数据的旧图片，原图文件字节保持不变，衍生图通过临时文件原子替换。失败图片不标记为高清预览可用，下次启动重试。首次升级应等待 `/health` 就绪，再更新 Android。应用全屏默认使用高清预览，旧后端或未就绪的图片使用列表缩略图；左下角「查看原图」只下载当前图片，翻页和缩放不自动下载原图，保存图片复用当前规格的 Sketch 下载缓存。
 
 本机地址无法连通时，使用单个模拟器和 ADB 转发：
 
@@ -138,7 +143,9 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 ## 接口约定
 
 除账号列表和健康检查外，JSON 接口必须带 `X-Account-ID: xiaobai` 或 `xiaojimao`。
-图片供 Android 图片加载器使用，`GET /api/v1/media/{id}?account_id=xiaobai&thumbnail=true` 同样校验可见性；账号参数不是密钥。原图省略 thumbnail 参数。
+图片供 Android 图片加载器使用，`GET /api/v1/media/{id}?account_id=xiaobai&variant=preview` 同样校验可见性；账号参数不是密钥。`variant` 只接受 `original`、`thumbnail`、`preview`，未知规格返回 400，未就绪或缺失的预览返回 404，不回退原图。不传 `variant` 时兼容原接口：`thumbnail=true` 返回列表缩略图，其余返回原图。Android 衍生图地址携带 `v=2` 区分旧下载缓存。
+
+上传响应和动态的 `photos` 条目增加 `bytes`、`thumbnail_bytes`、`preview_bytes`；图片评论增加同结构的 `media_info`。`bytes` 是原图文件大小，旧图片未处理时衍生图大小为 null；Android 仅在 `preview_bytes > 0` 时请求高清预览。按钮大小从这些字段读取，不额外请求原图。
 
 | 路径（前缀 `/api/v1`） | 方法 | 用途 |
 | --- | --- | --- |
@@ -164,7 +171,7 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 
 取消点赞后再次点赞视为新的互动，生成一条新的未读提醒；同一次点赞的网络重试不会重复提醒。
 
-单张图片上限为 50 MiB（52,428,800 字节），multipart 请求体上限为 51 MiB；HTTPS 反向代理也应允许至少 51 MiB 的请求体，例如 Nginx `client_max_body_size 51m;`。文件或请求体超限统一返回 413。最多同时接收和处理两张图片，繁忙时返回 429 供客户端稍后重试；解码边长与内存限制独立于文件大小。
+单张图片上限为 50 MiB（52,428,800 字节），multipart 请求体上限为 51 MiB；HTTPS 反向代理也应允许至少 51 MiB 的请求体，例如 Nginx `client_max_body_size 51m;`。文件或请求体超限统一返回 413。最多同时接收和处理一张图片，繁忙时返回 429 供客户端稍后重试；解码边长与内存限制独立于文件大小。
 
 删除动态清空内容与关联记录，保留 ID 墓碑用于防重；未引用图片宽限 24 小时后由每小时运行的清理任务删除。图片不直接作为公开静态目录暴露。
 

@@ -107,6 +107,50 @@ for _ in {1..80}; do
 done
 if [ -z "$api_ready" ]; then echo "Test server did not become ready" >&2; exit 1; fi
 
+# 把一次性服务刚上传的图片还原成旧记录，再重启验证真实启动补图与原图字节保留。
+legacy_media_id=$(MOMENTS_TEST_URL="http://127.0.0.1:$api_port" python3 - "$test_dir/legacy-media.json" <<'PY'
+import hashlib
+import json
+import pathlib
+import sys
+import uuid
+sys.path.insert(0, "tests")
+from api import call, upload
+media = upload()
+identifier = str(uuid.UUID(media["id"]))
+original = call("GET", f"/api/v1/media/{identifier}?account_id=xiaobai")
+pathlib.Path(sys.argv[1]).write_text(json.dumps({"id": identifier, "sha256": hashlib.sha256(original).hexdigest()}))
+print(identifier)
+PY
+)
+legacy_sql="UPDATE media SET thumbnail_bytes=NULL,preview_bytes=NULL WHERE id='$legacy_media_id'"
+if [ "$postgres_mode" = local ]; then
+  psql -h 127.0.0.1 -p "$db_port" -U moments -d moments -X -c "$legacy_sql" >/dev/null
+else
+  docker exec "$test_db" psql -U moments -d moments -X -c "$legacy_sql" >/dev/null
+fi
+if [ -n "$image" ]; then
+  docker exec "$test_api" rm -f "/data/media/$legacy_media_id.preview.webp" "/data/media/$legacy_media_id.thumb.webp"
+  docker restart "$test_api" >/dev/null
+else
+  kill "$server_pid"
+  wait "$server_pid"
+  server_pid=""
+  rm -f "$test_dir/media/$legacy_media_id.preview.webp" "$test_dir/media/$legacy_media_id.thumb.webp"
+  DATABASE_URL="postgres://moments:integration-test@127.0.0.1:$db_port/moments" \
+    MEDIA_DIR="$test_dir/media" BIND_ADDR="127.0.0.1:$api_port" \
+    RUST_LOG=yayacal_server=info,tower_http=info \
+    "${CARGO_TARGET_DIR:-target}/$profile/yayacal-server" > "$test_dir/server.log" 2>&1 &
+  server_pid=$!
+fi
+api_ready=""
+for _ in {1..80}; do
+  if curl -fsS "http://127.0.0.1:$api_port/health" >/dev/null 2>&1; then api_ready=1; break; fi
+  if [ -n "$server_pid" ] && ! kill -0 "$server_pid" 2>/dev/null; then exit 1; fi
+  sleep 0.5
+done
+if [ -z "$api_ready" ]; then echo "Backfilled server did not become ready" >&2; exit 1; fi
+
 # 用实际响应头检查启动日志；CI 另传入期望值，防止日志和响应头一起使用错误 hash。
 server_identity=$(python3 -c 'import sys, urllib.request; print(urllib.request.urlopen(sys.argv[1]).headers["X-Server"])' "http://127.0.0.1:$api_port/health")
 if [ -n "$image" ]; then docker logs "$test_api" > "$test_dir/server.log" 2>&1; fi
@@ -118,4 +162,4 @@ first_line = pathlib.Path(sys.argv[1]).read_text().splitlines()[0]
 assert os.environ["SERVER_IDENTITY"] in first_line, first_line
 print("Startup identity:", os.environ["SERVER_IDENTITY"])
 PY
-MOMENTS_TEST_URL="http://127.0.0.1:$api_port" python3 tests/api.py
+MOMENTS_TEST_URL="http://127.0.0.1:$api_port" MOMENTS_TEST_LEGACY_FIXTURE="$test_dir/legacy-media.json" python3 tests/api.py

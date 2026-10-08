@@ -37,9 +37,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         media_dir: std::env::var_os("MEDIA_DIR")
             .map(PathBuf::from)
             .unwrap_or_else(|| "data/media".into()),
-        media_uploads: Arc::new(tokio::sync::Semaphore::new(2)),
+        media_uploads: Arc::new(tokio::sync::Semaphore::new(1)),
     };
     tokio::fs::create_dir_all(&app.media_dir).await?;
+    media::backfill(&app)
+        .await
+        .map_err(|error| std::io::Error::other(error.1))?;
     let cleanup = app.clone();
     tokio::spawn(async move {
         let mut interval = tokio::time::interval(Duration::from_secs(3600));
