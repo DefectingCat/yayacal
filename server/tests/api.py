@@ -83,6 +83,7 @@ class ApiTest(unittest.TestCase):
     def test_media_upload_concurrency_is_bounded_before_reading_file(self):
         address = urllib.parse.urlsplit(BASE)
         connections = []
+        responses = []
         try:
             for _ in range(1):
                 connection = http.client.HTTPConnection(address.hostname, address.port, timeout=5)
@@ -91,17 +92,18 @@ class ApiTest(unittest.TestCase):
                 connection.putheader("X-Account-ID", "xiaobai")
                 connection.putheader("Content-Type", "multipart/form-data; boundary=held-upload")
                 connection.putheader("Content-Length", str(1024 * 1024))
-                # 保持一个未读完的请求，验证图片处理并发限制在文件读取前生效。
-                connection.endheaders(b'--held-upload\r\nContent-Disposition: form-data; name="file"; filename="test.png"\r\n\r\nx')
-            deadline = time.monotonic() + 5
-            while True:
-                result = upload(expected=(200, 429))
-                if "error" in result:
-                    self.assertEqual(result["error"], "图片上传繁忙，请稍后重试")
-                    break
-                self.assertLess(time.monotonic(), deadline, "上传并发限制未生效")
-                time.sleep(0.01)
+                connection.putheader("Expect", "100-continue")
+                connection.endheaders()
+                response = connection.sock.makefile("rb")
+                responses.append(response)
+                # 100 Continue 证明处理名额已取得并开始等待文件，避免端口转发重排请求。
+                self.assertEqual(response.readline().strip(), b"HTTP/1.1 100 Continue")
+                while response.readline().strip():
+                    pass
+            self.assertEqual(upload(expected=429)["error"], "图片上传繁忙，请稍后重试")
         finally:
+            for response in responses:
+                response.close()
             for connection in connections:
                 connection.close()
         deadline = time.monotonic() + 5
@@ -212,6 +214,7 @@ class ApiTest(unittest.TestCase):
             self.assertEqual(data[:4], b"RIFF")
             self.assertEqual(call("HEAD", path + "&variant=" + variant), b"")
         self.assertEqual(call("GET", path + "&thumbnail=true"), call("GET", path + "&variant=thumbnail"))
+        self.assertEqual(call("GET", path + "&thumbnail=true&variant=preview"), call("GET", path + "&variant=preview"))
         call("GET", path + "&variant=unsupported", expected=400)
         original = call("GET", path)
         request = urllib.request.Request(BASE + path, headers={"Range": "bytes=0-15"})

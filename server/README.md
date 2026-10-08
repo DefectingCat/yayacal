@@ -95,7 +95,7 @@ docker compose logs -f api
 
 ## 依赖核验
 
-2026-09-30 联网核对最新稳定版，并用 Cargo.lock 锁定解析结果：
+2026-09-30 联网核对稳定版，并用 Cargo.lock 锁定解析结果；2026-10-08 增加 libwebp 衍生图编码支持：
 
 | 依赖 | 版本 | 官方来源 |
 | --- | --- | --- |
@@ -143,7 +143,7 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 ## 接口约定
 
 除账号列表和健康检查外，JSON 接口必须带 `X-Account-ID: xiaobai` 或 `xiaojimao`。
-图片供 Android 图片加载器使用，`GET /api/v1/media/{id}?account_id=xiaobai&variant=preview` 同样校验可见性；账号参数不是密钥。`variant` 只接受 `original`、`thumbnail`、`preview`，未知规格返回 400，未就绪或缺失的预览返回 404，不回退原图。不传 `variant` 时兼容原接口：`thumbnail=true` 返回列表缩略图，其余返回原图。Android 衍生图地址携带 `v=2` 区分旧下载缓存。
+图片供 Android 图片加载器使用，`GET /api/v1/media/{id}?account_id=xiaobai&variant=preview` 同样校验可见性；账号参数不是密钥。`variant` 只接受 `original`、`thumbnail`、`preview`，未知规格返回 400，未就绪或缺失的预览返回 404，不回退原图。显式 `variant` 优先于旧参数；不传 `variant` 时，`thumbnail=true` 返回列表缩略图，其余返回原图。Android 的预览请求同时携带 `thumbnail=true`，保护持有新元数据的客户端连接旧后端时仍只取得小图；衍生图地址携带 `v=2` 区分旧下载缓存。
 
 上传响应和动态的 `photos` 条目增加 `bytes`、`thumbnail_bytes`、`preview_bytes`；图片评论增加同结构的 `media_info`。`bytes` 是原图文件大小，旧图片未处理时衍生图大小为 null；Android 仅在 `preview_bytes > 0` 时请求高清预览。按钮大小从这些字段读取，不额外请求原图。
 

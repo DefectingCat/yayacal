@@ -132,6 +132,8 @@ fi
 if [ -n "$image" ]; then
   docker exec "$test_api" rm -f "/data/media/$legacy_media_id.preview.webp" "/data/media/$legacy_media_id.thumb.webp"
   docker restart "$test_api" >/dev/null
+  # 随机映射端口可能在重启后重新分配，不能继续探测旧端口。
+  api_port=$(docker port "$test_api" 8088 | head -1 | cut -d: -f2)
 else
   kill "$server_pid"
   wait "$server_pid"
