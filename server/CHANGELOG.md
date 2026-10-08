@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-10-08
+
 ### Added
 
 - 1600 像素高清预览、长截图宽度保真策略、图片规格大小元数据与显式规格下载接口。
@@ -49,5 +51,6 @@
 - 恢复默认头像操作保持账号隔离、幂等性和封面资料。
 - 图片按方向信息纠正后再移除元数据。
 
+[0.1.2]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.2
 [0.1.1]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.1
 [0.1.0]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.0

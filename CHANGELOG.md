@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.11.0] - 2026-10-08
+
 ### Added
 
 - 朋友圈全屏默认显示高清预览，左下角「查看原图」显示文件大小，点击后只下载当前图片，并提供进度与失败重试。
@@ -477,6 +479,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.11.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.11.0
 [1.10.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.10.0
 [1.9.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.9.0
 [1.8.1]: https://github.com/xfy/yayacal/releases/tag/v1.8.1

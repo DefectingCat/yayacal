@@ -28,7 +28,7 @@ make server
 
 ## 版本与发布镜像
 
-后端基础版本只维护在 `Cargo.toml` 的 `package.version`，独立于 Android。构建时拼接七位 Git commit hash，例如 `v0.1.1-a1b2c3d`。启动时先打印 `yaya server v0.1.1-a1b2c3d`，随后连接数据库；所有 HTTP 响应（含 `/health`、HEAD、404 和错误响应）带 `X-Server: yaya server v0.1.1-a1b2c3d`。
+后端基础版本只维护在 `Cargo.toml` 的 `package.version`，独立于 Android。构建时拼接七位 Git commit hash，例如 `v0.1.2-a1b2c3d`。启动时先打印 `yaya server v0.1.2-a1b2c3d`，随后连接数据库；所有 HTTP 响应（含 `/health`、HEAD、404 和错误响应）带 `X-Server: yaya server v0.1.2-a1b2c3d`。
 
 Cargo 本地构建自动读取当前 commit，并跟踪 HEAD 和引用变化；也可设置 `YAYA_GIT_SHA` 传入完整 40 位或 64 位 SHA。版本编译进二进制，运行时环境变量不能更改它。无 Git 的开发源码副本显示 `unknown`；Docker 与 CI 设置 `YAYA_REQUIRE_GIT_SHA=1`，缺少真实 SHA 时构建失败。
 
@@ -42,8 +42,8 @@ make server-image    # 自动传入当前 SHA，生成 yayacal-moments-api:local
 正式发布提供 `linux/amd64` 和 `linux/arm64` 的多架构镜像：
 
 ```text
-ghcr.io/defectingcat/yayacal-server:0.1.1
-ghcr.io/defectingcat/yayacal-server:0.1.1-a1b2c3d
+ghcr.io/defectingcat/yayacal-server:0.1.2
+ghcr.io/defectingcat/yayacal-server:0.1.2-a1b2c3d
 ghcr.io/defectingcat/yayacal-server:latest
 ```
 
@@ -52,7 +52,7 @@ ghcr.io/defectingcat/yayacal-server:latest
 使用发布镜像部署，在 `server/` 下执行（首次部署仍需按启动部分准备 `.env`）：
 
 ```sh
-export SERVER_IMAGE=ghcr.io/defectingcat/yayacal-server:0.1.1
+export SERVER_IMAGE=ghcr.io/defectingcat/yayacal-server:0.1.2
 docker compose pull api
 docker compose up -d --no-build
 curl -I http://127.0.0.1:8088/health
@@ -198,4 +198,4 @@ bash tests/run.sh
 
 需要同时备份数据库和 media 卷。在一致性备份窗口先停止 api（`docker compose stop api`），通过 `docker compose exec -T db pg_dump -U moments -d moments -Fc` 导出数据库，并备份 media 卷，再启动 api。恢复时也停止 api，将同一份备份中的数据库及媒体恢复后再启动；只恢复数据库无法找回图片。生产卷不使用 `docker compose down -v`。
 
-2026-10-08 高清预览验收：10 项 Rust 测试、Clippy、11 项真实 PostgreSQL/HTTP 检查通过，后者同时验证了本机进程和实际 amd64 镜像。Android 459 项 JVM 测试、Debug APK、图片请求测试 APK 与格式检查通过；模拟器验收按用户要求等待其手动启动后执行。线上 `v0.1.1-21f380c` 已补齐 12 张旧图，逐张原图 SHA-256 保持不变；列表缩略图平均 23 KiB，高清预览平均 228 KiB，原图平均 3068 KiB。数据库、媒体、配置及校验记录备份在服务器 `/root/docker/yayacal/backups/20261008-092929-preview-21f380c/`。
+2026-10-08 高清预览验收：10 项 Rust 测试、Clippy、11 项真实 PostgreSQL/HTTP 检查通过，后者同时验证了本机进程和实际 amd64 镜像。Android 459 项 JVM 测试、Debug APK、图片请求测试 APK 与格式检查通过；随后在已启动的 Pixel_10 模拟器上通过 3 项图片请求测试，覆盖预览、翻页、缩放、保存、原图按钮、失败重试与缓存复用，测试使用独立本机 HTTP 图片服务。线上 `v0.1.1-21f380c` 已补齐 12 张旧图，逐张原图 SHA-256 保持不变；列表缩略图平均 23 KiB，高清预览平均 228 KiB，原图平均 3068 KiB。数据库、媒体、配置及校验记录备份在服务器 `/root/docker/yayacal/backups/20261008-092929-preview-21f380c/`。
