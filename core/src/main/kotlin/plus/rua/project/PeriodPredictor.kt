@@ -185,3 +185,18 @@ object PeriodPredictor {
 
     private fun LocalDate.plusDays(days: Int): LocalDate = plus(DatePeriod(days = days))
 }
+
+/** 一个完整周期：从 [start] 开始，到下一次经期开始前共 [days] 天。 */
+data class CycleLength(
+    val start: LocalDate,
+    val days: Int,
+)
+
+/**
+ * 最近 [limit] 个完整周期的长度，按时间升序，供历史页趋势图使用。
+ * 与预测不同，这里如实列出所有周期（包括疑似漏记的异常值），让用户看到真实记录。
+ */
+fun PeriodDocument.recentCycleLengths(limit: Int = 12): List<CycleLength> = ranges
+    .sortedBy { it.start }
+    .zipWithNext { current, next -> CycleLength(current.start, current.start.daysUntil(next.start)) }
+    .takeLast(limit)

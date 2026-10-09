@@ -57,6 +57,7 @@ import plus.rua.project.PeriodDocument
 import plus.rua.project.PeriodRange
 import plus.rua.project.PeriodUiState
 import plus.rua.project.PeriodViewModel
+import plus.rua.project.recentCycleLengths
 
 /**
  * 经期历史页（有状态版本）。
@@ -171,6 +172,13 @@ fun PeriodHistoryScreen(
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            item(key = "trend") {
+                PeriodCycleTrendCard(
+                    cycles = uiState.document.recentCycleLengths(),
+                    forecast = uiState.forecast,
+                    currentYear = today.year,
+                )
+            }
             items(items, key = { it.range.start.toString() }) { item ->
                 PeriodHistoryCard(
                     item = item,

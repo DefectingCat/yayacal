@@ -137,6 +137,24 @@ class PeriodPredictorTest {
     }
 
     @Test
+    fun recentCycleLengths_keepsLatestCyclesInOrderIncludingOutliers() {
+        val starts = (0 until 15).map { d("2025-07-01").plus(DatePeriod(days = it * 28)) }.toMutableList()
+        starts += d("2026-10-06") // 漏记造成的长周期也如实展示
+        val document = PeriodDocument(ranges = starts.map { PeriodRange(it, it.plus(DatePeriod(days = 4))) })
+
+        val cycles = document.recentCycleLengths()
+
+        assertEquals(12, cycles.size)
+        assertEquals(d("2025-07-01").plus(DatePeriod(days = 3 * 28)), cycles.first().start)
+        assertEquals(List(11) { 28 } + 70, cycles.map { it.days })
+    }
+
+    @Test
+    fun recentCycleLengths_singleRange_isEmpty() {
+        assertEquals(emptyList(), fiveDayPeriods("2026-09-20").recentCycleLengths())
+    }
+
+    @Test
     fun median_evenCount_roundsHalfUp() {
         assertEquals(29, PeriodPredictor.median(listOf(29, 28)))
         assertEquals(28, PeriodPredictor.median(listOf(30, 27, 28)))
