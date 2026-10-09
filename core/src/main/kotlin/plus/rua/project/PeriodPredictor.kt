@@ -56,6 +56,7 @@ sealed interface PeriodStatus {
  *
  * @property usesDefaultCycle 完整周期不足 2 个，周期长度来自设置
  * @property cycleProgress 当前周期进度 0..1，用于状态卡环形进度
+ * @property predictedStarts 之后几次经期的预测开始日，推迟时从明天起顺延
  */
 data class PeriodForecast(
     val status: PeriodStatus,
@@ -65,6 +66,7 @@ data class PeriodForecast(
     val usesDefaultCycle: Boolean,
     val cycleProgress: Float,
     val predictedPeriods: List<DateSpan>,
+    val predictedStarts: List<LocalDate>,
     val ovulationDays: List<LocalDate>,
 ) {
     fun isPredictedPeriod(date: LocalDate): Boolean = predictedPeriods.any { date in it }
@@ -112,6 +114,7 @@ object PeriodPredictor {
                 usesDefaultCycle = usesDefaultCycle,
                 cycleProgress = 0f,
                 predictedPeriods = emptyList(),
+                predictedStarts = emptyList(),
                 ovulationDays = emptyList(),
             )
 
@@ -172,6 +175,7 @@ object PeriodPredictor {
             usesDefaultCycle = usesDefaultCycle,
             cycleProgress = if (late) 1f else (dayOfCycle.toFloat() / cycleLength).coerceIn(0f, 1f),
             predictedPeriods = predicted,
+            predictedStarts = starts,
             ovulationDays = ovulationDays,
         )
     }
