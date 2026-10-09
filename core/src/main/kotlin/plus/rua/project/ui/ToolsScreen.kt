@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.MusicNote
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.WaterDrop
 import androidx.compose.material.icons.outlined.Widgets
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
  * @param onNavigateToAnniversary 跳转到纪念日回调
  * @param onNavigateToDateRecorder 跳转到日期记录器回调
  * @param onNavigateToMoments 跳转到朋友圈回调
+ * @param onNavigateToPeriodTracker 点击「经期记录」卡片时触发
  * @param onNavigateToStaffPractice 跳转到五线谱练习回调
  * @param modifier 布局修饰符
  */
@@ -64,6 +66,7 @@ fun ToolsScreen(
     onNavigateToDateChecker: () -> Unit,
     onNavigateToDateRecorder: () -> Unit,
     onNavigateToMoments: () -> Unit,
+    onNavigateToPeriodTracker: () -> Unit,
     onNavigateToStaffPractice: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -157,7 +160,21 @@ fun ToolsScreen(
                 modifier = Modifier.testTag("tool_moments"),
             )
 
-            // 工具分类 3：学习与练习
+            // 工具分类 3：健康与生活
+            SectionHeader(title = "健康与生活")
+
+            ToolCard(
+                title = "经期记录",
+                description = "记录经期与心情，预测下次经期和易孕期",
+                tag = "周期预测",
+                icon = Icons.Outlined.WaterDrop,
+                iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,
+                iconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                onClick = onNavigateToPeriodTracker,
+                modifier = Modifier.testTag("tool_period"),
+            )
+
+            // 工具分类 4：学习与练习
             SectionHeader(title = "学习与练习")
 
             ToolCard(

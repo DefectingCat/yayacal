@@ -94,6 +94,16 @@
             android:name=".StaffPracticeActivity"
             android:exported="false" />
         <activity
+            android:name=".PeriodTrackerActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+        <activity
+            android:name=".PeriodHistoryActivity"
+            android:exported="false" />
+        <activity
+            android:name=".PeriodSettingsActivity"
+            android:exported="false" />
+        <activity
             android:name=".MomentsActivity"
             android:exported="false" />
         <activity

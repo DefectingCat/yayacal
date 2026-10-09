@@ -324,8 +324,9 @@ CREATE TABLE period_notes (
 - `PeriodApi.kt`：接口定义和 `HttpPeriodApi`。
 - `PeriodSyncStorage.kt`：快照与待同步操作的持久化。
 - `PeriodRepository.kt`：同步流程与 `StateFlow`。
-- `PeriodTrackerViewModel.kt`、`PeriodHistoryViewModel.kt`、`PeriodSettingsViewModel.kt`。
-- `ui/PeriodTrackerScreen.kt`、`ui/PeriodCalendarGrid.kt`、`ui/PeriodDaySheet.kt`、`ui/PeriodHistoryScreen.kt`、`ui/PeriodSettingsScreen.kt`、`ui/PeriodColors.kt`。
+- `PeriodViewModel.kt`：首页、历史页、设置页共用，修改都转成 `PeriodOp`。
+- `ui/PeriodTrackerScreen.kt`、`ui/PeriodCalendarGrid.kt`、`ui/PeriodDaySheet.kt`、`ui/PeriodHistoryScreen.kt`、`ui/PeriodSettingsScreen.kt`。
+- `ui/PeriodComponents.kt`：`PeriodColors` 配色、日期文案、日期选择对话框、同步状态文案。
 - `ui/ToolsScreen.kt`：新增分组和入口。
 
 `:app`：

@@ -26,6 +26,9 @@ class ToolsActivity : BaseActivity() {
                     onNavigateToMoments = {
                         startActivityWithSlide(Intent(this, MomentsActivity::class.java))
                     },
+                    onNavigateToPeriodTracker = {
+                        startActivityWithSlide(Intent(this, PeriodTrackerActivity::class.java))
+                    },
                     onNavigateToStaffPractice = {
                         startActivityWithSlide(Intent(this, StaffPracticeActivity::class.java))
                     },
