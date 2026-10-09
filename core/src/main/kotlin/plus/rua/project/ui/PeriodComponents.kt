@@ -37,23 +37,38 @@ import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.isoDayNumber
 import kotlinx.datetime.number
 import kotlinx.datetime.toLocalDateTime
+import plus.rua.project.CyclePhase
 import plus.rua.project.PeriodDocument
 import plus.rua.project.PeriodSyncStatus
 import kotlin.time.Instant
 
-/** 经期相关的固定语义色；不随系统动态取色变化，保证一眼能认出经期与排卵日。 */
+/**
+ * 经期相关的固定语义色；不随系统动态取色变化，保证一眼能认出经期与排卵日。
+ * [follicular]、[luteal] 只用于今日周期页的阶段圆环。
+ */
 @Immutable
 internal data class PeriodPalette(
     val period: Color,
     val onPeriod: Color,
     val ovulation: Color,
-)
+    val follicular: Color,
+    val luteal: Color,
+) {
+    fun phase(phase: CyclePhase): Color = when (phase) {
+        CyclePhase.MENSTRUAL -> period
+        CyclePhase.FOLLICULAR -> follicular
+        CyclePhase.OVULATION -> ovulation
+        CyclePhase.LUTEAL -> luteal
+    }
+}
 
 private val LightPeriodPalette =
     PeriodPalette(
         period = Color(0xFFD94F70),
         onPeriod = Color.White,
         ovulation = Color(0xFF7A5AC8),
+        follicular = Color(0xFF4E9F76),
+        luteal = Color(0xFFEE9A2E),
     )
 
 private val DarkPeriodPalette =
@@ -61,6 +76,8 @@ private val DarkPeriodPalette =
         period = Color(0xFFFF8DA8),
         onPeriod = Color(0xFF5C1028),
         ovulation = Color(0xFFC9B6FF),
+        follicular = Color(0xFF8FD6AE),
+        luteal = Color(0xFFFFC27A),
     )
 
 /** 按当前主题的明暗选择经期配色。 */

@@ -20,6 +20,9 @@ class PeriodTrackerActivity : BaseActivity() {
                     onOpenSettings = {
                         startActivityWithSlide(Intent(this, PeriodSettingsActivity::class.java))
                     },
+                    onOpenPhase = {
+                        startActivityWithSlide(Intent(this, PeriodPhaseActivity::class.java))
+                    },
                 )
             }
         }

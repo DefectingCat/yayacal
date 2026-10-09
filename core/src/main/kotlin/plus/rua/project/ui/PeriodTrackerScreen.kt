@@ -81,6 +81,7 @@ import plus.rua.project.PeriodViewModel
  * @param onBack 点击左上角返回时触发
  * @param onOpenHistory 点击顶栏历史图标或周期摘要卡片时触发
  * @param onOpenSettings 点击顶栏设置图标时触发
+ * @param onOpenPhase 点击状态卡（按钮以外的区域）时触发
  * @param viewModel 经期页面共用的 ViewModel，默认按应用 Context 创建
  * @param modifier 布局修饰符
  */
@@ -89,6 +90,7 @@ fun PeriodTrackerScreen(
     onBack: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenPhase: () -> Unit,
     viewModel: PeriodViewModel = periodViewModel(),
     modifier: Modifier = Modifier,
 ) {
@@ -101,6 +103,7 @@ fun PeriodTrackerScreen(
         onBack = onBack,
         onOpenHistory = onOpenHistory,
         onOpenSettings = onOpenSettings,
+        onOpenPhase = onOpenPhase,
         onStartPeriod = viewModel::startPeriod,
         onRecordPeriod = viewModel::recordPeriod,
         onEndPeriod = viewModel::endPeriod,
@@ -130,6 +133,7 @@ private enum class PeriodPicker { START, END }
  * @param onBack 点击左上角返回时触发
  * @param onOpenHistory 点击顶栏历史图标或周期摘要卡片时触发
  * @param onOpenSettings 点击顶栏设置图标时触发
+ * @param onOpenPhase 点击状态卡（按钮以外的区域）时触发
  * @param onStartPeriod 点击「经期来了」时以今天触发
  * @param onRecordPeriod 在日期范围选择中确认时触发，参数为开始日和结束日（null 表示仍在进行）
  * @param onEndPeriod 点击「经期结束」或在日期选择中确认结束日期时触发
@@ -148,6 +152,7 @@ fun PeriodTrackerScreen(
     onBack: () -> Unit,
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
+    onOpenPhase: () -> Unit,
     onStartPeriod: (LocalDate) -> Unit,
     onRecordPeriod: (LocalDate, LocalDate?) -> Unit,
     onEndPeriod: (LocalDate) -> Unit,
@@ -225,6 +230,7 @@ fun PeriodTrackerScreen(
             PeriodStatusCard(
                 forecast = forecast,
                 today = today,
+                onClick = onOpenPhase,
                 onPrimary = {
                     when (forecast.status) {
                         is PeriodStatus.NoData, is PeriodStatus.ForgotToEnd -> picker = if (ongoing == null) PeriodPicker.START else PeriodPicker.END
@@ -421,6 +427,7 @@ private fun statusContent(
 private fun PeriodStatusCard(
     forecast: PeriodForecast,
     today: LocalDate,
+    onClick: () -> Unit,
     onPrimary: () -> Unit,
     onPickDate: (() -> Unit)?,
     modifier: Modifier = Modifier,
@@ -435,6 +442,7 @@ private fun PeriodStatusCard(
             else -> palette.period
         }
     Card(
+        onClick = onClick,
         shape = PeriodCardShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
@@ -447,7 +455,16 @@ private fun PeriodStatusCard(
         ) {
             CycleRing(progress = forecast.cycleProgress, value = content.ringValue, caption = content.ringCaption, color = ringColor)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(content.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                // 箭头放在标题行，不挤占按钮行的宽度
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(content.title, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowForward,
+                        contentDescription = "查看今日周期",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
                 Text(content.subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {

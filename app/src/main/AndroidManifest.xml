@@ -102,6 +102,9 @@
             android:name=".PeriodHistoryActivity"
             android:exported="false" />
         <activity
+            android:name=".PeriodPhaseActivity"
+            android:exported="false" />
+        <activity
             android:name=".PeriodSettingsActivity"
             android:exported="false" />
         <activity
