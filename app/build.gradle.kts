@@ -40,7 +40,7 @@ android {
             libs.versions.android.targetSdk
                 .get()
                 .toInt()
-        versionCode = 14
+        versionCode = 15
         versionName = appVersionName
     }
 

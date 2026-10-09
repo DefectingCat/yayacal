@@ -5,6 +5,8 @@
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-10-09
+
 ### Added
 
 - 经期记录接口 `GET/PUT /api/v1/period`：两人共享一份文档，不区分账号；整份替换以 `revision` 做乐观并发，冲突返回 409。
@@ -55,6 +57,7 @@
 - 恢复默认头像操作保持账号隔离、幂等性和封面资料。
 - 图片按方向信息纠正后再移除元数据。
 
+[0.1.3]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.3
 [0.1.2]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.2
 [0.1.1]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.1
 [0.1.0]: https://github.com/DefectingCat/yayacal/releases/tag/server-v0.1.0

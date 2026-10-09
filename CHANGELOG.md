@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.12.0] - 2026-10-09
+
 ### Added
 
 - 工具页新增「经期记录」：记录经期起止、每日心情与备注，按最近记录预测下次经期与排卵日；支持月历批量补录、历史修改删除和预测默认值设置。
@@ -497,6 +499,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.12.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.12.0
 [1.11.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.11.0
 [1.10.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.10.0
 [1.9.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.9.0
