@@ -5,6 +5,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- 经期记录接口 `GET/PUT /api/v1/period`：两人共享一份文档，不区分账号；整份替换以 `revision` 做乐观并发，冲突返回 409。
+
 ## [0.1.2] - 2026-10-08
 
 ### Added

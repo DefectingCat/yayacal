@@ -144,7 +144,7 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 
 ## 接口约定
 
-除账号列表和健康检查外，JSON 接口必须带 `X-Account-ID: xiaobai` 或 `xiaojimao`。
+除账号列表、经期记录和健康检查外，JSON 接口必须带 `X-Account-ID: xiaobai` 或 `xiaojimao`。
 图片供 Android 图片加载器使用，`GET /api/v1/media/{id}?account_id=xiaobai&variant=preview` 同样校验可见性；账号参数不是密钥。`variant` 只接受 `original`、`thumbnail`、`preview`，未知规格返回 400，未就绪或缺失的预览返回 404，不回退原图。显式 `variant` 优先于旧参数；不传 `variant` 时，`thumbnail=true` 返回列表缩略图，其余返回原图。Android 的预览请求同时携带 `thumbnail=true`，保护持有新元数据的客户端连接旧后端时仍只取得小图；衍生图地址携带 `v=2` 区分旧下载缓存。
 
 上传响应和动态的 `photos` 条目增加 `bytes`、`thumbnail_bytes`、`preview_bytes`；图片评论增加同结构的 `media_info`。`bytes` 是原图文件大小，旧图片未处理时衍生图大小为 null；Android 仅在 `preview_bytes > 0` 时请求高清预览。按钮大小从这些字段读取，不额外请求原图。
@@ -163,11 +163,16 @@ adb -s emulator-5554 reverse tcp:8088 tcp:8088
 | `/notifications` | GET / DELETE | 消息列表 / 清空当前账号消息 |
 | `/notifications/read` | POST | `{ "ids": [...] }` 标记实际读到的消息，最多 100 个 |
 | `/notifications/{id}` | DELETE | 删除当前账号的某条消息 |
+| `/period` | GET / PUT | 读取 / 整份替换经期记录，不分账号 |
 
 分页响应 `{items, next_cursor}`，通知另含 `unread_count`。`limit` 默认 20、最大 50，游标原样回传。
 动态支持 `author_id` 和 `q`（正文、位置、评论）筛选；时间倒序，评论时间正序。
 
 发布正文：`{request_id, text, media_ids: [], visibility: "public"|"private", location?, location_address?}`，最多 5000 字、9 张图片。评论：`{request_id, text, media_id?, reply_to_id?}`，最多 2000 字。`request_id` 是客户端 UUID，同一请求的重试必须复用 ID 和内容；更换内容须换 ID，否则返回 409。删除过的请求重试返回 404，不重新创建。
+
+经期记录是两人共享的一份文档，不区分账号，接口不要求也不读取 `X-Account-ID`，不记录操作者。与其他接口相同，能访问服务的人都能读写这份数据，因此同样只应部署在信任的访问范围内。`GET /api/v1/period` 返回 `{revision, settings, ranges, notes}`：`settings` 含 `cycle_length`（15–60）、`period_length`（2–10）、`luteal_length`（10–16）；`ranges` 为 `{start, end}`，日期格式 `YYYY-MM-DD`，`end` 为 null 表示进行中；`notes` 为 `{date, mood, text}`，`mood` 取 `happy`、`calm`、`tired`、`low`、`irritable` 或 null，`text` 最多 500 字。
+
+`PUT /api/v1/period` 提交 `{base_revision, settings, ranges, notes}` 整份替换，成功后 `revision` 加 1 并返回新文档；`base_revision` 不是当前版本时返回 409，客户端应重新读取后基于新版本重放本地修改。服务端对区间和备注排序、去除备注首尾空白，但不替客户端合并区间：区间重叠或相邻、进行中区间不是最后一段、已结束区间超过 31 天、日期不在 2000–2100 年、同一天多条备注、心情与备注同时为空时返回 400。请求体沿用 2 MiB 默认上限。
 
 所有时间为服务端生成的 Unix 毫秒。动态列表携带最近三条评论预览；完整评论通过评论分页接口读取。自己操作不产生自己的通知，重复点赞/评论不重复通知。取消点赞后不再显示相应提醒；删帖、私密化后列表、详情、搜索、消息及媒体重新检查访问条件。
 
@@ -186,7 +191,7 @@ cargo test --locked
 bash tests/run.sh
 ```
 
-集成检查启动独立 PostgreSQL 18.6 容器和临时媒体目录，结束自动清理；覆盖双账号互动、并发幂等、评论回复关联、搜索分页、图片归属、私密访问和通知隔离。不要把 `tests/api.py` 指向生产服务。
+集成检查启动独立 PostgreSQL 18.6 容器和临时媒体目录，结束自动清理；覆盖双账号互动、并发幂等、评论回复关联、搜索分页、图片归属、私密访问、通知隔离，以及经期文档的版本冲突与校验。不要把 `tests/api.py` 指向生产服务。
 
 `make server-test` 在根目录运行 Rust 测试、发布校验测试和集成检查。每个接口响应都会校验 `X-Server`，并检查启动日志第一行与响应头一致。CI 传入独立计算的 `MOMENTS_EXPECTED_SERVER`，验证实际版本和 hash。
 

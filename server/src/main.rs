@@ -3,6 +3,7 @@ mod error;
 mod interactions;
 mod logging;
 mod media;
+mod periods;
 mod posts;
 mod version;
 
@@ -86,6 +87,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         )
         .route("/api/v1/notifications/read", post(interactions::read))
         .route("/api/v1/notifications/{id}", delete(interactions::dismiss))
+        .route("/api/v1/period", get(periods::get).put(periods::replace))
         .layer(
             request_trace
                 .clone()

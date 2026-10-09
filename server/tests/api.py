@@ -315,6 +315,49 @@ class ApiTest(unittest.TestCase):
         call("POST", "/api/v1/posts", payload, expected=404)
         call("DELETE", "/api/v1/posts/" + other["id"], expected=204)
 
+    def test_period_document_is_shared_versioned_and_validated(self):
+        initial = call("GET", "/api/v1/period", actor=None)
+        self.assertEqual(initial["settings"], {"cycle_length": 28, "period_length": 5, "luteal_length": 14})
+        revision = initial["revision"]
+        settings = {"cycle_length": 30, "period_length": 6, "luteal_length": 13}
+        body = {"base_revision": revision, "settings": settings,
+                "ranges": [{"start": "2026-10-08", "end": None}, {"start": "2026-09-12", "end": "2026-09-16"}],
+                "notes": [{"date": "2026-10-09", "mood": None, "text": "热水袋"},
+                          {"date": "2026-10-08", "mood": "tired", "text": " 有点腰酸 "}]}
+        saved = call("PUT", "/api/v1/period", body, actor=None)
+        self.assertEqual(saved, {
+            "revision": revision + 1, "settings": settings,
+            "ranges": [{"start": "2026-09-12", "end": "2026-09-16"}, {"start": "2026-10-08", "end": None}],
+            "notes": [{"date": "2026-10-08", "mood": "tired", "text": "有点腰酸"},
+                      {"date": "2026-10-09", "mood": None, "text": "热水袋"}],
+        })
+        # 数据不分账号：带任一账号头或不带都读到同一份。
+        for actor in (None, "xiaobai", "xiaojimao"):
+            self.assertEqual(call("GET", "/api/v1/period", actor=actor), saved)
+        self.assertEqual(call("PUT", "/api/v1/period", body, actor=None, expected=409)["error"], "经期记录已在其他设备更新")
+
+        current = {**body, "base_revision": revision + 1}
+        for change in [
+            {"ranges": [{"start": "2026-09-12", "end": "2026-09-16"}, {"start": "2026-09-17", "end": None}]},
+            {"ranges": [{"start": "2026-09-12", "end": None}, {"start": "2026-10-08", "end": None}]},
+            {"ranges": [{"start": "2026-09-12", "end": "2026-09-11"}]},
+            {"notes": [{"date": "2026-10-08", "mood": "angry", "text": ""}]},
+            {"notes": [{"date": "2026-10-08", "mood": None, "text": "字" * 501}]},
+            {"notes": [{"date": "2026-10-08", "mood": None, "text": "  "}]},
+            {"settings": {**settings, "cycle_length": 61}},
+        ]:
+            with self.subTest(change=change):
+                self.assertIn("error", call("PUT", "/api/v1/period", {**current, **change}, actor=None, expected=400))
+        call("PUT", "/api/v1/period", {**current, "unknown": 1}, actor=None, expected=422)
+        self.assertEqual(call("GET", "/api/v1/period", actor=None), saved)
+
+        cleared = {"base_revision": revision + 1, "settings": initial["settings"], "ranges": [], "notes": []}
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            results = list(pool.map(lambda _: call("PUT", "/api/v1/period", cleared, actor=None, expected=(200, 409)), range(4)))
+        self.assertEqual(sum("revision" in result for result in results), 1)
+        self.assertEqual(call("GET", "/api/v1/period", actor=None),
+                         {"revision": revision + 2, "settings": initial["settings"], "ranges": [], "notes": []})
+
     def test_validation_and_paging(self):
         marker = uuid.uuid4().hex
         for payload in [{"text": "", "visibility": "public"}, {"text": "x", "visibility": "nonsense"},
