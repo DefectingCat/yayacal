@@ -5,7 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class PeriodSyncStorageTest {
-    private val prefs = PeriodTestPrefs()
+    private val prefs = InMemoryTestPrefs()
     private val storage = PeriodSyncStorage(prefs)
     private val day = LocalDate(2026, 10, 9)
 

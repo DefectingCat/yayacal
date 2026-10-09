@@ -60,7 +60,7 @@ class HttpMomentsRepository(
         .readTimeout(60, TimeUnit.SECONDS).callTimeout(5, TimeUnit.MINUTES).build()
 
     private suspend fun request(actor: String, method: String, path: String, body: RequestBody? = null): String = withContext(Dispatchers.IO) {
-        if (baseUrl.isBlank()) throw IOException("请先在账号选择页设置朋友圈服务地址")
+        if (baseUrl.isBlank()) throw IOException("请先在工具页的服务器设置中填写地址")
         val request = Request.Builder().url("$baseUrl/api/v1$path").header("X-Account-ID", actor).method(method, body).build()
         val call = (if (body is MultipartBody) uploadClient else client).newCall(request)
         val response = suspendCancellableCoroutine { continuation ->

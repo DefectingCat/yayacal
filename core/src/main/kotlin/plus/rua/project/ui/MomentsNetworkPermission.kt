@@ -5,7 +5,6 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.SharedPreferences
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
@@ -19,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -34,21 +34,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import plus.rua.project.LOCAL_NETWORK_PERMISSION
 import plus.rua.project.MomentsConnection
+import plus.rua.project.hasLocalNetworkPermission
 import plus.rua.project.momentsServiceNeedsLocalNetwork
-
-private const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
 
 /**
  * 朋友圈各 Activity 共用的本地网络授权入口，在授权完成前不创建联网页面及其 ViewModel。
  * 首次访问本地服务时申请权限；从系统设置返回后重新检查，公网和回环服务直接放行。
- * 拒绝权限后仍可修改服务地址，保存时重建 Activity，避免沿用旧连接的 ViewModel。
+ * 服务器地址在工具页的服务器设置中修改，这里只负责授权。
  *
  * @param onBack 在授权说明页点击返回时触发
  * @param content 地址不需要本地授权或权限已授予时展示的页面
@@ -68,7 +68,6 @@ fun MomentsNetworkPermission(
     var requested by rememberSaveable { mutableStateOf(false) }
     var denied by rememberSaveable { mutableStateOf(false) }
     var pending by remember { mutableStateOf(false) }
-    var showConnection by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
         granted = it
         denied = !it
@@ -94,16 +93,6 @@ fun MomentsNetworkPermission(
             pending = true
             launcher.launch(LOCAL_NETWORK_PERMISSION)
         }
-    }
-
-    if (showConnection) {
-        MomentsConnectionDialog(
-            onSaved = {
-                showConnection = false
-                activity?.recreate()
-            },
-            onDismiss = { showConnection = false },
-        )
     }
 
     if (granted || required == false) {
@@ -136,14 +125,18 @@ fun MomentsNetworkPermission(
                 ) {
                     if (pending) MomentsLoadingSpinner() else Text(if (openSettings) "打开应用设置" else "允许访问")
                 }
-                TextButton(onClick = { showConnection = true }) { Text("连接设置") }
+                Text(
+                    text = "如需更换服务器，请在「工具」页底部的服务器设置中修改",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
                 TextButton(onClick = onBack) { Text("返回") }
             }
         }
     }
 }
-
-private fun Context.hasLocalNetworkPermission(): Boolean = Build.VERSION.SDK_INT < 37 || ContextCompat.checkSelfPermission(this, LOCAL_NETWORK_PERMISSION) == PackageManager.PERMISSION_GRANTED
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this

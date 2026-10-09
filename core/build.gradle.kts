@@ -26,6 +26,8 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // 非 Debug 构建统一使用线上服务，trace 继承 release，benchmark 回退到 release。
         buildConfigField("String", "MOMENTS_DEFAULT_URL", "\"https://yaya.rua.plus\"")
+        // 线上地址作为服务器设置的快捷选项，各构建类型都不覆盖。
+        buildConfigField("String", "MOMENTS_ONLINE_URL", "\"https://yaya.rua.plus\"")
 
         // 构建期扫描 assets/animations/ 生成 WebP 文件列表，避免运行期硬编码 (1..152)
         // 与 assets/ 目录耦合却不校验，导致增删文件后隐性 bug

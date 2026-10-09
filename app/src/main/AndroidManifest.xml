@@ -54,7 +54,8 @@
 
         <activity
             android:name=".ToolsActivity"
-            android:exported="false" />
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
 
         <activity
             android:name=".DateCheckerActivity"

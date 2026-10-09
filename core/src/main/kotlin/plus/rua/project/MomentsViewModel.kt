@@ -39,8 +39,8 @@ data class MomentsUiState(
 /** 朋友圈网络状态。请求捕获账号和加载版本，迟到结果不能覆盖切号后的页面。 */
 class MomentsViewModel(
     private val storage: MomentsStorage,
-    private var repository: MomentsRepository,
-    private var timelineCache: MomentsTimelineCache = MomentsTimelineCache(),
+    private val repository: MomentsRepository,
+    private val timelineCache: MomentsTimelineCache = MomentsTimelineCache(),
     initialAuthorId: String? = null,
     private val restoreTimeline: Boolean = true,
 ) : ViewModel() {
@@ -63,16 +63,6 @@ class MomentsViewModel(
         timelineCache.restore(actor, author, keyword)
     } else {
         MomentsUiState(currentAccountId = actor, username = MomentAccount.findById(author ?: actor).name, isLoading = true, searchQuery = keyword.orEmpty())
-    }
-
-    fun reconnect(context: Context) {
-        accountGeneration++
-        pendingCommentRefresh = null
-        repository = MomentsConnection.repository(context.applicationContext)
-        timelineCache = MomentsTimelineCache.forConnection(MomentsConnection.url(context))
-        timelineCache.clear()
-        _uiState.value = restoreState(accountId, author, query)
-        refreshPosts()
     }
 
     fun switchAccount(account: MomentAccount, avatarPath: String? = null) {

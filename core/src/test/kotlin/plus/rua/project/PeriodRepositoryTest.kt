@@ -15,7 +15,7 @@ import kotlin.test.assertTrue
 
 class PeriodRepositoryTest {
     private val today = LocalDate(2026, 10, 9)
-    private val prefs = PeriodTestPrefs()
+    private val prefs = InMemoryTestPrefs()
     private val storage = PeriodSyncStorage(prefs)
     private var url = "https://a.example"
 

@@ -1,5 +1,11 @@
 package plus.rua.project.ui
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
+import androidx.activity.compose.LocalActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -36,15 +43,25 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
+import plus.rua.project.LOCAL_NETWORK_PERMISSION
+import plus.rua.project.ServerConnectionViewModel
 
 /**
  * 工具页面，遵循 Material 3 Expressive 规范设计，提供实用工具功能入口。
@@ -56,6 +73,7 @@ import androidx.compose.ui.unit.dp
  * @param onNavigateToMoments 跳转到朋友圈回调
  * @param onNavigateToPeriodTracker 点击「经期记录」卡片时触发
  * @param onNavigateToStaffPractice 跳转到五线谱练习回调
+ * @param serverViewModel 页面底部服务器设置卡片的状态，页面回到前台时重新检查连接
  * @param modifier 布局修饰符
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -68,8 +86,23 @@ fun ToolsScreen(
     onNavigateToMoments: () -> Unit,
     onNavigateToPeriodTracker: () -> Unit,
     onNavigateToStaffPractice: () -> Unit,
+    serverViewModel: ServerConnectionViewModel = serverConnectionViewModel(),
     modifier: Modifier = Modifier,
 ) {
+    val serverState by serverViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val activity = LocalActivity.current
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { serverViewModel.refresh() }
+    val localNetworkLauncher =
+        rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+            // 已被永久拒绝时系统不再弹窗，转到应用设置页手动开启
+            if (!granted && activity?.shouldShowRequestPermissionRationale(LOCAL_NETWORK_PERMISSION) == false) {
+                context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}")))
+            }
+            serverViewModel.clearDraft()
+            serverViewModel.refresh()
+        }
+
     Scaffold(
         modifier = modifier.semantics { testTagsAsResourceId = true },
         topBar = {
@@ -104,6 +137,7 @@ fun ToolsScreen(
             Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+                .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(20.dp),
@@ -188,9 +222,27 @@ fun ToolsScreen(
                 modifier = Modifier.testTag("tool_staff_practice"),
             )
 
+            // 设置：朋友圈与经期记录共用的服务器地址
+            SectionHeader(title = "设置")
+
+            ServerConnectionCard(
+                uiState = serverState,
+                onTest = serverViewModel::test,
+                onSave = serverViewModel::save,
+                onDraftChange = serverViewModel::clearDraft,
+                onRequestLocalNetwork = { localNetworkLauncher.launch(LOCAL_NETWORK_PERMISSION) },
+            )
+
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
+}
+
+/** 按应用 Context 创建服务器设置卡片的 ViewModel。 */
+@Composable
+internal fun serverConnectionViewModel(): ServerConnectionViewModel {
+    val context = LocalContext.current.applicationContext
+    return viewModel(factory = viewModelFactory { initializer { ServerConnectionViewModel.fromContext(context) } })
 }
 
 /**

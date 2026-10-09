@@ -5,7 +5,7 @@ internal fun momentsErrorDescription(error: String): String {
     val text = error.lowercase()
     return when {
         "标记为已读" in text -> "消息已加载，已读状态暂未同步"
-        "服务地址" in text || "https" in text -> "请检查朋友圈连接设置中的服务地址"
+        "服务地址" in text || "https" in text -> "请在工具页的服务器设置中检查地址"
         "超时" in text || "timeout" in text || "timed out" in text -> "连接等待有些久，请稍后再试"
         "空间" in text || "enospc" in text -> "存储空间不足，请清理一些空间后再试"
         "草稿保存" in text -> "草稿暂时无法保存，请检查存储空间"

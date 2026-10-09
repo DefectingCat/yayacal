@@ -2,8 +2,8 @@ package plus.rua.project
 
 import android.content.SharedPreferences
 
-/** 经期相关测试共用的内存 SharedPreferences。 */
-internal class PeriodTestPrefs : SharedPreferences {
+/** 测试共用的内存 SharedPreferences。 */
+internal class InMemoryTestPrefs : SharedPreferences {
     val data = mutableMapOf<String, Any?>()
 
     override fun getAll(): Map<String, *> = data.toMap()

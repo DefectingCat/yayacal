@@ -1,5 +1,9 @@
 package plus.rua.project
 
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.content.ContextCompat
 import java.net.InetAddress
 import java.net.URI
 import java.net.UnknownHostException
@@ -28,3 +32,8 @@ internal fun momentsServiceNeedsLocalNetwork(
         false
     }
 }
+
+/** Android 17 新增的本地网络运行时权限。 */
+internal const val LOCAL_NETWORK_PERMISSION = "android.permission.ACCESS_LOCAL_NETWORK"
+
+internal fun Context.hasLocalNetworkPermission(): Boolean = Build.VERSION.SDK_INT < 37 || ContextCompat.checkSelfPermission(this, LOCAL_NETWORK_PERMISSION) == PackageManager.PERMISSION_GRANTED

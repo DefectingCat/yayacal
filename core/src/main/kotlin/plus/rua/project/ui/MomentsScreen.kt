@@ -156,13 +156,6 @@ fun MomentsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val coroutineScope = rememberCoroutineScope()
     var isCoverExpanded by remember { mutableStateOf(false) }
-    var showConnection by remember { mutableStateOf(false) }
-    if (showConnection) {
-        MomentsConnectionDialog(onSaved = {
-            showConnection = false
-            viewModel.reconnect(context)
-        }, onDismiss = { showConnection = false })
-    }
     MomentsPoll(uiState.currentAccountId) { if (!uiState.isLoading && uiState.posts.size <= 20) viewModel.refreshPosts() }
 
     val storage = remember(context) { MomentsStorage.fromContext(context) }
@@ -324,11 +317,6 @@ fun MomentsScreen(
                     .fillMaxSize()
                     .alpha(selectAlpha),
             )
-            TextButton(
-                onClick = { showConnection = true },
-                enabled = !isTransitioning,
-                modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = 16.dp).alpha(selectAlpha),
-            ) { Text("连接设置") }
         }
 
         // Layer 3：飞行动画浮层（共用头像路径与样式，按进度正向进入或反向回到账号卡片）

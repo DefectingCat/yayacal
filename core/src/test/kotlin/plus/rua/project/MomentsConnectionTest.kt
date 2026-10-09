@@ -125,6 +125,27 @@ class MomentsConnectionTest {
         }
     }
 
+    @Test
+    fun normalize_validatesWithoutSaving() {
+        assertEquals("http://127.0.0.1:9090", debug.normalize(" http://127.0.0.1:9090/ "))
+        assertEquals(LOCAL_URL, debug.url())
+        val error = assertFailsWith<IllegalArgumentException> { release.normalize("https://bad host") }
+        assertEquals("地址格式不正确，例如 https://yaya.example.com", error.message)
+    }
+
+    @Test
+    fun presets_debugOffersAdbAndOnline_releaseOnlyDefault() {
+        assertEquals(
+            listOf(
+                ServerPreset("模拟器默认", LOCAL_URL),
+                ServerPreset("ADB 转发", "http://127.0.0.1:8088"),
+                ServerPreset("线上", ONLINE_URL),
+            ),
+            debug.presets(),
+        )
+        assertEquals(listOf(ServerPreset("默认", ONLINE_URL)), release.presets())
+    }
+
     private companion object {
         const val LOCAL_URL = "http://10.0.2.2:8088"
         const val ONLINE_URL = "https://yaya.rua.plus"
