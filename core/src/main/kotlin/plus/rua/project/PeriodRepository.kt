@@ -84,17 +84,18 @@ class PeriodRepository(
     }
 
     /**
-     * 记录一次修改并触发同步。
+     * 记录一次修改并触发同步；多条操作作为一个整体校验，要么全部保存，要么都不保存。
      *
      * @return 修改会违反文档规则时返回中文原因且不保存；没有实际变化时不产生待同步操作
      */
-    fun submit(op: PeriodOp): String? {
+    fun submit(vararg ops: PeriodOp): String? {
         synchronized(lock) {
             val current = view(local)
-            val next = op.applyTo(current)
+            val next = ops.fold(current) { doc, op -> op.applyTo(doc) }
             next.violation()?.let { return it }
             if (next.sameContentAs(current)) return null
-            local = local.copy(pending = local.pending + PendingPeriodOp(local.nextSeq, op), nextSeq = local.nextSeq + 1)
+            val queued = ops.mapIndexed { index, op -> PendingPeriodOp(local.nextSeq + index, op) }
+            local = local.copy(pending = local.pending + queued, nextSeq = local.nextSeq + ops.size)
             storage.save(url, local)
             publish(_state.value.sync)
         }

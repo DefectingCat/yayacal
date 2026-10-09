@@ -155,6 +155,31 @@ class PeriodRepositoryTest {
     }
 
     @Test
+    fun submit_startAndEndTogether_queuesBothAndSyncsClosedRange() = runTest {
+        val api = FakePeriodApi()
+        val repository = repo(api)
+
+        val reason = repository.submit(PeriodOp.StartPeriod(LocalDate(2026, 9, 12)), PeriodOp.EndPeriod(LocalDate(2026, 9, 16)))
+        assertEquals(null, reason)
+        assertEquals(2, repository.state.value.pendingCount)
+        advanceUntilIdle()
+
+        assertEquals(listOf(PeriodRange(LocalDate(2026, 9, 12), LocalDate(2026, 9, 16))), api.server.ranges)
+        assertEquals(0, repository.state.value.pendingCount)
+    }
+
+    @Test
+    fun submit_combinedResultInvalid_savesNeitherOp() = runTest {
+        val repository = repo(FakePeriodApi().apply { failure = IOException("离线") })
+
+        val reason = repository.submit(PeriodOp.StartPeriod(LocalDate(2026, 8, 1)), PeriodOp.EndPeriod(LocalDate(2026, 9, 10)))
+
+        assertEquals("单次经期不能超过 31 天", reason)
+        assertEquals(0, repository.state.value.pendingCount)
+        assertEquals(emptyList(), repository.state.value.document.ranges)
+    }
+
+    @Test
     fun submit_noActualChange_doesNotQueue() = runTest {
         val repository = repo(FakePeriodApi())
 

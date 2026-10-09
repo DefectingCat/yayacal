@@ -102,6 +102,7 @@ fun PeriodTrackerScreen(
         onOpenHistory = onOpenHistory,
         onOpenSettings = onOpenSettings,
         onStartPeriod = viewModel::startPeriod,
+        onRecordPeriod = viewModel::recordPeriod,
         onEndPeriod = viewModel::endPeriod,
         onSetPeriodDay = viewModel::setPeriodDay,
         onSaveNote = viewModel::saveNote,
@@ -129,7 +130,8 @@ private enum class PeriodPicker { START, END }
  * @param onBack 点击左上角返回时触发
  * @param onOpenHistory 点击顶栏历史图标或周期摘要卡片时触发
  * @param onOpenSettings 点击顶栏设置图标时触发
- * @param onStartPeriod 点击「经期来了」或在日期选择中确认开始日期时触发
+ * @param onStartPeriod 点击「经期来了」时以今天触发
+ * @param onRecordPeriod 在日期范围选择中确认时触发，参数为开始日和结束日（null 表示仍在进行）
  * @param onEndPeriod 点击「经期结束」或在日期选择中确认结束日期时触发
  * @param onSetPeriodDay 单日面板切换经期开关、或批量编辑点按日期时触发
  * @param onSaveNote 选择今天的心情，或关闭单日面板且心情、备注有变化时触发
@@ -147,6 +149,7 @@ fun PeriodTrackerScreen(
     onOpenHistory: () -> Unit,
     onOpenSettings: () -> Unit,
     onStartPeriod: (LocalDate) -> Unit,
+    onRecordPeriod: (LocalDate, LocalDate?) -> Unit,
     onEndPeriod: (LocalDate) -> Unit,
     onSetPeriodDay: (LocalDate, Boolean) -> Unit,
     onSaveNote: (LocalDate, PeriodMood?, String) -> Unit,
@@ -292,13 +295,16 @@ fun PeriodTrackerScreen(
 
     when (picker) {
         PeriodPicker.START -> {
-            PeriodDatePickerDialog(
-                title = if (document.ranges.isEmpty()) "上次经期从哪天开始" else "经期从哪天开始",
-                initial = today,
+            PeriodDateRangePickerDialog(
+                title = if (document.ranges.isEmpty()) "上次经期是哪几天" else "这次经期是哪几天",
+                hint = "依次点开始日和结束日；只选开始日表示经期还在进行",
+                initialStart = null,
+                initialEnd = null,
                 range = startRange,
-                onConfirm = {
+                allowOpenEnd = true,
+                onConfirm = { start, end ->
                     picker = null
-                    onStartPeriod(it)
+                    onRecordPeriod(start, end)
                 },
                 onDismiss = { picker = null },
             )

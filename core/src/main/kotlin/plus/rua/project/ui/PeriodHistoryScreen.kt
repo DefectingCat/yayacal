@@ -284,8 +284,6 @@ private fun PeriodHistoryCard(
     }
 }
 
-private enum class EditField { START, END }
-
 @Composable
 private fun EditPeriodDialog(
     item: PeriodHistoryItem,
@@ -296,30 +294,30 @@ private fun EditPeriodDialog(
     onDismiss: () -> Unit,
 ) {
     var start by remember { mutableStateOf(item.range.start) }
-    var ongoing by remember { mutableStateOf(item.range.isOngoing) }
-    var end by remember { mutableStateOf(item.range.end ?: minOf(today, start.plus(DatePeriod(days = periodLength - 1)))) }
-    var picking by remember { mutableStateOf<EditField?>(null) }
-    val endRange = start..minOf(today, PeriodDocument.latestEndFor(start))
+    // 结束日为 null 表示仍在进行，只有最近一段允许
+    var end by remember { mutableStateOf(item.range.end) }
+    var picking by remember { mutableStateOf(false) }
+    fun defaultEnd(from: LocalDate) = minOf(today, from.plus(DatePeriod(days = periodLength - 1)))
 
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("修改经期") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                DateRow("开始日期", start.periodLabel(today.year)) { picking = EditField.START }
-                if (!ongoing) {
-                    DateRow("结束日期", end.periodLabel(today.year)) { picking = EditField.END }
-                }
+                DateRow("经期日期", "${start.periodLabel(today.year)} – ${end?.periodLabel(start.year) ?: "进行中"}") { picking = true }
                 if (item.isLatest) {
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { ongoing = !ongoing }) {
-                        Checkbox(checked = ongoing, onCheckedChange = { ongoing = it })
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable { end = if (end == null) defaultEnd(start) else null },
+                    ) {
+                        Checkbox(checked = end == null, onCheckedChange = { end = if (it) null else defaultEnd(start) })
                         Text("仍在进行中", style = MaterialTheme.typography.bodyLarge)
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onSave(start, if (ongoing) null else end.coerceIn(endRange.start, endRange.endInclusive)) }) {
+            TextButton(onClick = { onSave(start, if (item.isLatest) end else end ?: defaultEnd(start)) }) {
                 Text("保存")
             }
         },
@@ -331,35 +329,21 @@ private fun EditPeriodDialog(
         },
     )
 
-    when (picking) {
-        EditField.START -> {
-            PeriodDatePickerDialog(
-                title = "经期从哪天开始",
-                initial = start,
-                range = PeriodDocument.DATE_BOUNDS.start..today,
-                onConfirm = {
-                    start = it
-                    end = end.coerceIn(it, minOf(today, PeriodDocument.latestEndFor(it)))
-                    picking = null
-                },
-                onDismiss = { picking = null },
-            )
-        }
-
-        EditField.END -> {
-            PeriodDatePickerDialog(
-                title = "经期在哪天结束",
-                initial = end,
-                range = endRange,
-                onConfirm = {
-                    end = it
-                    picking = null
-                },
-                onDismiss = { picking = null },
-            )
-        }
-
-        null -> {}
+    if (picking) {
+        PeriodDateRangePickerDialog(
+            title = "修改经期日期",
+            hint = if (item.isLatest) "依次点开始日和结束日；只选开始日表示经期还在进行" else "依次点开始日和结束日",
+            initialStart = start,
+            initialEnd = end,
+            range = PeriodDocument.DATE_BOUNDS.start..today,
+            allowOpenEnd = item.isLatest,
+            onConfirm = { newStart, newEnd ->
+                start = newStart
+                end = newEnd
+                picking = false
+            },
+            onDismiss = { picking = false },
+        )
     }
 }
 

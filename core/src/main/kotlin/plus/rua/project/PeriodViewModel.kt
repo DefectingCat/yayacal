@@ -49,15 +49,24 @@ class PeriodViewModel(
         repository.refresh()
     }
 
-    fun startPeriod(date: LocalDate) {
+    fun startPeriod(date: LocalDate) = recordPeriod(date, null)
+
+    /**
+     * 一次记录经期的开始和结束；[end] 为 null 表示经期仍在进行。
+     * 两条操作一起校验，不会只保存开始日。
+     */
+    fun recordPeriod(
+        start: LocalDate,
+        end: LocalDate?,
+    ) {
         val latestEnd = repository.state.value.document.ranges
             .lastOrNull()
             ?.end
-        if (latestEnd != null && date <= latestEnd) {
+        if (latestEnd != null && start <= latestEnd) {
             _message.value = "开始日期需晚于上次经期的结束日"
             return
         }
-        submit(PeriodOp.StartPeriod(date))
+        submit(*listOfNotNull(PeriodOp.StartPeriod(start), end?.let(PeriodOp::EndPeriod)).toTypedArray())
     }
 
     fun endPeriod(date: LocalDate) = submit(PeriodOp.EndPeriod(date))
@@ -91,8 +100,8 @@ class PeriodViewModel(
         _message.value = null
     }
 
-    private fun submit(op: PeriodOp) {
-        repository.submit(op)?.let { _message.value = "未保存：$it" }
+    private fun submit(vararg ops: PeriodOp) {
+        repository.submit(*ops)?.let { _message.value = "未保存：$it" }
     }
 
     private fun buildState(
