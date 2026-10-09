@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.13.0] - 2026-10-09
+
 ### Added
 
 - 经期记录新增「今日周期」页：点击首页状态卡进入，左右滑动按天查看当天处于月经期、卵泡期、排卵日、黄体期的第几天，或已推迟几天。四段圆环标出当天位置，中间的鸭鸭随阶段换表情；可往前看 3 个周期，往后看到下一次预测经期结束。
@@ -507,6 +509,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[1.13.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.13.0
 [1.12.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.12.0
 [1.11.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.11.0
 [1.10.0]: https://github.com/DefectingCat/yayacal/releases/tag/v1.10.0
