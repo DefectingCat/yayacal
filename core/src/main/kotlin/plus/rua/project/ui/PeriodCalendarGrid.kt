@@ -60,7 +60,7 @@ import plus.rua.project.PeriodForecast
 import kotlin.math.abs
 
 /** 日格的经期标记，按优先级从高到低。 */
-internal enum class PeriodDayMark { RECORDED, PREDICTED, OVULATION, FERTILE, NONE }
+internal enum class PeriodDayMark { RECORDED, PREDICTED, OVULATION, NONE }
 
 internal fun periodDayMark(
     date: LocalDate,
@@ -71,7 +71,6 @@ internal fun periodDayMark(
     date <= today && document.rangeAt(date, today) != null -> PeriodDayMark.RECORDED
     forecast.isPredictedPeriod(date) -> PeriodDayMark.PREDICTED
     forecast.isOvulation(date) -> PeriodDayMark.OVULATION
-    forecast.isFertile(date) -> PeriodDayMark.FERTILE
     else -> PeriodDayMark.NONE
 }
 
@@ -79,7 +78,7 @@ internal fun periodDayMark(
  * 经期月历卡片，左右滑动切换月份，底部附图例。
  *
  * @param document 包含未同步修改的经期文档
- * @param forecast 预测结果，提供预测经期、易孕期与排卵日
+ * @param forecast 预测结果，提供预测经期与排卵日
  * @param today 今天，用于展开进行中的经期并禁止编辑未来日期
  * @param isEditing 批量编辑模式；开启时未来日期不可点击
  * @param onDayClick 点击可点日期时触发；编辑模式下调用方应切换该日经期，否则打开单日面板
@@ -251,7 +250,7 @@ private fun PeriodDayCell(
         when (mark) {
             PeriodDayMark.RECORDED -> palette.onPeriod
             PeriodDayMark.PREDICTED -> palette.period
-            PeriodDayMark.OVULATION, PeriodDayMark.FERTILE -> palette.onFertile
+            PeriodDayMark.OVULATION -> palette.ovulation
             PeriodDayMark.NONE -> MaterialTheme.colorScheme.onSurface
         }
     val todayRing = MaterialTheme.colorScheme.onSurface
@@ -299,8 +298,7 @@ private fun Modifier.periodMark(
 ): Modifier = when (mark) {
     PeriodDayMark.RECORDED -> background(palette.period, CircleShape)
     PeriodDayMark.PREDICTED -> dashedCircle(palette.period)
-    PeriodDayMark.OVULATION -> background(palette.fertile, CircleShape).border(2.dp, palette.ovulation, CircleShape)
-    PeriodDayMark.FERTILE -> background(palette.fertile, CircleShape)
+    PeriodDayMark.OVULATION -> border(2.dp, palette.ovulation, CircleShape)
     PeriodDayMark.NONE -> this
 }
 
@@ -324,8 +322,7 @@ private fun PeriodLegend(modifier: Modifier = Modifier) {
     ) {
         LegendItem("经期", Modifier.background(palette.period, CircleShape))
         LegendItem("预测", Modifier.dashedCircle(palette.period))
-        LegendItem("易孕期", Modifier.background(palette.fertile, CircleShape))
-        LegendItem("排卵日", Modifier.background(palette.fertile, CircleShape).border(2.dp, palette.ovulation, CircleShape))
+        LegendItem("排卵日", Modifier.border(2.dp, palette.ovulation, CircleShape))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.size(5.dp).background(MaterialTheme.colorScheme.onSurfaceVariant, CircleShape))
             Spacer(Modifier.width(4.dp))

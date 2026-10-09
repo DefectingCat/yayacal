@@ -155,7 +155,7 @@ fun PeriodSettingsScreen(
                     HorizontalDivider(Modifier.padding(horizontal = 20.dp))
                     SettingStepper(
                         title = "黄体期长度",
-                        description = "排卵日到下次经期的天数，用于推算易孕期",
+                        description = "排卵日到下次经期的天数，用于推算排卵日",
                         value = settings.lutealLength,
                         range = PeriodSettings.LUTEAL_RANGE,
                         onChange = { onUpdateSettings(settings.copy(lutealLength = it)) },

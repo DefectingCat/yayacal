@@ -390,12 +390,7 @@ private fun statusContent(
     }
 
     is PeriodStatus.Upcoming -> {
-        val phase =
-            when {
-                status.isOvulation -> " · 今天是排卵日（预测）"
-                status.isFertile -> " · 当前处于易孕期（预测）"
-                else -> ""
-            }
+        val phase = if (status.isOvulation) " · 今天是排卵日（预测）" else ""
         PeriodStatusContent(
             if (status.daysUntil == 0) "今天" else "${status.daysUntil}",
             if (status.daysUntil == 0) "预计" else "天后",
@@ -429,7 +424,7 @@ private fun PeriodStatusCard(
     val status = forecast.status
     val ringColor =
         when {
-            status is PeriodStatus.Upcoming && (status.isFertile || status.isOvulation) -> palette.ovulation
+            status is PeriodStatus.Upcoming && status.isOvulation -> palette.ovulation
             status is PeriodStatus.Upcoming -> MaterialTheme.colorScheme.primary
             else -> palette.period
         }

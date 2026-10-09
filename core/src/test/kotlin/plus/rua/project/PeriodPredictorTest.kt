@@ -38,7 +38,7 @@ class PeriodPredictorTest {
     fun forecast_singleRange_usesDefaultCycleAndPredictsThreePeriods() {
         val forecast = PeriodPredictor.forecast(fiveDayPeriods("2026-09-20"), today)
 
-        assertEquals(PeriodStatus.Upcoming(9, d("2026-10-18"), isFertile = false, isOvulation = false), forecast.status)
+        assertEquals(PeriodStatus.Upcoming(9, d("2026-10-18"), isOvulation = false), forecast.status)
         assertTrue(forecast.usesDefaultCycle)
         assertEquals(PeriodRegularity.INSUFFICIENT, forecast.regularity)
         assertEquals(
@@ -46,12 +46,11 @@ class PeriodPredictorTest {
             forecast.predictedPeriods,
         )
         assertEquals(listOf(d("2026-10-04"), d("2026-11-01"), d("2026-11-29")), forecast.ovulationDays)
-        assertEquals(span("2026-09-29", "2026-10-05"), forecast.fertileWindows.first())
         assertEquals(20f / 28, forecast.cycleProgress)
     }
 
     @Test
-    fun forecast_regularCycles_usesMedianAndFlagsFertileToday() {
+    fun forecast_regularCycles_usesMedianAndPredictsOvulation() {
         val forecast =
             PeriodPredictor.forecast(
                 fiveDayPeriods("2026-06-01", "2026-06-29", "2026-07-28", "2026-08-25", "2026-09-23"),
@@ -61,8 +60,7 @@ class PeriodPredictorTest {
         assertEquals(29, forecast.cycleLength)
         assertEquals(PeriodRegularity.REGULAR, forecast.regularity)
         assertFalse(forecast.usesDefaultCycle)
-        assertEquals(PeriodStatus.Upcoming(13, d("2026-10-22"), isFertile = true, isOvulation = false), forecast.status)
-        assertEquals(span("2026-10-03", "2026-10-09"), forecast.fertileWindows.first())
+        assertEquals(PeriodStatus.Upcoming(13, d("2026-10-22"), isOvulation = false), forecast.status)
         assertTrue(forecast.isOvulation(d("2026-10-08")))
     }
 
@@ -98,7 +96,6 @@ class PeriodPredictorTest {
         assertEquals(PeriodStatus.Late(10, d("2026-09-29")), forecast.status)
         assertEquals(span("2026-10-10", "2026-10-14"), forecast.predictedPeriods.first())
         assertEquals(listOf(d("2026-10-24"), d("2026-11-21")), forecast.ovulationDays)
-        assertEquals(span("2026-10-19", "2026-10-25"), forecast.fertileWindows.first())
         assertEquals(1f, forecast.cycleProgress)
     }
 
@@ -114,7 +111,7 @@ class PeriodPredictorTest {
         assertEquals(PeriodStatus.InPeriod(3, d("2026-10-11")), forecast.status)
         assertEquals(span("2026-10-10", "2026-10-11"), forecast.predictedPeriods.first())
         assertEquals(span("2026-11-04", "2026-11-08"), forecast.predictedPeriods[1])
-        assertEquals(span("2026-10-16", "2026-10-22"), forecast.fertileWindows.first())
+        assertEquals(d("2026-10-21"), forecast.ovulationDays.first())
     }
 
     @Test
@@ -125,19 +122,18 @@ class PeriodPredictorTest {
     }
 
     @Test
-    fun forecast_shortCycle_clipsFertileWindowAfterPeriod() {
+    fun forecast_ovulationToday_flagsStatus() {
         val document =
             PeriodDocument(
-                settings = PeriodSettings(cycleLength = 21),
+                settings = PeriodSettings(cycleLength = 22),
                 ranges = listOf(PeriodRange(d("2026-10-01"), d("2026-10-07"))),
             )
 
         val forecast = PeriodPredictor.forecast(document, today)
 
         assertEquals(7, forecast.periodLength)
-        assertEquals(span("2026-10-08", "2026-10-09"), forecast.fertileWindows.first())
-        assertEquals(PeriodStatus.Upcoming(13, d("2026-10-22"), isFertile = true, isOvulation = false), forecast.status)
-        assertTrue(forecast.isOvulation(d("2026-10-08")))
+        assertEquals(PeriodStatus.Upcoming(14, d("2026-10-23"), isOvulation = true), forecast.status)
+        assertTrue(forecast.isOvulation(today))
     }
 
     @Test

@@ -98,7 +98,6 @@ internal fun PeriodDaySheet(
             isPeriod -> "经期第 ${range.start.daysUntil(date) + 1} 天"
             forecast.isPredictedPeriod(date) -> "预测经期"
             forecast.isOvulation(date) -> "排卵日（预测）"
-            forecast.isFertile(date) -> "易孕期（预测）"
             else -> null
         }
     val palette = periodPalette()

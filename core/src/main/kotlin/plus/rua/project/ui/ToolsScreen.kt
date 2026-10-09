@@ -199,7 +199,7 @@ fun ToolsScreen(
 
             ToolCard(
                 title = "经期记录",
-                description = "记录经期与心情，预测下次经期和易孕期",
+                description = "记录经期与心情，预测下次经期和排卵日",
                 tag = "周期预测",
                 icon = Icons.Outlined.WaterDrop,
                 iconContainerColor = MaterialTheme.colorScheme.secondaryContainer,

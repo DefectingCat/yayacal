@@ -33,13 +33,11 @@ import kotlinx.datetime.toLocalDateTime
 import plus.rua.project.PeriodSyncStatus
 import kotlin.time.Instant
 
-/** 经期相关的固定语义色；不随系统动态取色变化，保证一眼能认出经期与易孕期。 */
+/** 经期相关的固定语义色；不随系统动态取色变化，保证一眼能认出经期与排卵日。 */
 @Immutable
 internal data class PeriodPalette(
     val period: Color,
     val onPeriod: Color,
-    val fertile: Color,
-    val onFertile: Color,
     val ovulation: Color,
 )
 
@@ -47,8 +45,6 @@ private val LightPeriodPalette =
     PeriodPalette(
         period = Color(0xFFD94F70),
         onPeriod = Color.White,
-        fertile = Color(0xFFEBDDFF),
-        onFertile = Color(0xFF3B2A63),
         ovulation = Color(0xFF7A5AC8),
     )
 
@@ -56,8 +52,6 @@ private val DarkPeriodPalette =
     PeriodPalette(
         period = Color(0xFFFF8DA8),
         onPeriod = Color(0xFF5C1028),
-        fertile = Color(0xFF3E3160),
-        onFertile = Color(0xFFEBDDFF),
         ovulation = Color(0xFFC9B6FF),
     )
 

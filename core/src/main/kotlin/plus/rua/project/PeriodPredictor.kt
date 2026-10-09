@@ -42,7 +42,6 @@ sealed interface PeriodStatus {
     data class Upcoming(
         val daysUntil: Int,
         val nextStart: LocalDate,
-        val isFertile: Boolean,
         val isOvulation: Boolean,
     ) : PeriodStatus
 
@@ -66,12 +65,9 @@ data class PeriodForecast(
     val usesDefaultCycle: Boolean,
     val cycleProgress: Float,
     val predictedPeriods: List<DateSpan>,
-    val fertileWindows: List<DateSpan>,
     val ovulationDays: List<LocalDate>,
 ) {
     fun isPredictedPeriod(date: LocalDate): Boolean = predictedPeriods.any { date in it }
-
-    fun isFertile(date: LocalDate): Boolean = fertileWindows.any { date in it }
 
     fun isOvulation(date: LocalDate): Boolean = date in ovulationDays
 }
@@ -81,8 +77,6 @@ object PeriodPredictor {
     const val HISTORY_SIZE = 6
     const val FORGOT_TO_END_DAYS = 10
     const val PREDICTED_CYCLES = 3
-    private const val FERTILE_DAYS_BEFORE = 5
-    private const val FERTILE_DAYS_AFTER = 1
     private val VALID_CYCLE = 15..60
 
     fun forecast(
@@ -118,7 +112,6 @@ object PeriodPredictor {
                 usesDefaultCycle = usesDefaultCycle,
                 cycleProgress = 0f,
                 predictedPeriods = emptyList(),
-                fertileWindows = emptyList(),
                 ovulationDays = emptyList(),
             )
 
@@ -140,7 +133,6 @@ object PeriodPredictor {
         val upcoming = starts.map { DateSpan(it, it.plusDays(periodLength - 1)) }
         predicted += upcoming
 
-        val fertileWindows = mutableListOf<DateSpan>()
         val ovulationDays = mutableListOf<LocalDate>()
         starts.forEachIndexed { index, start ->
             if (late && index == 0) return@forEachIndexed
@@ -148,11 +140,6 @@ object PeriodPredictor {
             val ovulation = start.minus(DatePeriod(days = settings.lutealLength))
             if (ovulation <= previousEnd) return@forEachIndexed
             ovulationDays += ovulation
-            fertileWindows +=
-                DateSpan(
-                    maxOf(ovulation.minus(DatePeriod(days = FERTILE_DAYS_BEFORE)), previousEnd.plusDays(1)),
-                    minOf(ovulation.plusDays(FERTILE_DAYS_AFTER), start.minus(DatePeriod(days = 1))),
-                )
         }
 
         val status =
@@ -173,7 +160,6 @@ object PeriodPredictor {
                     PeriodStatus.Upcoming(
                         daysUntil = today.daysUntil(expectedStart),
                         nextStart = expectedStart,
-                        isFertile = fertileWindows.any { today in it },
                         isOvulation = today in ovulationDays,
                     )
                 }
@@ -186,7 +172,6 @@ object PeriodPredictor {
             usesDefaultCycle = usesDefaultCycle,
             cycleProgress = if (late) 1f else (dayOfCycle.toFloat() / cycleLength).coerceIn(0f, 1f),
             predictedPeriods = predicted,
-            fertileWindows = fertileWindows,
             ovulationDays = ovulationDays,
         )
     }
