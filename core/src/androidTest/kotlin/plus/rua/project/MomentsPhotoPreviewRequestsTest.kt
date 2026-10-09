@@ -117,7 +117,7 @@ class MomentsPhotoPreviewRequestsTest {
             initialIndex.value = 1
             visible.value = true
         }
-        waitForText("查看原图（5.0 MB）")
+        waitForText("查看原图 · 5.0 MB")
         compose.onNodeWithTag("moments_preview_original_button").performClick()
         waitForText("已加载原图")
         assertEquals(1, server.count("original", "second"))
@@ -157,7 +157,7 @@ class MomentsPhotoPreviewRequestsTest {
         }
         compose.waitUntil(10_000) { server.count("preview", "retry") > 0 }
         compose.onNodeWithTag("moments_preview_original_button").performClick()
-        waitForText("原图加载失败，点击重试")
+        waitForText("加载失败，点击重试")
         assertEquals(1, server.count("original"))
         saveCurrentImageAndWait(1)
         assertEquals(1, server.count("original"))

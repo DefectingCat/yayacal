@@ -9,10 +9,12 @@ import android.os.Environment
 import android.provider.MediaStore
 import android.widget.Toast
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -33,6 +35,11 @@ import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -49,6 +56,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -56,8 +65,12 @@ import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -294,37 +307,18 @@ fun MomentsPhotoPreviewDialog(
 
                 val currentPath = photos[pagerState.currentPage]
                 if (!showActionMenu && isMomentsRemotePhoto(currentPath)) {
-                    val isLoadingOriginal = currentPath in loadingOriginalPhotos
-                    val isOriginal = currentPath in originalPhotos
-                    val progress = originalProgress[currentPath]
-                    val size = photoMetadata[currentPath]?.originalBytes?.takeIf { it > 0 }?.let(::momentsPhotoSizeLabel)
-                    Surface(
-                        onClick = { loadOriginal(currentPath) },
-                        enabled = !isLoadingOriginal && !isOriginal,
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.Black.copy(alpha = 0.55f),
-                        contentColor = Color.White,
-                        modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(start = 16.dp, bottom = if (photos.size > 1) 64.dp else 18.dp).testTag("moments_preview_original_button"),
-                    ) {
-                        Row(
-                            modifier = Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            if (isLoadingOriginal) MomentsLoadingSpinner(color = Color.White, modifier = Modifier.size(16.dp))
-                            Text(
-                                text = when {
-                                    isOriginal -> "已加载原图"
-                                    isLoadingOriginal -> "加载原图${progress?.let { " $it%" } ?: "…"}"
-                                    currentPath in failedOriginalPhotos -> "原图加载失败，点击重试"
-                                    size != null -> "查看原图（$size）"
-                                    else -> "查看原图"
-                                },
-                                fontSize = 13.sp,
-                                maxLines = 1,
-                            )
-                        }
+                    val state = when {
+                        currentPath in originalPhotos -> MomentsOriginalButtonState.Loaded
+                        currentPath in loadingOriginalPhotos -> MomentsOriginalButtonState.Loading(originalProgress[currentPath])
+                        currentPath in failedOriginalPhotos -> MomentsOriginalButtonState.Failed
+                        else -> MomentsOriginalButtonState.Idle
                     }
+                    MomentsOriginalPhotoButton(
+                        state = state,
+                        sizeLabel = photoMetadata[currentPath]?.originalBytes?.takeIf { it > 0 }?.let(::momentsPhotoSizeLabel),
+                        onClick = { loadOriginal(currentPath) },
+                        modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (photos.size > 1) 60.dp else 24.dp).testTag("moments_preview_original_button"),
+                    )
                 }
 
                 // 2. 顶部张数指示器（多图时展示，如 5/9）
@@ -567,6 +561,81 @@ internal fun momentsPreviewUri(path: String?, metadata: MomentPhotoMetadata? = n
     if (thumbnailOnly || metadata?.previewAvailable != true) return momentsThumbnailUri(uri)
     // 旧后端忽略 variant 时仍按 thumbnail=true 返回小图，避免旧缓存元数据触发原图下载。
     return uri.toHttpUrlOrNull()!!.newBuilder().setQueryParameter("thumbnail", "true").setQueryParameter("variant", "preview").setQueryParameter("v", "2").build().toString()
+}
+
+/** 「查看原图」按钮的展示状态。 */
+internal sealed interface MomentsOriginalButtonState {
+    data object Idle : MomentsOriginalButtonState
+
+    /** [percent] 为 null 时表示尚未拿到总大小，按不确定进度展示。 */
+    data class Loading(val percent: Int?) : MomentsOriginalButtonState
+
+    data object Loaded : MomentsOriginalButtonState
+
+    data object Failed : MomentsOriginalButtonState
+}
+
+/**
+ * 全屏预览底部居中的「查看原图」胶囊按钮。
+ *
+ * @param state 当前图片的原图加载状态；加载中时胶囊背景按百分比填充，已加载时按钮禁用。
+ * @param sizeLabel 原图大小文案，仅在可点击查看（[MomentsOriginalButtonState.Idle]）时展示，未知时传 null。
+ * @param onClick 用户点击查看原图或失败重试时回调；加载中和已加载时不会触发。
+ * @param modifier 外部布局修饰符。
+ */
+@Composable
+internal fun MomentsOriginalPhotoButton(
+    state: MomentsOriginalButtonState,
+    sizeLabel: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val loading = state as? MomentsOriginalButtonState.Loading
+    val fraction by animateFloatAsState((loading?.percent ?: 0) / 100f, label = "moments_original_progress")
+    val label = when (state) {
+        MomentsOriginalButtonState.Idle -> if (sizeLabel != null) "查看原图 · $sizeLabel" else "查看原图"
+        is MomentsOriginalButtonState.Loading -> "加载原图${state.percent?.let { " $it%" } ?: "…"}"
+        MomentsOriginalButtonState.Loaded -> "已加载原图"
+        MomentsOriginalButtonState.Failed -> "加载失败，点击重试"
+    }
+    val labelText = remember(label) {
+        val dot = label.indexOf(" · ")
+        if (dot < 0) {
+            AnnotatedString(label)
+        } else {
+            buildAnnotatedString {
+                append(label.substring(0, dot))
+                withStyle(SpanStyle(color = Color.White.copy(alpha = 0.65f), fontWeight = FontWeight.Normal)) { append(label.substring(dot)) }
+            }
+        }
+    }
+    val accent = if (state == MomentsOriginalButtonState.Failed) Color(0xFFFFB4A8) else Color.White
+    Surface(
+        onClick = onClick,
+        enabled = state == MomentsOriginalButtonState.Idle || state == MomentsOriginalButtonState.Failed,
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = 0.55f),
+        contentColor = accent,
+        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.22f)),
+        modifier = modifier,
+    ) {
+        Row(
+            modifier = Modifier
+                .drawBehind { if (loading != null) drawRect(Color.White.copy(alpha = 0.22f), size = Size(size.width * fraction, size.height)) }
+                .heightIn(min = 40.dp)
+                .padding(start = 14.dp, end = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            when (state) {
+                is MomentsOriginalButtonState.Loading -> MomentsLoadingSpinner(color = Color.White, modifier = Modifier.size(16.dp))
+                MomentsOriginalButtonState.Loaded -> Icon(Icons.Filled.Check, contentDescription = null, modifier = Modifier.size(16.dp))
+                MomentsOriginalButtonState.Failed -> Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                MomentsOriginalButtonState.Idle -> Icon(Icons.Outlined.Image, contentDescription = null, modifier = Modifier.size(16.dp))
+            }
+            Text(text = labelText, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        }
+    }
 }
 
 internal fun momentsPhotoSizeLabel(bytes: Long): String = if (bytes >= 1_000_000) String.format(Locale.ROOT, "%.1f MB", bytes / 1_000_000.0) else "${(bytes + 999) / 1000} KB"
