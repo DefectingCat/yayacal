@@ -167,6 +167,26 @@ class MomentsPhotoPreviewRequestsTest {
         assertEquals(2, server.count("original"))
     }
 
+    @Test
+    fun download_withoutOriginal_loadsOriginalThenSavesOnce() {
+        val photo = server.photo("download")
+        server.originalGate = CountDownLatch(1)
+        compose.setContent {
+            MomentsPhotoPreviewDialog(listOf(photo), onDismiss = {}, photoMetadata = mapOf(photo to MomentPhotoMetadata(1_000_000, true)))
+        }
+        compose.waitUntil(10_000) { server.count("preview", "download") > 0 }
+        compose.onNodeWithTag("moments_preview_download_button").performClick()
+        compose.waitUntil(10_000) { server.count("original", "download") == 1 }
+        compose.onNodeWithTag("moments_preview_download_button").assertIsNotEnabled()
+        assertEquals(0, (savedImages() - savedBefore.orEmpty()).size)
+        server.originalGate.countDown()
+        waitForText("已加载原图")
+        compose.waitUntil(10_000) { (savedImages() - savedBefore.orEmpty()).size == 1 }
+        compose.onNodeWithTag("moments_preview_download_button").performClick()
+        compose.waitUntil(10_000) { (savedImages() - savedBefore.orEmpty()).size == 2 }
+        assertEquals(1, server.count("original", "download"))
+    }
+
     private fun waitForText(text: String) {
         compose.waitUntil(10_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
     }

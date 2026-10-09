@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Icon
@@ -104,7 +105,8 @@ import java.util.Locale
 
 /**
  * 朋友圈全屏图片预览，默认加载高清预览，点击左下角按钮后才下载当前原图。
- * 支持多图翻页、双击/双指缩放、单击退出与长按保存；保存复用当前规格的下载缓存。
+ * 右下角按钮把当前原图保存到相册，未加载原图时先触发查看原图，加载完成后自动保存。
+ * 支持多图翻页、双击/双指缩放、单击退出与长按保存；长按保存复用当前规格的下载缓存。
  *
  * @param photos 要预览的图片路径/URI 列表
  * @param initialIndex 初始展示的图片索引（从 0 开始）
@@ -137,6 +139,25 @@ fun MomentsPhotoPreviewDialog(
     var failedOriginalPhotos by remember(photos) { mutableStateOf(emptySet<String>()) }
     var thumbnailFallbacks by remember(photos) { mutableStateOf(emptySet<String>()) }
     val originalProgress = remember(photos) { mutableStateMapOf<String, Int>() }
+    // 点击下载时原图尚未就绪的图片，原图加载成功后自动保存，失败则放弃本次下载。
+    var pendingDownloads by remember(photos) { mutableStateOf(emptySet<String>()) }
+    val savePhoto: (String) -> Unit = { path ->
+        if (!isSaving) {
+            isSaving = true
+            failedSavePath = null
+            coroutineScope.launch {
+                try {
+                    if (saveImageToGallery(context, path)) {
+                        Toast.makeText(context, "已保存到系统相册", Toast.LENGTH_SHORT).show()
+                    } else {
+                        failedSavePath = path
+                    }
+                } finally {
+                    isSaving = false
+                }
+            }
+        }
+    }
     val loadOriginal: (String) -> Unit = { path ->
         if (path !in loadingOriginalPhotos && path !in originalPhotos) {
             loadingOriginalPhotos += path
@@ -157,31 +178,30 @@ fun MomentsPhotoPreviewDialog(
                         },
                     ).getOrThrow()
                     originalPhotos += path
+                    if (path in pendingDownloads) {
+                        pendingDownloads -= path
+                        momentsOriginalUri(path)?.let(savePhoto)
+                    }
                 } catch (cancelled: CancellationException) {
                     throw cancelled
                 } catch (_: Exception) {
                     failedOriginalPhotos += path
+                    if (path in pendingDownloads) {
+                        pendingDownloads -= path
+                        Toast.makeText(context, "原图下载失败，请稍后重试", Toast.LENGTH_SHORT).show()
+                    }
                 } finally {
                     loadingOriginalPhotos -= path
                 }
             }
         }
     }
-    val savePhoto: (String) -> Unit = { path ->
-        if (!isSaving) {
-            isSaving = true
-            failedSavePath = null
-            coroutineScope.launch {
-                try {
-                    if (saveImageToGallery(context, path)) {
-                        Toast.makeText(context, "已保存到系统相册", Toast.LENGTH_SHORT).show()
-                    } else {
-                        failedSavePath = path
-                    }
-                } finally {
-                    isSaving = false
-                }
-            }
+    val downloadOriginal: (String) -> Unit = { path ->
+        if (path in originalPhotos) {
+            momentsOriginalUri(path)?.let(savePhoto)
+        } else {
+            pendingDownloads += path
+            loadOriginal(path)
         }
     }
 
@@ -317,7 +337,12 @@ fun MomentsPhotoPreviewDialog(
                         state = state,
                         sizeLabel = photoMetadata[currentPath]?.originalBytes?.takeIf { it > 0 }?.let(::momentsPhotoSizeLabel),
                         onClick = { loadOriginal(currentPath) },
-                        modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = if (photos.size > 1) 60.dp else 24.dp).testTag("moments_preview_original_button"),
+                        modifier = Modifier.align(Alignment.BottomStart).navigationBarsPadding().padding(start = 16.dp, bottom = if (photos.size > 1) 60.dp else 24.dp).testTag("moments_preview_original_button"),
+                    )
+                    MomentsDownloadOriginalButton(
+                        busy = isSaving || currentPath in pendingDownloads,
+                        onClick = { downloadOriginal(currentPath) },
+                        modifier = Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = if (photos.size > 1) 60.dp else 24.dp).testTag("moments_preview_download_button"),
                     )
                 }
 
@@ -563,6 +588,38 @@ internal fun momentsPreviewUri(path: String?, metadata: MomentPhotoMetadata? = n
     return uri.toHttpUrlOrNull()!!.newBuilder().setQueryParameter("thumbnail", "true").setQueryParameter("variant", "preview").setQueryParameter("v", "2").build().toString()
 }
 
+/**
+ * 全屏预览右下角的「下载原图」圆形按钮，与「查看原图」胶囊同高同色。
+ *
+ * @param busy 正在等待原图加载或正在写入相册；此时展示转圈并禁用点击。
+ * @param onClick 用户点击下载原图时回调；[busy] 为 true 时不会触发。
+ * @param modifier 外部布局修饰符。
+ */
+@Composable
+internal fun MomentsDownloadOriginalButton(
+    busy: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        onClick = onClick,
+        enabled = !busy,
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = 0.55f),
+        contentColor = Color.White,
+        border = BorderStroke(0.5.dp, Color.White.copy(alpha = 0.22f)),
+        modifier = modifier.size(40.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            if (busy) {
+                MomentsLoadingSpinner(color = Color.White, modifier = Modifier.size(16.dp))
+            } else {
+                Icon(Icons.Outlined.Download, contentDescription = "下载原图", modifier = Modifier.size(18.dp))
+            }
+        }
+    }
+}
+
 /** 「查看原图」按钮的展示状态。 */
 internal sealed interface MomentsOriginalButtonState {
     data object Idle : MomentsOriginalButtonState
@@ -576,7 +633,7 @@ internal sealed interface MomentsOriginalButtonState {
 }
 
 /**
- * 全屏预览底部居中的「查看原图」胶囊按钮。
+ * 全屏预览左下角的「查看原图」胶囊按钮。
  *
  * @param state 当前图片的原图加载状态；加载中时胶囊背景按百分比填充，已加载时按钮禁用。
  * @param sizeLabel 原图大小文案，仅在可点击查看（[MomentsOriginalButtonState.Idle]）时展示，未知时传 null。
